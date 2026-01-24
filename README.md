@@ -1,36 +1,177 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Turnia - Sistema de Gestión de Turnos Médicos
 
-## Getting Started
+Turnia es una aplicación multiplataforma para la gestión de turnos y horarios en entornos de salud, desarrollada con Next.js, React Native (Capacitor) y Supabase.
 
-First, run the development server:
+## Características Principales
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+- 🏥 Gestión de turnos médicos
+- 👥 Sistema de roles (Admin, Manager, Staff, Viewer)
+- 📅 Calendario de turnos interactivo
+- 📱 Aplicaciones nativas para iOS y Android
+- 🌐 Versión web responsive
+- 🔔 Sistema de notificaciones
+- 📊 Exportación de horarios
+
+## Tecnologías
+
+- **Frontend**: Next.js 16 + React 19 + TypeScript
+- **Mobile**: Capacitor 8 (iOS y Android)
+- **Backend**: Supabase (PostgreSQL + Edge Functions)
+- **UI**: Tailwind CSS 4
+- **Calendario**: FullCalendar
+
+## Estructura del Proyecto
+
+```
+turnia/
+├── src/                    # Código fuente de la aplicación web
+│   ├── app/               # App router de Next.js
+│   ├── components/        # Componentes React
+│   ├── lib/              # Utilidades y configuración
+│   └── types/            # Definiciones de TypeScript
+├── ios/                   # Proyecto nativo iOS
+├── android/               # Proyecto nativo Android
+├── supabase/             # Backend y base de datos
+│   ├── migrations/       # Migraciones SQL
+│   └── functions/        # Edge Functions
+├── docs/                 # Documentación del proyecto
+└── resources/            # Assets fuente para apps nativas
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Inicio Rápido
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Prerrequisitos
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- Node.js 20+
+- npm o yarn
+- Supabase CLI (para desarrollo local)
+- Xcode (para iOS)
+- Android Studio (para Android)
 
-## Learn More
+### Instalación
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+# Instalar dependencias
+npm install
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+# Configurar variables de entorno
+cp .env.example .env
+# Edita .env con tus credenciales de Supabase
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+# Iniciar Supabase local
+supabase start
 
-## Deploy on Vercel
+# Ejecutar migraciones
+npm run db:push
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+# Iniciar servidor de desarrollo
+npm run dev
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+La aplicación estará disponible en [http://localhost:3000](http://localhost:3000)
+
+## Desarrollo con Apps Nativas
+
+### Sincronizar con plataformas nativas
+
+```bash
+# Construir y sincronizar con iOS y Android
+npm run cap:sync
+
+# Abrir en Xcode (iOS)
+npm run cap:ios
+
+# Abrir en Android Studio
+npm run cap:android
+```
+
+### Generar Assets Nativos
+
+Los íconos y splash screens se generan automáticamente desde el logo:
+
+```bash
+# Regenerar todos los assets (iOS, Android, PWA)
+npx @capacitor/assets generate --iconBackgroundColor '#17a2b8' --iconBackgroundColorDark '#0d7a8a' --splashBackgroundColor '#ffffff' --splashBackgroundColorDark '#000000'
+```
+
+Ver [docs/native-assets.md](./docs/native-assets.md) para más detalles.
+
+## Scripts Disponibles
+
+```bash
+npm run dev          # Servidor de desarrollo
+npm run build        # Construir para producción
+npm run start        # Iniciar servidor de producción
+npm run lint         # Ejecutar linter
+
+# Capacitor
+npm run cap:sync     # Sincronizar con plataformas nativas
+npm run cap:ios      # Abrir proyecto iOS
+npm run cap:android  # Abrir proyecto Android
+
+# Supabase
+npm run supabase:gen # Generar tipos TypeScript
+npm run db:push      # Aplicar migraciones
+npm run db:reset     # Resetear base de datos
+```
+
+## Sistema de Roles
+
+La aplicación implementa un sistema RBAC (Role-Based Access Control) con 4 niveles:
+
+1. **Admin**: Acceso completo al sistema
+2. **Manager**: Gestión de personal y horarios
+3. **Staff**: Gestión de turnos propios y solicitudes
+4. **Viewer**: Solo lectura de información
+
+Ver [docs/first-admin.md](./docs/first-admin.md) para configurar el primer administrador.
+
+## Documentación
+
+- [Roadmap del Proyecto](./docs/project-roadmap.md)
+- [Configuración de Colores](./docs/colors.md)
+- [Assets Nativos](./docs/native-assets.md)
+- [Comandos de Setup](./docs/setup-commands.md)
+- [Primer Administrador](./docs/first-admin.md)
+
+## Despliegue
+
+### Web (Vercel)
+
+```bash
+# Conectar con Vercel
+vercel
+
+# Desplegar
+vercel --prod
+```
+
+### iOS (App Store)
+
+1. Abrir el proyecto en Xcode
+2. Configurar certificados y perfiles
+3. Archivar y subir a App Store Connect
+
+### Android (Google Play)
+
+1. Abrir el proyecto en Android Studio
+2. Generar APK/Bundle firmado
+3. Subir a Google Play Console
+
+## Contribución
+
+Este es un proyecto en desarrollo activo. Para contribuir:
+
+1. Fork el repositorio
+2. Crea una rama para tu feature
+3. Commit tus cambios
+4. Push a la rama
+5. Abre un Pull Request
+
+## Licencia
+
+Privado - Todos los derechos reservados
+
+## Soporte
+
+Para soporte y consultas, contactar al equipo de desarrollo.

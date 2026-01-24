@@ -13,8 +13,20 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Turnia",
-  description: "Gestión de turnos de guardia para hospitales y clínicas",
+  title: "Turnia - Gestión de Turnos Médicos",
+  description: "Sistema de gestión de turnos y horarios para entornos de salud",
+  manifest: "/manifest.json",
+  themeColor: "#17a2b8",
+  viewport: {
+    width: "device-width",
+    initialScale: 1,
+    maximumScale: 1,
+  },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Turnia",
+  },
 };
 
 export default function RootLayout({
@@ -23,7 +35,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="es">
+      <head>
+        <link rel="icon" href="/logo.png" />
+        <link rel="apple-touch-icon" href="/logo.png" />
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
