@@ -1,0 +1,3 @@
+# Deshabilitar verificación automática de JWT por Supabase
+# La función hace su propia verificación de autenticación
+verify_jwt = false

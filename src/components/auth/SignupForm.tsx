@@ -37,7 +37,7 @@ export function SignupForm() {
 
   if (done) {
     return (
-      <div className="rounded-xl border border-border bg-background p-6 shadow">
+      <div className="rounded-xl border border-border bg-background p-6 shadow-sm">
         <h1 className="mb-4 text-xl font-semibold text-text-primary">Cuenta creada</h1>
         <p className="mb-4 text-sm text-text-secondary">
           Revisa tu correo para confirmar. Si tu proyecto tiene confirmación desactivada, ya puedes
@@ -55,16 +55,16 @@ export function SignupForm() {
   }
 
   return (
-    <div className="rounded-xl border border-border bg-background p-6 shadow">
+    <div className="rounded-xl border border-border bg-background p-6 shadow-sm">
       <h1 className="mb-4 text-xl font-semibold text-text-primary">Crear cuenta</h1>
       <p className="mb-4 text-sm text-text-secondary">Regístrate para usar Turnia.</p>
-      <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         <input
           type="text"
           placeholder="Nombre completo"
           value={fullName}
           onChange={(e) => setFullName(e.target.value)}
-          className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-text-primary placeholder:text-muted"
+          className="rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-text-primary placeholder:text-muted focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
         />
         <input
           type="email"
@@ -72,7 +72,7 @@ export function SignupForm() {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           required
-          className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-text-primary placeholder:text-muted"
+          className="rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-text-primary placeholder:text-muted focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
         />
         <input
           type="password"
@@ -81,13 +81,13 @@ export function SignupForm() {
           onChange={(e) => setPassword(e.target.value)}
           required
           minLength={6}
-          className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-text-primary placeholder:text-muted"
+          className="rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-text-primary placeholder:text-muted focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
         />
         {error && <p className="text-sm text-red-600">{error}</p>}
         <button
           type="submit"
           disabled={loading}
-          className="rounded-lg bg-primary-600 px-3 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50"
+          className="rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50"
         >
           {loading ? 'Creando…' : 'Crear cuenta'}
         </button>

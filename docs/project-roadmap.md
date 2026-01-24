@@ -307,106 +307,56 @@ git commit -m "fix(requests): prevent duplicate request submissions"
 - ✅ `colors.md` - Paleta de colores
 - ✅ `.env.example` - Variables de entorno
 
+#### 9. **Sistema de Invitaciones** (Módulo 1 — concluido)
+- ✅ Tabla `organization_invitations` y RLS
+- ✅ Edge Functions: `invite-user`, `validate-invitation`, `accept-invitation`
+- ✅ Página `/dashboard/admin/invite` con `InviteUserForm` e `InvitationsList`
+- ✅ Página `/invite?token=...` con `AcceptInvitationForm` (registro, login, aceptar)
+- ✅ Copiar enlace, cancelar invitación
+- ✅ `invitation-emails.md` — Email con Resend (opcional, requiere dominio)
+
 ---
 
 ## 🚀 MÓDULOS Y FUNCIONALIDADES PENDIENTES
 
-### 🎯 **PRIORIDAD ALTA - Sistema de Invitaciones** (TU INTERÉS PRINCIPAL)
-
-#### **Módulo 1: Sistema de Invitaciones a Organizaciones**
+### ✅ **Módulo 1: Sistema de Invitaciones a Organizaciones** — CONCLUIDO
 
 **Objetivo**: Permitir que usuarios sean invitados a una organización con un rol específico y se registren directamente en esa organización.
 
-##### **Tareas pendientes:**
+##### **Tareas realizadas:**
 
 1. **Base de datos**
-   - [ ] Crear tabla `organization_invitations`:
-     ```sql
-     - id (uuid, pk)
-     - org_id (uuid, ref organizations)
-     - team_id (uuid, nullable, ref teams)
-     - email (text)
-     - role (text: org_admin, team_manager, user, viewer)
-     - token (text, unique) - token único para la invitación
-     - invited_by (uuid, ref auth.users)
-     - status (text: pending, accepted, expired, cancelled)
-     - expires_at (timestamptz)
-     - metadata (jsonb) - info adicional (nombre sugerido, mensaje, etc.)
-     - created_at (timestamptz)
-     - accepted_at (timestamptz, nullable)
-     ```
-   - [ ] Añadir políticas RLS para `organization_invitations`
-   - [ ] Crear índices en `token` y `email`
+   - [x] Tabla `organization_invitations` (id, org_id, team_id, email, role, token, invited_by, status, expires_at, metadata, created_at, accepted_at)
+   - [x] Políticas RLS para `organization_invitations`
+   - [x] Índices en `token` y `email`
 
 2. **API/Edge Functions**
-   - [ ] **Edge Function: `invite-user`**
-     - Validar que el invitador tenga permisos (org_admin o superadmin)
-     - Crear registro de invitación
-     - Generar token único y seguro
-     - Establecer fecha de expiración (ej: 7 días)
-     - Enviar email con link de invitación
-   
-   - [ ] **Edge Function: `validate-invitation`**
-     - Verificar token y estado de invitación
-     - Comprobar que no haya expirado
-     - Devolver datos de la organización y rol
-
-   - [ ] **Edge Function: `accept-invitation`**
-     - Al completar registro con token válido:
-       - Crear membership con el rol especificado
-       - Marcar invitación como `accepted`
-       - Actualizar `accepted_at`
-       - Registrar en audit_log
+   - [x] **Edge Function: `invite-user`** — Valida org_admin/superadmin, crea invitación, token, expiración 7 días. Enlace para copiar/pegar. (Email vía Resend opcional cuando haya dominio; ver `docs/invitation-emails.md`.)
+   - [x] **Edge Function: `validate-invitation`** — Verifica token, estado y expiración; devuelve org, rol, team, email.
+   - [x] **Edge Function: `accept-invitation`** — Crea membership, marca `accepted`, `accepted_at`, audit_log.
 
 3. **Frontend - Invitar Usuarios**
-   - [ ] Página `/dashboard/admin/invite` (para org_admin)
-     - Formulario para invitar:
-       - Email del invitado
-       - Rol a asignar
-       - Team (opcional, si es team_manager o user específico)
-       - Mensaje personalizado (opcional)
-     - Lista de invitaciones pendientes
-     - Opción para reenviar o cancelar invitaciones
-   
-   - [ ] Component `InviteUserForm.tsx`
-   - [ ] Component `InvitationsList.tsx`
+   - [x] Página `/dashboard/admin/invite` con formulario (email, rol, team opcional, mensaje opcional)
+   - [x] Lista de invitaciones (pendientes, aceptadas, expiradas, canceladas)
+   - [x] `InviteUserForm.tsx` — Crear invitación y copiar enlace
+   - [x] `InvitationsList.tsx` — Listar, copiar enlace, cancelar
 
 4. **Frontend - Aceptar Invitación**
-   - [ ] Página `/invite/[token]` (pública)
-     - Mostrar info de la organización
-     - Mostrar rol que se le asignará
-     - Si el usuario NO está registrado:
-       - Formulario de registro (nombre, contraseña)
-       - Email pre-llenado (readonly)
-     - Si el usuario YA está registrado:
-       - Botón "Aceptar invitación"
-       - Login si no está autenticado
-   
-   - [ ] Component `AcceptInvitationForm.tsx`
-   - [ ] Lógica para detectar usuario existente vs nuevo
-   - [ ] Redirección automática al dashboard después de aceptar
+   - [x] Página `/invite?token=...` (pública)
+   - [x] `AcceptInvitationForm.tsx` — Registro (nombre, contraseña, email readonly), login, aceptar. Redirección a dashboard.
 
-5. **Notificaciones por Email**
-   - [ ] Template de email de invitación:
-     - Nombre de la organización
-     - Rol asignado
-     - Link con token
-     - Fecha de expiración
-     - Mensaje personalizado (si existe)
-   
-   - [ ] Template de confirmación (usuario aceptó invitación)
-   - [ ] Template de recordatorio (invitación por expirar)
+5. **Email (opcional, desactivado por defecto)**
+   - [x] Template de invitación en código (Resend). Requiere dominio verificado; ver `docs/invitation-emails.md`.
+   - [x] Template de confirmación (usuario aceptó) — `accept-invitation` envía al invitador.
+   - [x] Template de recordatorio (por expirar) — Edge Function `send-invitation-reminder`; llamar por cron (véase `docs/invitation-emails.md`).
 
 6. **Gestión de Invitaciones**
-   - [ ] Dashboard para ver invitaciones:
-     - Pendientes
-     - Aceptadas
-     - Expiradas
-     - Canceladas
-   - [ ] Filtros por estado, fecha, rol
-   - [ ] Acción: reenviar invitación
-   - [ ] Acción: cancelar invitación
-   - [ ] Acción: cambiar fecha de expiración
+   - [x] Lista con estados: Pendientes, Aceptadas, Expiradas, Canceladas
+   - [x] Acción: copiar enlace
+   - [x] Acción: cancelar invitación
+   - [x] Filtros por estado, rol y fecha (expira en 7 días / ya expiradas)
+   - [x] Acción: reenviar invitación — Edge Function `resend-invitation` (nuevo token y opcional email)
+   - [x] Acción: prorrogar +7 días (cambiar fecha de expiración)
 
 ---
 
@@ -926,10 +876,7 @@ git commit -m "fix(requests): prevent duplicate request submissions"
 
 ### **FASE 1: MVP Core (2-3 semanas)**
 1. ✅ Base de datos y auth (COMPLETADO)
-2. **Sistema de Invitaciones** (PRIORIDAD TU)
-   - Crear tabla y Edge Functions
-   - Páginas de invitar y aceptar
-   - Email templates
+2. ✅ **Sistema de Invitaciones** (COMPLETADO)
 3. Gestión básica de Organizations y Teams
 4. Crear y asignar turnos (formulario básico)
 5. Calendario básico (lectura)
@@ -970,24 +917,20 @@ git commit -m "fix(requests): prevent duplicate request submissions"
 
 ### Estado General del Proyecto
 - **Total de módulos**: 14
-- **Módulos completados**: 0.5 (infraestructura base)
-- **Progreso estimado**: ~5-10%
+- **Módulos completados**: 1.5 (infraestructura base + Sistema de Invitaciones)
+- **Progreso estimado**: ~12-15%
 
 ### Tareas por Estado
-- ✅ **Completadas**: ~25 tareas
+- ✅ **Completadas**: ~50 tareas
 - 🔄 **En progreso**: 0 tareas
-- ⏳ **Pendientes**: ~250+ tareas
+- ⏳ **Pendientes**: ~225 tareas
 
 ---
 
 ## 🎯 SIGUIENTE PASO INMEDIATO
 
-**Comenzar con el Módulo 1: Sistema de Invitaciones**
+**Módulo 2: Gestión de Organizaciones y Teams**
 
-1. Crear migración para tabla `organization_invitations`
-2. Crear Edge Function `invite-user`
-3. Crear Edge Function `validate-invitation`
-4. Crear página `/invite/[token]`
-5. Crear componente `AcceptInvitationForm`
-
-¿Quieres que empecemos por ahí? Puedo generar el código paso a paso.
+1. Página `/dashboard/admin/organizations` — listar y editar organizaciones
+2. Página `/dashboard/admin/teams` — CRUD de teams
+3. Página `/dashboard/admin/members` — listar miembros, cambiar roles, asignar a teams

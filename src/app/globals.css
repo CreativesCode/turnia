@@ -58,13 +58,8 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    /* Keep light theme for now - adjust these if you want dark mode */
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
+/* Tema claro fijo: usamos la paleta de docs/colors.md. Dark mode se puede añadir después. */
+/* @media (prefers-color-scheme: dark) { ... } desactivado para mantener Background #FFF, etc. */
 
 body {
   background: var(--background);

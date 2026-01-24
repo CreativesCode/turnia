@@ -1,3 +1,5 @@
+import Link from 'next/link';
+
 export default function AdminPage() {
   return (
     <div>
@@ -5,6 +7,14 @@ export default function AdminPage() {
       <p className="mt-2 text-text-secondary">
         Gestión de organizaciones, equipos y asignación de roles.
       </p>
+      <div className="mt-6 flex flex-wrap gap-4">
+        <Link
+          href="/dashboard/admin/invite"
+          className="rounded-lg border border-primary-600 bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700"
+        >
+          Invitar usuarios
+        </Link>
+      </div>
     </div>
   );
 }

@@ -151,20 +151,39 @@ supabase link --project-ref <PROJECT_REF>
 
 ### 4.4 Edge Functions (TypeScript)
 
-Las Edge Functions van en `supabase/functions/`. Crear al menos:
+Las Edge Functions van en `supabase/functions/`. Existen:
 
 - `approve-request` – aprobar/rechazar solicitudes, transacciones, notificaciones.
 - `send-notification` – enviar push/email (o invocada desde `approve-request`).
-- (Opcional) `export-schedule` – generación de CSV/Excel.
+- `export-schedule` – generación de CSV/Excel.
+- **Sistema de invitaciones** (Módulo 1, `project-roadmap.md`):
+  - `invite-user` – crear invitación y enlace (requiere `APP_URL` en secrets).
+  - `validate-invitation` – validar token (pública).
+  - `accept-invitation` – aceptar y crear membership.
 
 ```powershell
-# Crear funciones (ejemplo)
-supabase functions new approve-request
-supabase functions new send-notification
-supabase functions new export-schedule
+# Desplegar Edge Functions (incluye invite-user, validate-invitation, accept-invitation)
+supabase functions deploy invite-user
+supabase functions deploy validate-invitation
+supabase functions deploy accept-invitation
 ```
 
-Implementar en TypeScript; usar `Deno` y el cliente de Supabase con `SUPABASE_SERVICE_ROLE_KEY` para operaciones privilegiadas.
+Para `invite-user`, configurar el secreto **APP_URL** (URL pública de la app para los enlaces de invitación):
+
+```powershell
+supabase secrets set APP_URL=https://tu-dominio.com
+# En local: APP_URL=http://localhost:3000
+```
+
+### 4.5 Migración: Sistema de invitaciones
+
+La tabla `organization_invitations` se crea con:
+
+```powershell
+supabase db push
+```
+
+(o aplicar manualmente `supabase/migrations/20250124100000_organization_invitations.sql`).
 
 ---
 
