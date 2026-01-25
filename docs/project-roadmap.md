@@ -357,6 +357,13 @@ git commit -m "fix(requests): prevent duplicate request submissions"
 - [x] Edge Function `approve-request`: validar permisos (team_manager, org_admin, superadmin), validar estado (submitted/accepted), aplicar en turnos (give_away→sin asignar, take_open→asignar a requester, swap→intercambiar), actualizar estado, `audit_log`
 - [x] Rechazo integrado en `approve-request` con `action: 'reject'` (razón en audit_log)
 
+#### 16. **Workflow de Swap con aceptación de contraparte (Módulo 4.4 — concluido)**
+- [x] Flujo: User A crea swap → `submitted`; User B acepta → `accepted` o rechaza → `cancelled`; Manager aprueba → `approved`
+- [x] Component `AcceptSwapButton.tsx` (Aceptar/Rechazar para User B)
+- [x] Component `PendingSwapsForYou.tsx` en `/dashboard/staff/my-requests`
+- [x] Edge Function `respond-to-swap` (accept/decline; audit_log)
+- [x] Deploy con `--no-verify-jwt`; `supabase/config.toml` con `[functions.respond-to-swap] verify_jwt = false`
+
 ---
 
 ## 🚀 MÓDULOS Y FUNCIONALIDADES PENDIENTES
@@ -619,16 +626,19 @@ Cada organización define sus propios **tipos de turno** (las categorías en las
   - [x] Registrar en audit_log
   - [ ] Notificar al solicitante (Módulo 5)
 
-#### **4.4 Workflow de Swap (con aceptación de contraparte)**
-- [ ] Flujo de estados:
+#### **4.4 Workflow de Swap (con aceptación de contraparte)** — CONCLUIDO
+- [x] Flujo de estados:
   1. User A crea swap → `submitted`
-  2. User B acepta → `accepted`
+  2. User B acepta → `accepted` (o rechaza → `cancelled`)
   3. Manager aprueba → `approved` (se aplica el swap)
   4. O Manager rechaza → `rejected`
 
-- [ ] Component `AcceptSwapButton.tsx` (para User B)
-- [ ] Notificación a User B cuando se crea la solicitud
-- [ ] Notificación a ambos cuando se aprueba/rechaza
+- [x] Component `AcceptSwapButton.tsx` (para User B; Aceptar/Rechazar)
+- [x] Component `PendingSwapsForYou.tsx` en `/dashboard/staff/my-requests`
+- [x] Edge Function `respond-to-swap` (accept/decline; audit_log)
+- [x] Deploy con `--no-verify-jwt`; `supabase/config.toml` con `[functions.respond-to-swap] verify_jwt = false`
+- [ ] Notificación a User B cuando se crea la solicitud (Módulo 5)
+- [ ] Notificación a ambos cuando se aprueba/rechaza (Módulo 5)
 
 ---
 
@@ -943,32 +953,33 @@ Cada organización define sus propios **tipos de turno** (las categorías en las
 ### **FASE 2: Requests Workflow (2 semanas)**
 6. ✅ Sistema de solicitudes (give away, swap, take open) — COMPLETADO (my-requests, cancelar)
 7. ✅ Bandeja de aprobaciones para manager — COMPLETADO (RequestsInbox, RequestDetailModal, approve-request)
-8. Notificaciones básicas (email)
+8. ✅ Workflow de swap con aceptación de contraparte (4.4) — COMPLETADO (AcceptSwapButton, PendingSwapsForYou, respond-to-swap)
+9. Notificaciones básicas (email)
 
 ### **FASE 3: Calendar & Views (1-2 semanas)**
-9. Implementar FullCalendar completo
-10. Lista de turnos con filtros
-11. Validaciones de conflictos
+10. Implementar FullCalendar completo
+11. Lista de turnos con filtros
+12. Validaciones de conflictos
 
 ### **FASE 4: Notifications & Mobile (1-2 semanas)**
-12. Push notifications (Capacitor)
-13. Optimización UI mobile
-14. In-app notifications
+13. Push notifications (Capacitor)
+14. Optimización UI mobile
+15. In-app notifications
 
 ### **FASE 5: Reports & Admin Features (1 semana)**
-15. Exports (CSV, Excel)
-16. Reportes básicos
-17. Audit log viewer
+16. Exports (CSV, Excel)
+17. Reportes básicos
+18. Audit log viewer
 
 ### **FASE 6: Polish & Testing (1 semana)**
-18. UI/UX improvements
-19. Testing completo
-20. Bug fixes
+19. UI/UX improvements
+20. Testing completo
+21. Bug fixes
 
 ### **FASE 7: Deploy & Launch (1 semana)**
-21. Deploy a producción
-22. Documentación final
-23. Marketing materials
+22. Deploy a producción
+23. Documentación final
+24. Marketing materials
 
 ---
 
@@ -976,14 +987,14 @@ Cada organización define sus propios **tipos de turno** (las categorías en las
 
 ### Estado General del Proyecto
 - **Total de módulos**: 14
-- **Módulos completados**: Invitaciones (M1), 2.1 Organizaciones, 2.2 Miembros, 2.3 Tipos de turno, 4.1 Crear solicitudes, 4.2 Bandeja manager, 4.3 Flujo de aprobación (+ infraestructura base)
-- **Módulos en curso**: 4.4 Swap con aceptación de contraparte, 3.3 Operaciones en lote, 3.4 Lista de turnos
-- **Progreso estimado**: ~40–42%
+- **Módulos completados**: Invitaciones (M1), 2.1 Organizaciones, 2.2 Miembros, 2.3 Tipos de turno, 4.1 Crear solicitudes, 4.2 Bandeja manager, 4.3 Flujo de aprobación, **4.4 Workflow de Swap** (+ infraestructura base)
+- **Módulos en curso**: 3.3 Operaciones en lote, 3.4 Lista de turnos
+- **Progreso estimado**: ~42–44%
 
 ### Tareas por Estado
-- ✅ **Completadas**: ~125 tareas (incl. my-requests, RequestsInbox, RequestDetailModal, approve-request, reject integrado)
-- 🔄 **En progreso**: 4.4 (AcceptSwapButton, notificaciones), 3.3, 3.4
-- ⏳ **Pendientes**: ~150 tareas
+- ✅ **Completadas**: ~130 tareas (incl. my-requests, RequestsInbox, RequestDetailModal, approve-request, reject, **AcceptSwapButton, PendingSwapsForYou, respond-to-swap**)
+- 🔄 **En progreso**: 3.3, 3.4
+- ⏳ **Pendientes**: ~145 tareas (notificaciones M5, etc.)
 
 ---
 
@@ -995,9 +1006,11 @@ Cada organización define sus propios **tipos de turno** (las categorías en las
 
 **Módulo 4.2 y 4.3 (Bandeja y aprobación)** — Hecho: `RequestsInbox`, `RequestDetailModal`, página `/dashboard/manager/requests`; Edge Function `approve-request` (aprobar/rechazar, aplicar cambios en turnos, audit_log).
 
+**Módulo 4.4 (Workflow de Swap)** — Hecho: `AcceptSwapButton`, `PendingSwapsForYou`, Edge Function `respond-to-swap`; flujo submitted → accepted/cancelled (User B) → approved (manager). Deploy con `--no-verify-jwt`.
+
 **Pendiente:**
 1. Opción «sugerir reemplazo» en Give Away (4.1, opcional).
-2. Swap: `AcceptSwapButton` para User B y notificaciones (4.4, 5).
+2. Notificaciones (Módulo 5): a User B al crear swap, a ambos al aprobar/rechazar.
 3. Operaciones en lote (3.3): plantillas, copiar semana/mes, bulk assign.
 4. Lista de turnos con filtros (3.4): `ShiftList` completo.
 

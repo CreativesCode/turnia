@@ -2,12 +2,14 @@
 
 /**
  * Mis solicitudes: listar y cancelar (si draft/submitted/accepted).
- * @see project-roadmap.md Módulo 4.1
+ * Intercambios pendientes de tu aceptación (User B): aceptar/rechazar.
+ * @see project-roadmap.md Módulo 4.1, 4.4
  */
 
 import Link from 'next/link';
 import { useScheduleOrg } from '@/hooks/useScheduleOrg';
 import { MyRequestsList } from '@/components/requests/MyRequestsList';
+import { PendingSwapsForYou } from '@/components/requests/PendingSwapsForYou';
 import { useCallback, useState } from 'react';
 
 export default function StaffMyRequestsPage() {
@@ -15,6 +17,10 @@ export default function StaffMyRequestsPage() {
   const [refreshKey, setRefreshKey] = useState(0);
 
   const onRefresh = useCallback(() => {
+    setRefreshKey((k) => k + 1);
+  }, []);
+
+  const onResolved = useCallback(() => {
     setRefreshKey((k) => k + 1);
   }, []);
 
@@ -55,6 +61,12 @@ export default function StaffMyRequestsPage() {
       <p className="text-sm text-muted">
         Dar de baja, intercambiar o tomar turnos abiertos. Puedes cancelar solicitudes pendientes.
       </p>
+      <PendingSwapsForYou
+        orgId={orgId}
+        userId={userId}
+        refreshKey={refreshKey}
+        onResolved={onResolved}
+      />
       <MyRequestsList orgId={orgId} userId={userId} refreshKey={refreshKey} />
     </div>
   );

@@ -25,7 +25,32 @@ additional_redirect_urls = ["https://localhost:3000"]
 jwt_expiry = 3600
 enable_signup = true
 
-[functions]
+[functions.respond-to-swap]
+verify_jwt = false
+
+[functions.approve-request]
+verify_jwt = false
+
+[functions.create-shift]
+verify_jwt = false
+
+[functions.update-shift]
+verify_jwt = false
+
+[functions.delete-shift]
+verify_jwt = false
+
+[functions.invite-user]
+verify_jwt = false
+
+[functions.accept-invitation]
+verify_jwt = false
+
+[functions.validate-invitation]
+verify_jwt = false
+
+[functions.resend-invitation]
+verify_jwt = false
 
 [storage]
 enabled = true
