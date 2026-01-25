@@ -315,6 +315,12 @@ git commit -m "fix(requests): prevent duplicate request submissions"
 - ✅ Copiar enlace, cancelar invitación
 - ✅ `invitation-emails.md` — Email con Resend (opcional, requiere dominio)
 
+#### 10. **Gestión de Organizaciones (Módulo 2.1 — concluido)**
+- ✅ Página `/dashboard/admin/organizations` (lista para superadmin, configuración para org_admin)
+- ✅ Crear organización (superadmin; modal con nombre y slug)
+- ✅ Editar nombre/slug y eliminar (modal de confirmación)
+- ✅ `OrganizationSettings`, `OrganizationList`, `CreateOrganizationModal`
+
 ---
 
 ## 🚀 MÓDULOS Y FUNCIONALIDADES PENDIENTES
@@ -362,15 +368,17 @@ git commit -m "fix(requests): prevent duplicate request submissions"
 
 ### 📊 **Módulo 2: Gestión de Organizaciones y Teams**
 
-#### **2.1 Crear y Gestionar Organizaciones**
-- [ ] Página `/dashboard/admin/organizations`
-  - [ ] Listar organizaciones (para superadmin)
-  - [ ] Ver detalles de la org actual (para org_admin)
-  - [ ] Editar nombre, slug, configuraciones
-  - [ ] Eliminar organización (con confirmación)
+#### **2.1 Crear y Gestionar Organizaciones** — CONCLUIDO
+- [x] Página `/dashboard/admin/organizations`
+  - [x] Listar organizaciones (para superadmin)
+  - [x] Ver detalles de la org actual (para org_admin)
+  - [x] Editar nombre, slug, configuraciones
+  - [x] Eliminar organización (con confirmación y modal)
+  - [x] Crear organización (superadmin; modal con nombre y slug)
 
-- [ ] Component `OrganizationSettings.tsx`
-- [ ] Component `OrganizationList.tsx` (solo superadmin)
+- [x] Component `OrganizationSettings.tsx`
+- [x] Component `OrganizationList.tsx` (solo superadmin)
+- [x] Component `CreateOrganizationModal.tsx`
 
 #### **2.2 Crear y Gestionar Teams**
 - [ ] Página `/dashboard/admin/teams`
@@ -931,6 +939,6 @@ git commit -m "fix(requests): prevent duplicate request submissions"
 
 **Módulo 2: Gestión de Organizaciones y Teams**
 
-1. Página `/dashboard/admin/organizations` — listar y editar organizaciones
+1. ~~Página `/dashboard/admin/organizations`~~ — hecho (listar, crear, editar, eliminar)
 2. Página `/dashboard/admin/teams` — CRUD de teams
 3. Página `/dashboard/admin/members` — listar miembros, cambiar roles, asignar a teams

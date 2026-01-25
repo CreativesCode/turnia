@@ -95,8 +95,8 @@ Deno.serve(async (req) => {
       );
     }
 
-    console.log('[invite-user] Checking membership for user:', user.id);
-    const { data: membership, error: membershipErr } = await supabase
+    // Verificar permisos: org_admin/superadmin en esta org, o superadmin en cualquier org
+    const { data: membershipInOrg } = await supabase
       .from('memberships')
       .select('id')
       .eq('org_id', org_id)
@@ -104,10 +104,21 @@ Deno.serve(async (req) => {
       .in('role', ['org_admin', 'superadmin'])
       .maybeSingle();
 
-    console.log('[invite-user] Membership check:', { found: !!membership, error: membershipErr?.message });
+    const isAdminOfThisOrg = !!membershipInOrg;
 
-    if (!membership) {
-      console.log('[invite-user] ERROR: User is not org_admin or superadmin');
+    let isSuperadmin = false;
+    if (!isAdminOfThisOrg) {
+      const { data: anySuperadmin } = await supabase
+        .from('memberships')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('role', 'superadmin')
+        .limit(1)
+        .maybeSingle();
+      isSuperadmin = !!anySuperadmin;
+    }
+
+    if (!isAdminOfThisOrg && !isSuperadmin) {
       return new Response(
         JSON.stringify({ error: 'You must be org_admin or superadmin of this organization to invite' }),
         { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

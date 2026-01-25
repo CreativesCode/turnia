@@ -9,8 +9,14 @@ export default function AdminPage() {
       </p>
       <div className="mt-6 flex flex-wrap gap-4">
         <Link
-          href="/dashboard/admin/invite"
+          href="/dashboard/admin/organizations"
           className="rounded-lg border border-primary-600 bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700"
+        >
+          Organizaciones
+        </Link>
+        <Link
+          href="/dashboard/admin/invite"
+          className="rounded-lg border border-border bg-background px-4 py-2 text-sm font-medium text-text-primary hover:bg-subtle-bg"
         >
           Invitar usuarios
         </Link>
