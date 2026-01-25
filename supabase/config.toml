@@ -40,6 +40,15 @@ verify_jwt = false
 [functions.delete-shift]
 verify_jwt = false
 
+[functions.bulk-update-shifts]
+verify_jwt = false
+
+[functions.copy-shifts]
+verify_jwt = false
+
+[functions.generate-shifts-from-pattern]
+verify_jwt = false
+
 [functions.invite-user]
 verify_jwt = false
 

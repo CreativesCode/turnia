@@ -40,6 +40,9 @@ type Props = {
   onRowClick: (shift: ShiftWithType, assignedName: string | null) => void;
   onEditClick: (shift: ShiftWithType) => void;
   onRefresh: () => void;
+  /** Para operaciones en lote: ids seleccionados (controlado por el padre) */
+  selectedIds?: string[];
+  onSelectionChange?: (ids: string[]) => void;
 };
 
 function formatDate(d: Date): string {
@@ -66,6 +69,8 @@ function ShiftListInner({
   onRowClick,
   onEditClick,
   onRefresh,
+  selectedIds = [],
+  onSelectionChange,
 }: Props) {
   const [rows, setRows] = useState<ShiftWithType[]>([]);
   const [profilesMap, setProfilesMap] = useState<Record<string, string>>({});
@@ -257,6 +262,32 @@ function ShiftListInner({
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
   const allTypesSelected = filters.shiftTypeIds.length === 0;
 
+  const toggleOne = useCallback(
+    (id: string) => {
+      if (!onSelectionChange) return;
+      if (selectedIds.includes(id)) {
+        onSelectionChange(selectedIds.filter((x) => x !== id));
+      } else {
+        onSelectionChange([...selectedIds, id]);
+      }
+    },
+    [selectedIds, onSelectionChange]
+  );
+
+  const togglePage = useCallback(() => {
+    if (!onSelectionChange) return;
+    const pageIds = rows.map((s) => s.id);
+    const allSelected = pageIds.every((id) => selectedIds.includes(id));
+    if (allSelected) {
+      onSelectionChange(selectedIds.filter((id) => !pageIds.includes(id)));
+    } else {
+      const merged = [...new Set([...selectedIds, ...pageIds])];
+      onSelectionChange(merged);
+    }
+  }, [onSelectionChange, rows, selectedIds]);
+
+  const showBulk = canManageShifts && typeof onSelectionChange === 'function';
+
   if (!orgId) {
     return (
       <div className="rounded-xl border border-border bg-background p-6">
@@ -414,6 +445,19 @@ function ShiftListInner({
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border bg-subtle-bg">
+                    {showBulk && (
+                      <th className="w-10 px-2 py-3">
+                        <label className="flex cursor-pointer items-center justify-center">
+                          <input
+                            type="checkbox"
+                            checked={rows.length > 0 && rows.every((s) => selectedIds.includes(s.id))}
+                            onChange={togglePage}
+                            className="h-4 w-4 rounded border-border"
+                            aria-label="Seleccionar todos en la página"
+                          />
+                        </label>
+                      </th>
+                    )}
                     <th className="px-4 py-3 text-left font-medium text-text-primary">
                       <button
                         type="button"
@@ -448,6 +492,19 @@ function ShiftListInner({
                         className="border-b border-border last:border-0 hover:bg-subtle-bg/50 cursor-pointer"
                         onClick={() => onRowClick(s, assignedName)}
                       >
+                        {showBulk && (
+                          <td className="w-10 px-2 py-3" onClick={(e) => e.stopPropagation()}>
+                            <label className="flex cursor-pointer items-center justify-center">
+                              <input
+                                type="checkbox"
+                                checked={selectedIds.includes(s.id)}
+                                onChange={() => toggleOne(s.id)}
+                                className="h-4 w-4 rounded border-border"
+                                aria-label={`Seleccionar turno ${formatDate(start)}`}
+                              />
+                            </label>
+                          </td>
+                        )}
                         <td className="px-4 py-3 text-text-primary">{formatDate(start)}</td>
                         <td className="px-4 py-3 text-text-secondary">{formatTimeRange(s.start_at, s.end_at)}</td>
                         <td className="px-4 py-3">

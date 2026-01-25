@@ -536,24 +536,26 @@ Cada organización define sus propios **tipos de turno** (las categorías en las
   - [x] Edge Function `delete-shift` (idem)
   - [x] RPC `check_shift_conflicts` (overlap, availability_events, min_rest_hours); migración `20250129000000_check_shift_conflicts.sql`
 
-#### **3.3 Operaciones en Lote**
-- [ ] Generar turnos desde plantilla:
-  - [ ] Definir plantillas (ej: "Urgencias Mes Estándar")
-  - [ ] Aplicar plantilla a rango de fechas
-  - [ ] Asignación automática o manual
+#### **3.3 Operaciones en Lote** — CONCLUIDO
+- [x] Generar turnos desde plantilla:
+  - [x] Patrón semanal (día, tipo, asignación opcional) en `ShiftTemplateForm`
+  - [x] Aplicar patrón a rango de fechas (EF `generate-shifts-from-pattern`)
+  - [x] Opción «usar asignaciones del patrón» o dejar sin asignar
 
-- [ ] Copiar semana/mes:
-  - [ ] Seleccionar período origen
-  - [ ] Aplicar a período destino
-  - [ ] Opción de copiar asignaciones o dejar sin asignar
+- [x] Copiar semana/mes:
+  - [x] Período origen (inicio/fin) y período destino (inicio)
+  - [x] EF `copy-shifts`: desplazamiento en días, crea turnos en destino
+  - [x] Opción de copiar asignaciones o dejar sin asignar
+  - [x] `CopyShiftsModal`
 
-- [ ] Bulk assign/unassign:
-  - [ ] Seleccionar múltiples turnos
-  - [ ] Asignar a usuario
-  - [ ] Des-asignar
+- [x] Bulk assign/unassign:
+  - [x] Checkboxes en `ShiftList` (selección por fila y «todos en página»)
+  - [x] `BulkOperationsPanel`: asignar a usuario, desasignar, cancelar selección
+  - [x] EF `bulk-update-shifts` (validación de conflictos al asignar)
 
-- [ ] Component `BulkOperationsPanel.tsx`
-- [ ] Component `ShiftTemplateForm.tsx`
+- [x] Component `BulkOperationsPanel.tsx`
+- [x] Component `ShiftTemplateForm.tsx`
+- [x] Component `CopyShiftsModal.tsx`
 
 #### **3.4 Lista de Turnos con Filtros**
 - [x] Implementar `ShiftList.tsx` completo
@@ -998,13 +1000,13 @@ Cada organización define sus propios **tipos de turno** (las categorías en las
 
 ### Estado General del Proyecto
 - **Total de módulos**: 14
-- **Módulos completados**: Invitaciones (M1), 2.1 Organizaciones, 2.2 Miembros, 2.3 Tipos de turno, **3.4 Lista de turnos**, 4.1 Crear solicitudes, 4.2 Bandeja manager, 4.3 Flujo de aprobación, **4.4 Workflow de Swap**, **5.4 In-App Notifications** (+ infraestructura base)
-- **Módulos en curso**: 3.3 Operaciones en lote
+- **Módulos completados**: Invitaciones (M1), 2.1 Organizaciones, 2.2 Miembros, 2.3 Tipos de turno, **3.3 Operaciones en lote**, **3.4 Lista de turnos**, 4.1 Crear solicitudes, 4.2 Bandeja manager, 4.3 Flujo de aprobación, **4.4 Workflow de Swap**, **5.4 In-App Notifications** (+ infraestructura base)
+- **Módulos en curso**: —
 - **Progreso estimado**: ~45–47%
 
 ### Tareas por Estado
 - ✅ **Completadas**: ~155 tareas (véase listado abajo)
-- 🔄 **En progreso**: 3.3 Operaciones en lote
+- 🔄 **En progreso**: —
 - ⏳ **Pendientes**: ~120 tareas (5.1 push, 5.3 email, disponibilidad, reportes, etc.)
 
 ### 📋 Tareas completadas (listado)
@@ -1048,6 +1050,13 @@ Cada organización define sus propios **tipos de turno** (las categorías en las
 - [x] CreateShiftModal, EditShiftModal: fecha, tipo, asignar, ubicación, estado; horas desde tipo
 - [x] Edge Functions: create-shift, update-shift, delete-shift (--no-verify-jwt; refreshSession)
 - [x] RPC check_shift_conflicts (overlap, availability_events, min_rest_hours); validación en modales y EFs
+
+#### Módulo 3.3 — Operaciones en lote
+- [x] ShiftList: checkboxes de selección, «seleccionar todos en página»; BulkOperationsPanel (asignar, desasignar, cancelar)
+- [x] Edge Function bulk-update-shifts (validación conflictos al asignar)
+- [x] CopyShiftsModal + Edge Function copy-shifts (período origen → destino, opción asignaciones)
+- [x] ShiftTemplateForm + Edge Function generate-shifts-from-pattern (patrón por día de la semana, rango fechas, usar asignaciones)
+- [x] Botones en /dashboard/manager/shifts: Copiar período, Generar desde patrón
 
 #### Módulo 3.4 — Lista de turnos
 - [x] ShiftList: tabla (fecha, horario, tipo, usuario, estado), filtros (tipo, usuario, rango fechas, estado)
@@ -1097,7 +1106,7 @@ Cada organización define sus propios **tipos de turno** (las categorías en las
 **Pendiente:**
 1. Opción «sugerir reemplazo» en Give Away (4.1, opcional).
 2. ~~Notificaciones (Módulo 5): a User B al crear swap, a ambos al aprobar/rechazar.~~ — **CONCLUIDO (5.4 in-app)**
-3. Operaciones en lote (3.3): plantillas, copiar semana/mes, bulk assign.
+3. ~~Operaciones en lote (3.3): plantillas, copiar semana/mes, bulk assign.~~ — **CONCLUIDO**
 4. ~~Lista de turnos con filtros (3.4): `ShiftList` completo.~~ — **CONCLUIDO**
 
 *Opcional: reordenar tipos (`sort_order`), iterar color si ya existe en la org; `min_rest_hours` desde `org_settings` (Módulo 9) cuando exista; notificaciones email (5.3), push (5.1).*

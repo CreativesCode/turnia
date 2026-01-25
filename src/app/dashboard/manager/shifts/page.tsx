@@ -11,18 +11,29 @@ import { ShiftList } from '@/components/shifts/ShiftList';
 import { ShiftDetailModal } from '@/components/shifts/ShiftDetailModal';
 import { EditShiftModal } from '@/components/shifts/EditShiftModal';
 import { CreateShiftModal } from '@/components/shifts/CreateShiftModal';
+import { BulkOperationsPanel } from '@/components/shifts/BulkOperationsPanel';
+import { CopyShiftsModal } from '@/components/shifts/CopyShiftsModal';
+import { ShiftTemplateForm } from '@/components/shifts/ShiftTemplateForm';
 import { useScheduleOrg } from '@/hooks/useScheduleOrg';
 import type { ShiftWithType } from '@/components/calendar/ShiftCalendar';
 
 export default function ManagerShiftsListPage() {
   const { orgId, userId, canManageShifts, canCreateRequests, isLoading, error } = useScheduleOrg();
   const [refreshKey, setRefreshKey] = useState(0);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [detailShift, setDetailShift] = useState<ShiftWithType | null>(null);
   const [detailAssignedName, setDetailAssignedName] = useState<string | null>(null);
   const [editShift, setEditShift] = useState<ShiftWithType | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
+  const [copyOpen, setCopyOpen] = useState(false);
+  const [templateOpen, setTemplateOpen] = useState(false);
 
   const handleRefresh = useCallback(() => setRefreshKey((k) => k + 1), []);
+
+  const handleBulkSuccess = useCallback(() => {
+    setSelectedIds([]);
+    handleRefresh();
+  }, [handleRefresh]);
 
   const handleRowClick = useCallback((shift: ShiftWithType, assignedName: string | null) => {
     setDetailShift(shift);
@@ -82,16 +93,41 @@ export default function ManagerShiftsListPage() {
             Calendario
           </Link>
           {canManageShifts && (
-            <button
-              type="button"
-              onClick={() => setCreateOpen(true)}
-              className="min-h-[44px] rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-700"
-            >
-              Nuevo turno
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={() => setCopyOpen(true)}
+                className="min-h-[44px] rounded-lg border border-border px-4 py-2.5 text-sm font-medium text-text-secondary hover:bg-subtle-bg"
+              >
+                Copiar período
+              </button>
+              <button
+                type="button"
+                onClick={() => setTemplateOpen(true)}
+                className="min-h-[44px] rounded-lg border border-border px-4 py-2.5 text-sm font-medium text-text-secondary hover:bg-subtle-bg"
+              >
+                Generar desde patrón
+              </button>
+              <button
+                type="button"
+                onClick={() => setCreateOpen(true)}
+                className="min-h-[44px] rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-700"
+              >
+                Nuevo turno
+              </button>
+            </>
           )}
         </div>
       </div>
+
+      {canManageShifts && (
+        <BulkOperationsPanel
+          orgId={orgId}
+          selectedIds={selectedIds}
+          onSuccess={handleBulkSuccess}
+          onClearSelection={() => setSelectedIds([])}
+        />
+      )}
 
       <ShiftList
         orgId={orgId}
@@ -100,6 +136,8 @@ export default function ManagerShiftsListPage() {
         onRowClick={handleRowClick}
         onEditClick={handleEditClick}
         onRefresh={handleRefresh}
+        selectedIds={selectedIds}
+        onSelectionChange={canManageShifts ? setSelectedIds : undefined}
       />
 
       <ShiftDetailModal
@@ -130,6 +168,20 @@ export default function ManagerShiftsListPage() {
       <CreateShiftModal
         open={createOpen}
         onClose={() => setCreateOpen(false)}
+        onSuccess={handleRefresh}
+        orgId={orgId}
+      />
+
+      <CopyShiftsModal
+        open={copyOpen}
+        onClose={() => setCopyOpen(false)}
+        onSuccess={handleRefresh}
+        orgId={orgId}
+      />
+
+      <ShiftTemplateForm
+        open={templateOpen}
+        onClose={() => setTemplateOpen(false)}
         onSuccess={handleRefresh}
         orgId={orgId}
       />
