@@ -28,7 +28,7 @@ Deno.serve(async (req) => {
 
     const { data: rows, error } = await supabase
       .from('shifts')
-      .select('id, shift_type, status, start_at, end_at, assigned_user_id')
+      .select('id, status, start_at, end_at, assigned_user_id, organization_shift_types(name, letter)')
       .eq('org_id', orgId)
       .gte('start_at', start)
       .lte('end_at', end)
@@ -41,13 +41,18 @@ Deno.serve(async (req) => {
       );
     }
 
-    // CSV simple (assigned_user_id; resolver nombres en frontend o vista posterior)
-    const headers = ['id', 'shift_type', 'status', 'start_at', 'end_at', 'assigned_user_id'];
+    // CSV: shift_type = nombre (o letra) del tipo desde organization_shift_types
+    const headers = ['id', 'shift_type', 'type_letter', 'status', 'start_at', 'end_at', 'assigned_user_id'];
+    const typeRow = (r: Record<string, unknown>) => {
+      const ost = (r.organization_shift_types as { name?: string; letter?: string } | null) ?? {};
+      return [ost.name ?? '', ost.letter ?? ''];
+    };
     const lines = [
       headers.join(','),
-      ...(rows || []).map((r: Record<string, unknown>) =>
-        [r.id, r.shift_type, r.status, r.start_at, r.end_at, r.assigned_user_id ?? ''].join(',')
-      ),
+      ...(rows || []).map((r: Record<string, unknown>) => {
+        const [typeName, typeLetter] = typeRow(r);
+        return [r.id, typeName, typeLetter, r.status, r.start_at, r.end_at, r.assigned_user_id ?? ''].join(',');
+      }),
     ];
     const csv = lines.join('\n');
 

@@ -26,6 +26,12 @@ export default function AdminPage() {
         >
           Invitar usuarios
         </Link>
+        <Link
+          href="/dashboard/admin/shift-types"
+          className="rounded-lg border border-border bg-background px-4 py-2 text-sm font-medium text-text-primary hover:bg-subtle-bg"
+        >
+          Tipos de turno
+        </Link>
       </div>
     </div>
   );

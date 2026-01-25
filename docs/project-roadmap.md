@@ -320,6 +320,15 @@ git commit -m "fix(requests): prevent duplicate request submissions"
 - ✅ Editar nombre/slug y eliminar (modal de confirmación)
 - ✅ `OrganizationSettings`, `OrganizationList`, `CreateOrganizationModal`
 
+#### 11. **Tipos de turno por organización (Módulo 2.3 — concluido)**
+- ✅ Tabla `organization_shift_types` (name, letter, color, sort_order, start_time, end_time) y RLS
+- ✅ Tabla `shifts` con `shift_type_id` (FK a `organization_shift_types`)
+- ✅ Página `/dashboard/admin/shift-types` con `ShiftTypesList` y `ShiftTypeFormModal`
+- ✅ Crear, editar y eliminar tipos (letra, color, horario; checkbox “Turno 24h”; color Auto desde nombre)
+- ✅ `formatShiftTypeSchedule`, `generateColorFromName`, `isColorLight` en `utils.ts`
+- ✅ Badge circular (color + letra en negrita; texto blanco/negro según luminancia)
+- ✅ Edge Function `export-schedule`: join con `organization_shift_types`, exporta name/letter
+
 ---
 
 ## 🚀 MÓDULOS Y FUNCIONALIDADES PENDIENTES
@@ -396,6 +405,39 @@ git commit -m "fix(requests): prevent duplicate request submissions"
   - [x] `change_user_role(p_org_id, p_user_id, p_new_role)` — RPC en migración `20250126100000_members_management.sql`
   - [x] `remove_from_org(p_org_id, p_user_id)` — RPC en la misma migración
 
+#### **2.3 Tipos de turno por organización** — CONCLUIDO
+
+Cada organización define sus propios **tipos de turno** (las categorías en las que se asignan los turnos de usuarios: ej. Mañana, Noche, 24h, Guardia). Estos tipos son prerequisito para crear turnos.
+
+- [x] **Base de datos** (migraciones `20250127000000_organization_shift_types.sql`, `20250128000000_organization_shift_types_schedule.sql`)
+  - [x] Tabla `organization_shift_types`: `id`, `org_id`, `name`, `letter`, `color`, `sort_order`, `start_time`, `end_time`, `created_at`, `updated_at`
+  - [x] Restricción `unique(org_id, letter)`: la letra es única por organización
+  - [x] `letter`: 1–5 caracteres (identificación corta: "D", "N", "H", "24", etc.)
+  - [x] `color`: hex (ej. `#FBBF24`). Siempre obligatorio; la app puede generarlo si el usuario no elige
+  - [x] `start_time`, `end_time` (TIME, opcionales): horario del tipo; `end_time` puede ser 24:00; si `end < start` cruza medianoche
+  - [x] Tabla `shifts`: reemplazo de `shift_type` (enum day/night/24h/custom) por `shift_type_id` (FK a `organization_shift_types`)
+  - [x] RLS: SELECT para miembros de la org; INSERT/UPDATE/DELETE para org_admin y team_manager (y superadmin)
+  - [x] Backfill: organizaciones con turnos existentes reciben 4 tipos por defecto (Día/D, Noche/N, 24h/H, Personalizado/C) con colores y horarios; se migran los `shifts` al nuevo esquema
+
+- [x] **Página y componentes**
+  - [x] Página `/dashboard/admin/shift-types`
+  - [x] `ShiftTypesList`: listar tipos (badge circular con color + letra en negrita; texto blanco/negro según `isColorLight`; nombre, horario formateado, acciones)
+  - [x] `ShiftTypeFormModal`: crear/editar — nombre, letra (validar único en la org), color (input + `type="color"` + botón “Auto”), horario (opcional; checkbox “Turno 24h”; inicio/fin; si fin < inicio, cruza medianoche)
+  - [x] Editar y eliminar tipo (eliminar falla con mensaje si hay turnos que lo usan)
+  - [ ] Reordenar (opcional, vía `sort_order`)
+
+- [x] **Color y contraste**
+  - [x] `generateColorFromName(name)` en `utils.ts` (hash → HSL → hex). Botón “Auto” en el formulario.
+  - [x] `isColorLight(hex)`: luminancia para elegir texto blanco o negro en el badge. Badge circular con letra en **bold**.
+  - [ ] Iterar `hue + 37` si el hex ya existe en la org para garantizar distinción (opcional).
+
+- [x] **Integración (parcial)**
+  - [ ] `CreateShiftModal` / `EditShiftModal`: selector de tipo de turno desde `organization_shift_types` (Módulo 3).
+  - [ ] Calendario y listas: colorear por `organization_shift_types.color` y mostrar `letter` o `name` (Módulo 3).
+  - [x] `export-schedule`: join con `organization_shift_types`; exporta `shift_type` (name) y `type_letter`.
+
+**Nota**: Los turnos concretos (registros en `shifts`) se crean y asignan en el **Módulo 3** (Calendario y Gestión de Turnos). Los **tipos de turno** definidos aquí son las “plantillas” o categorías que cada organización debe tener creadas antes de poder generar turnos.
+
 ---
 
 ### 📅 **Módulo 3: Calendario y Gestión de Turnos**
@@ -408,17 +450,13 @@ git commit -m "fix(requests): prevent duplicate request submissions"
   - [ ] Vista lista (list)
   - [ ] Cambio entre vistas
 
-- [ ] Cargar turnos desde Supabase
-  - [ ] Filtrar por team
-  - [ ] Filtrar por tipo de turno
+- [ ] Cargar turnos desde Supabase (join con `organization_shift_types`)
+  - [ ] Filtrar por tipo de turno (tipos de la org)
   - [ ] Filtrar por usuario
   - [ ] Filtrar por estado (draft/published)
 
-- [ ] Colorear turnos según tipo:
-  - [ ] Day (amarillo)
-  - [ ] Night (azul)
-  - [ ] 24h (morado)
-  - [ ] Custom (gris)
+- [ ] Colorear turnos según `organization_shift_types.color` (cada org define sus tipos y colores)
+  - [ ] Mostrar `letter` o `name` del tipo en la vista (tooltip, badge, etc.)
 
 - [ ] Mostrar info al hacer click en turno:
   - [ ] Horario
@@ -432,7 +470,7 @@ git commit -m "fix(requests): prevent duplicate request submissions"
   - [ ] Formulario:
     - [ ] Fecha y hora inicio
     - [ ] Fecha y hora fin
-    - [ ] Tipo de turno
+    - [ ] Tipo de turno (selector desde `organization_shift_types` de la org; la org debe tener al menos un tipo — ver Módulo 2.3)
     - [ ] Asignar usuario (opcional)
     - [ ] Ubicación (opcional)
     - [ ] Estado (draft/published)
@@ -474,9 +512,9 @@ git commit -m "fix(requests): prevent duplicate request submissions"
 
 #### **3.4 Lista de Turnos con Filtros**
 - [ ] Implementar `ShiftList.tsx` completo
-  - [ ] Tabla con columnas: fecha, horario, tipo, usuario, estado
+  - [ ] Tabla con columnas: fecha, horario, tipo (nombre o letra desde `organization_shift_types`), usuario, estado
   - [ ] Filtros:
-    - [ ] Por tipo (checkbox: day, night, 24h, custom)
+    - [ ] Por tipo (checkboxes según tipos de la org)
     - [ ] Por usuario (autocomplete)
     - [ ] Por rango de fechas (date picker)
     - [ ] Por estado (draft/published)
@@ -731,7 +769,7 @@ git commit -m "fix(requests): prevent duplicate request submissions"
 
 - [ ] Página `/dashboard/admin/settings`
   - [ ] Editar configuraciones de la org
-  - [ ] Configurar tipos de turno personalizados
+  - [ ] Los tipos de turno se gestionan en el Módulo 2.3 (`organization_shift_types`).
   - [ ] Configurar reglas de descanso
 
 - [ ] Component `OrgSettingsForm.tsx`
@@ -869,8 +907,9 @@ git commit -m "fix(requests): prevent duplicate request submissions"
 1. ✅ Base de datos y auth (COMPLETADO)
 2. ✅ **Sistema de Invitaciones** (COMPLETADO)
 3. Gestión básica de Organizations
-4. Crear y asignar turnos (formulario básico)
-5. Calendario básico (lectura)
+4. ✅ **Tipos de turno por organización** (2.3: UI, letra, color, horario, badge circular) — CONCLUIDO
+5. Crear y asignar turnos (formulario básico; usa `organization_shift_types`)
+6. Calendario básico (lectura)
 
 ### **FASE 2: Requests Workflow (2 semanas)**
 6. Sistema de solicitudes (give away, swap, take open)
@@ -908,20 +947,21 @@ git commit -m "fix(requests): prevent duplicate request submissions"
 
 ### Estado General del Proyecto
 - **Total de módulos**: 14
-- **Módulos completados**: 1.5 (infraestructura base + Sistema de Invitaciones)
-- **Progreso estimado**: ~12-15%
+- **Módulos completados**: Invitaciones (M1), 2.1 Organizaciones, 2.2 Miembros, 2.3 Tipos de turno (+ infraestructura base)
+- **Progreso estimado**: ~18-22%
 
 ### Tareas por Estado
-- ✅ **Completadas**: ~50 tareas
+- ✅ **Completadas**: ~65 tareas
 - 🔄 **En progreso**: 0 tareas
-- ⏳ **Pendientes**: ~225 tareas
+- ⏳ **Pendientes**: ~210 tareas
 
 ---
 
 ## 🎯 SIGUIENTE PASO INMEDIATO
 
-**Módulo 3: Calendario y Gestión de Turnos**
+**Módulo 3 (Calendario y turnos)** — 2.3 Tipos de turno está concluido.  
+1. Implementar FullCalendar en `ShiftCalendar.tsx` (vistas: mensual, semanal, diaria, lista)  
+2. Cargar turnos desde Supabase (join con `organization_shift_types`) y colorear por `organization_shift_types.color`  
+3. Crear y editar turnos: `CreateShiftModal`, `EditShiftModal` (selector de tipo desde `organization_shift_types`), Edge Functions `create-shift`, `update-shift`, `delete-shift`
 
-1. Implementar FullCalendar en `ShiftCalendar.tsx` (vistas: mensual, semanal, diaria, lista)
-2. Cargar turnos desde Supabase y colorear por tipo (day/night/24h/custom)
-3. Crear y editar turnos: `CreateShiftModal`, `EditShiftModal`, Edge Functions `create-shift`, `update-shift`, `delete-shift`
+*Opcional en 2.3: reordenar tipos (`sort_order`), iterar color si ya existe en la org.*
