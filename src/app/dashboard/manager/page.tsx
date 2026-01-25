@@ -19,7 +19,7 @@ import { useScheduleOrg } from '@/hooks/useScheduleOrg';
 import type { ShiftWithType } from '@/components/calendar/ShiftCalendar';
 
 export default function ManagerPage() {
-  const { orgId, canManageShifts, isLoading, error } = useScheduleOrg();
+  const { orgId, userId, canManageShifts, canCreateRequests, isLoading, error } = useScheduleOrg();
   const [refreshKey, setRefreshKey] = useState(0);
   const [filters, setFilters] = useState<ShiftCalendarFiltersState>(defaultFilters);
   const [detailShift, setDetailShift] = useState<ShiftWithType | null>(null);
@@ -114,9 +114,12 @@ export default function ManagerPage() {
         }}
         onEdit={handleDetailEdit}
         onDeleted={handleRefresh}
+        onRequestCreated={handleRefresh}
         shift={detailShift}
         assignedName={detailAssignedName}
         canManageShifts={canManageShifts}
+        canCreateRequests={canCreateRequests}
+        currentUserId={userId}
       />
 
       <CreateShiftModal

@@ -2,24 +2,33 @@
 
 /**
  * Modal de detalle de turno (al hacer clic en el calendario).
- * Muestra tipo, horario, asignado, estado; botones Editar y Eliminar (con confirmación) si canManageShifts.
- * @see project-roadmap.md Módulo 3.1
+ * Muestra tipo, horario, asignado, estado; botones Editar y Eliminar si canManageShifts;
+ * acciones Solicitar cambio: Dar de baja, Intercambiar (mi turno), Tomar turno (sin asignar).
+ * @see project-roadmap.md Módulo 3.1, 4.1
  */
 
 import { useCallback, useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { formatShiftTypeSchedule } from '@/lib/utils';
 import { ConfirmModal } from '@/components/ui/ConfirmModal';
+import { GiveAwayRequestModal } from '@/components/requests/GiveAwayRequestModal';
+import { TakeOpenRequestModal } from '@/components/requests/TakeOpenRequestModal';
+import { SwapRequestModal } from '@/components/requests/SwapRequestModal';
 import type { ShiftWithType } from '@/components/calendar/ShiftCalendar';
+
+type RequestModalType = 'give_away' | 'take_open' | 'swap' | null;
 
 type Props = {
   open: boolean;
   onClose: () => void;
   onEdit: () => void;
   onDeleted: () => void;
+  onRequestCreated?: () => void;
   shift: ShiftWithType | null;
   assignedName: string | null;
   canManageShifts: boolean;
+  canCreateRequests: boolean;
+  currentUserId: string | null;
 };
 
 export function ShiftDetailModal({
@@ -27,14 +36,21 @@ export function ShiftDetailModal({
   onClose,
   onEdit,
   onDeleted,
+  onRequestCreated,
   shift,
   assignedName,
   canManageShifts,
+  canCreateRequests,
+  currentUserId,
 }: Props) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
-
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [requestModal, setRequestModal] = useState<RequestModalType>(null);
+
+  const isMine = !!currentUserId && !!shift && shift.assigned_user_id === currentUserId;
+  const isOpen = !!shift && !shift.assigned_user_id;
+  const showRequestActions = canCreateRequests && currentUserId && (isMine || isOpen);
 
   const doDelete = useCallback(async () => {
     if (!shift) return;
@@ -72,7 +88,10 @@ export function ShiftDetailModal({
   );
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      setRequestModal(null);
+      return;
+    }
     document.addEventListener('keydown', onEscape);
     return () => document.removeEventListener('keydown', onEscape);
   }, [open, onEscape]);
@@ -141,26 +160,53 @@ export function ShiftDetailModal({
         {deleteError && (
           <p className="mt-4 text-sm text-red-600">{deleteError}</p>
         )}
-        {canManageShifts && (
-          <div className="mt-6 flex flex-wrap justify-end gap-3">
+        <div className="mt-6 flex flex-wrap justify-end gap-3">
+          {canManageShifts && (
+            <>
+              <button
+                type="button"
+                onClick={() => { setDeleteError(null); setConfirmDelete(true); }}
+                className="min-h-[44px] min-w-[44px] rounded-lg px-4 py-2.5 text-sm font-medium text-red-600 hover:bg-red-50"
+              >
+                Eliminar
+              </button>
+              <button
+                type="button"
+                onClick={onEdit}
+                className="min-h-[44px] min-w-[44px] rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-700"
+              >
+                Editar
+              </button>
+            </>
+          )}
+          {showRequestActions && isMine && (
+            <>
+              <button
+                type="button"
+                onClick={() => setRequestModal('give_away')}
+                className="min-h-[44px] min-w-[44px] rounded-lg border border-border px-4 py-2.5 text-sm font-medium text-text-secondary hover:bg-subtle-bg"
+              >
+                Dar de baja
+              </button>
+              <button
+                type="button"
+                onClick={() => setRequestModal('swap')}
+                className="min-h-[44px] min-w-[44px] rounded-lg border border-border px-4 py-2.5 text-sm font-medium text-text-secondary hover:bg-subtle-bg"
+              >
+                Intercambiar
+              </button>
+            </>
+          )}
+          {showRequestActions && isOpen && (
             <button
               type="button"
-              onClick={() => { setDeleteError(null); setConfirmDelete(true); }}
-              className="min-h-[44px] min-w-[44px] rounded-lg px-4 py-2.5 text-sm font-medium text-red-600 hover:bg-red-50"
-            >
-              Eliminar
-            </button>
-            <button
-              type="button"
-              onClick={onEdit}
+              onClick={() => setRequestModal('take_open')}
               className="min-h-[44px] min-w-[44px] rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-700"
             >
-              Editar
+              Tomar turno
             </button>
-          </div>
-        )}
-        {!canManageShifts && (
-          <div className="mt-4">
+          )}
+          {!canManageShifts && (
             <button
               type="button"
               onClick={onClose}
@@ -168,9 +214,30 @@ export function ShiftDetailModal({
             >
               Cerrar
             </button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
+      <GiveAwayRequestModal
+        open={requestModal === 'give_away'}
+        onClose={() => setRequestModal(null)}
+        onSuccess={() => { onRequestCreated?.(); setRequestModal(null); }}
+        shift={shift}
+        currentUserId={currentUserId}
+      />
+      <TakeOpenRequestModal
+        open={requestModal === 'take_open'}
+        onClose={() => setRequestModal(null)}
+        onSuccess={() => { onRequestCreated?.(); setRequestModal(null); }}
+        shift={shift}
+        currentUserId={currentUserId}
+      />
+      <SwapRequestModal
+        open={requestModal === 'swap'}
+        onClose={() => setRequestModal(null)}
+        onSuccess={() => { onRequestCreated?.(); setRequestModal(null); }}
+        shift={shift}
+        currentUserId={currentUserId}
+      />
       <ConfirmModal
         open={confirmDelete}
         onClose={() => setConfirmDelete(false)}

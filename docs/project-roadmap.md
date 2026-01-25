@@ -333,12 +333,17 @@ git commit -m "fix(requests): prevent duplicate request submissions"
 - [x] FullCalendar en `ShiftCalendar.tsx`: vistas mes, semana, día, lista
 - [x] Carga de turnos desde Supabase (join `organization_shift_types`), colorear por tipo
 - [x] Visualización: barra con color del tipo, círculo blanco con letra + nombre de usuario; orden por hora (`eventOrder="start"`)
-- [x] `ShiftDetailModal`: detalle al clic (horario, asignado, tipo, ubicación, estado); editar y eliminar
+- [x] `ShiftDetailModal`: detalle al clic (horario, asignado, tipo, ubicación, estado); editar, eliminar; **solicitar cambio** (dar de baja, intercambiar, tomar turno) si `canCreateRequests`
 - [x] `CreateShiftModal`: solo fecha, tipo, asignar, ubicación, estado; horas desde el tipo
 - [x] `EditShiftModal`: mismo esquema que crear (solo fecha)
 - [x] Edge Functions `create-shift`, `update-shift`, `delete-shift` (con `--no-verify-jwt`; cliente con `refreshSession`)
 - [x] Filtros en calendario: `ShiftCalendarFilters` (por tipo de turno, usuario, estado draft/published)
 - [x] Validaciones: overlap, disponibilidad (`availability_events`), descanso mínimo; RPC `check_shift_conflicts`; integradas en Create/EditShiftModal y en Edge Functions create-shift/update-shift
+
+#### 13. **Crear solicitudes desde ShiftDetailModal (Módulo 4.1 — parcial)**
+- [x] `GiveAwayRequestModal`, `TakeOpenRequestModal`, `SwapRequestModal` (comentario opcional; evita duplicados pending)
+- [x] RLS `shift_requests_insert_member` y `user_can_create_requests(org_id)` (migración `20250130000000_shift_requests_insert_members.sql`)
+- [x] `useScheduleOrg`: `userId`, `canCreateRequests`
 
 ---
 
@@ -474,7 +479,7 @@ Cada organización define sus propios **tipos de turno** (las categorías en las
   - [x] Usuario asignado
   - [x] Tipo
   - [x] Ubicación
-  - [x] Acciones (editar, eliminar, solicitar cambio — pendiente)
+  - [x] Acciones (editar, eliminar, solicitar cambio: dar de baja, intercambiar, tomar turno)
 
 #### **3.2 Crear y Editar Turnos (Manager/Admin)**
 - [x] Component `CreateShiftModal.tsx`
@@ -536,28 +541,30 @@ Cada organización define sus propios **tipos de turno** (las categorías en las
 
 ### 🔄 **Módulo 4: Sistema de Solicitudes (Requests)**
 
-#### **4.1 Crear Solicitudes (Staff)**
-- [ ] **Give Away / Coverage Request**
-  - [ ] Component `GiveAwayRequestForm.tsx`
-  - [ ] Usuario selecciona su turno
-  - [ ] Agrega comentario/razón
+#### **4.1 Crear Solicitudes (Staff)** — parcial
+- [x] **Acción «solicitar cambio» desde `ShiftDetailModal`** (dar de baja, intercambiar, tomar turno). RLS `shift_requests_insert_member` (migración `20250130000000`).
+
+- [x] **Give Away / Coverage Request**
+  - [x] Component `GiveAwayRequestModal.tsx` (abierto desde ShiftDetailModal)
+  - [x] Usuario selecciona su turno (contexto del modal)
+  - [x] Agrega comentario/razón
   - [ ] Opción de sugerir reemplazo (opcional)
-  - [ ] Envía solicitud
+  - [x] Envía solicitud (INSERT directo; evita duplicados pending)
 
-- [ ] **Swap Request**
-  - [ ] Component `SwapRequestForm.tsx`
-  - [ ] Usuario selecciona su turno
-  - [ ] Selecciona turno objetivo (de otro usuario)
-  - [ ] Selecciona usuario con quien hacer swap
-  - [ ] Agrega comentario
-  - [ ] Envía solicitud (estado: submitted)
-  - [ ] Notificar al otro usuario
+- [x] **Swap Request**
+  - [x] Component `SwapRequestModal.tsx` (abierto desde ShiftDetailModal)
+  - [x] Usuario selecciona su turno (contexto del modal)
+  - [x] Selecciona turno objetivo (de otro usuario; ±4 sem)
+  - [x] target_user_id = asignado del turno objetivo
+  - [x] Agrega comentario
+  - [x] Envía solicitud (estado: submitted)
+  - [ ] Notificar al otro usuario (Módulo 5)
 
-- [ ] **Take Open Shift**
-  - [ ] Component `TakeOpenShiftForm.tsx`
-  - [ ] Usuario ve turnos sin asignar (open)
-  - [ ] Solicita tomar un turno abierto
-  - [ ] Manager aprueba
+- [x] **Take Open Shift**
+  - [x] Component `TakeOpenRequestModal.tsx` (abierto desde ShiftDetailModal)
+  - [x] Usuario ve turnos sin asignar (clic en turno abierto)
+  - [x] Solicita tomar un turno abierto
+  - [ ] Manager aprueba (4.3 `approve-request`)
 
 - [ ] Página `/dashboard/staff/my-requests`
   - [ ] Listar solicitudes del usuario
@@ -958,23 +965,28 @@ Cada organización define sus propios **tipos de turno** (las categorías en las
 ### Estado General del Proyecto
 - **Total de módulos**: 14
 - **Módulos completados**: Invitaciones (M1), 2.1 Organizaciones, 2.2 Miembros, 2.3 Tipos de turno (+ infraestructura base)
-- **Módulos en curso**: 3.3 Operaciones en lote, 3.4 Lista de turnos con filtros
-- **Progreso estimado**: ~30-32%
+- **Módulos en curso**: 4.1 Crear solicitudes (parcial; falta my-requests, sugerir reemplazo), 4.2–4.4, 3.3 Operaciones en lote, 3.4 Lista de turnos
+- **Progreso estimado**: ~34–36%
 
 ### Tareas por Estado
-- ✅ **Completadas**: ~95 tareas (incl. filtros calendario, RPC check_shift_conflicts, validaciones en modales y Edge Functions)
-- 🔄 **En progreso**: Módulo 3.3 (operaciones en lote), 3.4 (ShiftList)
-- ⏳ **Pendientes**: ~180 tareas
+- ✅ **Completadas**: ~105 tareas (incl. solicitar cambio desde ShiftDetailModal: GiveAway, Swap, TakeOpen; RLS shift_requests_insert_member)
+- 🔄 **En progreso**: 4.1 (my-requests, sugerir reemplazo), 4.2–4.4, 3.3, 3.4
+- ⏳ **Pendientes**: ~170 tareas
 
 ---
 
 ## 🎯 SIGUIENTE PASO INMEDIATO
 
-**Módulo 3 (Calendario y turnos)** — Hecho: FullCalendar (mes/semana/día/lista), carga y color por tipo, visualización (círculo+usuario, orden por hora), `ShiftDetailModal`, `CreateShiftModal`, `EditShiftModal` (solo fecha), Edge Functions `create-shift`, `update-shift`, `delete-shift`; **filtros** (`ShiftCalendarFilters`: tipo, usuario, estado); **validaciones** (RPC `check_shift_conflicts`: overlap, disponibilidad, descanso mínimo) en modales y Edge Functions.
+**Módulo 3 (Calendario y turnos)** — Hecho: FullCalendar, `ShiftDetailModal` (editar, eliminar, **solicitar cambio**), Create/EditShiftModal, Edge Functions create/update/delete-shift, filtros, validaciones (RPC `check_shift_conflicts`).
+
+**Módulo 4.1 (Crear solicitudes)** — Hecho: acción «solicitar cambio» desde `ShiftDetailModal` (Dar de baja, Intercambiar, Tomar turno) con `GiveAwayRequestModal`, `TakeOpenRequestModal`, `SwapRequestModal`; RLS para INSERT.
 
 **Pendiente:**
-1. Acción «solicitar cambio» desde `ShiftDetailModal` (Módulo 4).
-2. Operaciones en lote (3.3): plantillas, copiar semana/mes, bulk assign.
-3. Lista de turnos con filtros (3.4): `ShiftList` completo.
+1. Página `/dashboard/staff/my-requests`: listar mis solicitudes, cancelar si pending (4.1).
+2. Opción «sugerir reemplazo» en Give Away (4.1, opcional).
+3. Bandeja manager: `RequestsInbox` completo, `RequestDetailModal`, aprobar/rechazar; `approve-request` y `reject-request` (4.2, 4.3).
+4. Swap: `AcceptSwapButton` para User B y notificaciones (4.4, 5).
+5. Operaciones en lote (3.3): plantillas, copiar semana/mes, bulk assign.
+6. Lista de turnos con filtros (3.4): `ShiftList` completo.
 
 *Opcional: reordenar tipos (`sort_order`), iterar color si ya existe en la org; `min_rest_hours` desde `org_settings` (Módulo 9) cuando exista.*
