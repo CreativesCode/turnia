@@ -53,7 +53,7 @@ Deno.serve(async (req) => {
 
     const { data: inv, error: invErr } = await supabase
       .from('organization_invitations')
-      .select('id, org_id, team_id, email, role, status, expires_at, invited_by')
+      .select('id, org_id, email, role, status, expires_at, invited_by')
       .eq('token', token)
       .single();
 
@@ -88,14 +88,12 @@ Deno.serve(async (req) => {
       );
     }
 
-    let membershipQuery = supabase
+    const { data: existing } = await supabase
       .from('memberships')
       .select('id')
       .eq('org_id', inv.org_id)
-      .eq('user_id', user.id);
-    if (inv.team_id) membershipQuery = membershipQuery.eq('team_id', inv.team_id);
-    else membershipQuery = membershipQuery.is('team_id', null);
-    const { data: existing } = await membershipQuery.maybeSingle();
+      .eq('user_id', user.id)
+      .maybeSingle();
 
     const now = new Date().toISOString();
     if (existing) {
@@ -106,7 +104,6 @@ Deno.serve(async (req) => {
     } else {
       const { error: insertErr } = await supabase.from('memberships').insert({
         org_id: inv.org_id,
-        team_id: inv.team_id,
         user_id: user.id,
         role: inv.role,
       });
@@ -129,7 +126,7 @@ Deno.serve(async (req) => {
       entity: 'organization_invitation',
       entity_id: inv.id,
       action: 'accept',
-      after_snapshot: { role: inv.role, team_id: inv.team_id },
+      after_snapshot: { role: inv.role },
       comment: `Invitation accepted by ${userEmail}`,
     });
 

@@ -10,18 +10,14 @@ const ROLES = [
   { value: 'org_admin', label: 'Administrador de organización' },
 ] as const;
 
-type Team = { id: string; name: string; slug: string | null };
-
 type Props = {
   orgId: string;
-  teams: Team[];
   onSuccess: () => void;
 };
 
-export function InviteUserForm({ orgId, teams, onSuccess }: Props) {
+export function InviteUserForm({ orgId, onSuccess }: Props) {
   const [email, setEmail] = useState('');
   const [role, setRole] = useState<string>('user');
-  const [teamId, setTeamId] = useState<string>('');
   const [customMessage, setCustomMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -53,7 +49,6 @@ export function InviteUserForm({ orgId, teams, onSuccess }: Props) {
           org_id: orgId,
           email: email.trim(),
           role,
-          team_id: teamId || null,
           custom_message: customMessage.trim() || undefined,
         },
       });
@@ -81,7 +76,7 @@ export function InviteUserForm({ orgId, teams, onSuccess }: Props) {
       setLoading(false);
       setError(String(err));
     }
-  }, [orgId, teamId, role, customMessage, email, onSuccess]);
+  }, [orgId, role, customMessage, email, onSuccess]);
 
   const copyLink = useCallback(async () => {
     if (!inviteLink) return;
@@ -131,21 +126,6 @@ export function InviteUserForm({ orgId, teams, onSuccess }: Props) {
             ))}
           </select>
         </label>
-        {teams.length > 0 && (
-          <label className="block text-sm font-medium text-text-secondary">
-            Equipo (opcional)
-            <select
-              value={teamId}
-              onChange={(e) => setTeamId(e.target.value)}
-              className="mt-1.5 block w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-text-primary focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-            >
-              <option value="">— Ninguno —</option>
-              {teams.map((t) => (
-                <option key={t.id} value={t.id}>{t.name}</option>
-              ))}
-            </select>
-          </label>
-        )}
         <label className="block text-sm font-medium text-text-secondary">
           Mensaje personalizado (opcional)
           <textarea

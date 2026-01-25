@@ -10,8 +10,6 @@ import { generateSlug } from '@/lib/utils';
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 
-type Team = { id: string; name: string; slug: string | null };
-
 type Props = {
   orgId: string;
   backHref?: string;
@@ -36,7 +34,6 @@ export function OrganizationSettings({ orgId, backHref, onDeleted }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const [teams, setTeams] = useState<Team[]>([]);
   const [inviteRefreshKey, setInviteRefreshKey] = useState(0);
 
   const load = useCallback(async () => {
@@ -57,13 +54,6 @@ export function OrganizationSettings({ orgId, backHref, onDeleted }: Props) {
     setOrg(o);
     setName(o.name);
     setSlug(o.slug ?? '');
-
-    const { data: teamsData } = await supabase
-      .from('teams')
-      .select('id, name, slug')
-      .eq('org_id', orgId)
-      .order('name');
-    setTeams((teamsData ?? []) as Team[]);
   }, [orgId]);
 
   useEffect(() => {
@@ -213,7 +203,6 @@ export function OrganizationSettings({ orgId, backHref, onDeleted }: Props) {
             <h4 className="text-sm font-medium text-text-primary">Invitar usuarios</h4>
             <InviteUserForm
               orgId={orgId}
-              teams={teams}
               onSuccess={() => setInviteRefreshKey((k) => k + 1)}
             />
             <div className="mt-4">
@@ -228,8 +217,8 @@ export function OrganizationSettings({ orgId, backHref, onDeleted }: Props) {
       <div>
         <h3 className="text-sm font-semibold text-text-primary">Zona de peligro</h3>
         <p className="mt-1 text-sm text-text-secondary">
-          Eliminar la organización borrará todos los equipos, miembros, turnos e invitaciones
-          asociados. Esta acción no se puede deshacer.
+Eliminar la organización borrará todos los miembros, turnos e invitaciones
+        asociados. Esta acción no se puede deshacer.
         </p>
         <button
           type="button"
@@ -245,7 +234,7 @@ export function OrganizationSettings({ orgId, backHref, onDeleted }: Props) {
         onClose={() => setConfirmDelete(false)}
         onConfirm={doDelete}
         title="Eliminar organización"
-        message={`¿Eliminar "${org.name}"? Se borrarán todos los equipos, miembros, turnos e invitaciones. No se puede deshacer.`}
+        message={`¿Eliminar "${org.name}"? Se borrarán todos los miembros, turnos e invitaciones. No se puede deshacer.`}
         confirmLabel="Sí, eliminar"
         cancelLabel="Cancelar"
         variant="danger"

@@ -15,11 +15,9 @@ type MemberRow = {
   id: string;
   user_id: string;
   role: string;
-  team_id: string | null;
   created_at: string;
   full_name: string | null;
   email: string | null;
-  team_name: string | null;
 };
 
 type Props = {
@@ -39,7 +37,7 @@ export function OrganizationMembers({ orgId, refreshKey = 0 }: Props) {
 
     const { data: memberships, error: mErr } = await supabase
       .from('memberships')
-      .select('id, user_id, role, team_id, created_at')
+      .select('id, user_id, role, created_at')
       .eq('org_id', orgId)
       .order('created_at', { ascending: false });
 
@@ -49,7 +47,7 @@ export function OrganizationMembers({ orgId, refreshKey = 0 }: Props) {
       return;
     }
 
-    const list = (memberships ?? []) as { id: string; user_id: string; role: string; team_id: string | null; created_at: string }[];
+    const list = (memberships ?? []) as { id: string; user_id: string; role: string; created_at: string }[];
     if (list.length === 0) {
       setRows([]);
       setLoading(false);
@@ -57,19 +55,8 @@ export function OrganizationMembers({ orgId, refreshKey = 0 }: Props) {
     }
 
     const userIds = [...new Set(list.map((m) => m.user_id))];
-    const teamIds = [...new Set(list.map((m) => m.team_id).filter(Boolean))] as string[];
-
-    const [profilesRes, teamsRes] = await Promise.all([
-      supabase.from('profiles').select('id, full_name, email').in('id', userIds),
-      teamIds.length > 0
-        ? supabase.from('teams').select('id, name').in('id', teamIds)
-        : Promise.resolve({ data: [] as { id: string; name: string }[] }),
-    ]);
-
-    const profiles = (profilesRes.data ?? []) as { id: string; full_name: string | null; email: string | null }[];
-    const teams = (teamsRes.data ?? []) as { id: string; name: string }[];
-    const profileMap = Object.fromEntries(profiles.map((p) => [p.id, p]));
-    const teamMap = Object.fromEntries(teams.map((t) => [t.id, t.name]));
+    const { data: profiles } = await supabase.from('profiles').select('id, full_name, email').in('id', userIds);
+    const profileMap = Object.fromEntries(((profiles ?? []) as { id: string; full_name: string | null; email: string | null }[]).map((p) => [p.id, p]));
 
     const merged: MemberRow[] = list.map((m) => {
       const p = profileMap[m.user_id];
@@ -77,7 +64,6 @@ export function OrganizationMembers({ orgId, refreshKey = 0 }: Props) {
         ...m,
         full_name: p?.full_name ?? null,
         email: p?.email ?? null,
-        team_name: m.team_id ? (teamMap[m.team_id] ?? null) : null,
       };
     });
 
@@ -126,7 +112,6 @@ export function OrganizationMembers({ orgId, refreshKey = 0 }: Props) {
             <th className="px-3 py-2.5 text-left font-medium text-text-primary">Usuario</th>
             <th className="px-3 py-2.5 text-left font-medium text-text-primary">Correo</th>
             <th className="px-3 py-2.5 text-left font-medium text-text-primary">Rol</th>
-            <th className="px-3 py-2.5 text-left font-medium text-text-primary">Equipo</th>
             <th className="px-3 py-2.5 text-left font-medium text-text-primary">Alta</th>
           </tr>
         </thead>
@@ -138,7 +123,6 @@ export function OrganizationMembers({ orgId, refreshKey = 0 }: Props) {
               </td>
               <td className="px-3 py-2.5 text-muted">{r.email || '—'}</td>
               <td className="px-3 py-2.5 text-muted">{ROLE_LABELS[r.role] || r.role}</td>
-              <td className="px-3 py-2.5 text-muted">{r.team_name || 'Toda la org'}</td>
               <td className="px-3 py-2.5 text-muted">
                 {new Date(r.created_at).toLocaleDateString()}
               </td>

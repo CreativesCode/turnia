@@ -44,8 +44,8 @@ WITH new_org AS (
   VALUES ('Mi Organización', 'mi-org')
   RETURNING id
 )
-INSERT INTO public.memberships (org_id, user_id, team_id, role)
-SELECT id, 'ee42ac49-a5eb-482e-aeb5-49d765d20e36'::uuid, NULL, 'org_admin'
+INSERT INTO public.memberships (org_id, user_id, role)
+SELECT id, 'ee42ac49-a5eb-482e-aeb5-49d765d20e36'::uuid, 'org_admin'
 FROM new_org;
 ```
 
@@ -59,8 +59,8 @@ RETURNING id;
 -- Copia el id devuelto.
 
 -- 2) Crear membership (reemplaza YOUR_ORG_ID y YOUR_USER_UUID)
-INSERT INTO public.memberships (org_id, user_id, team_id, role)
-VALUES ('YOUR_ORG_ID'::uuid, 'YOUR_USER_UUID'::uuid, NULL, 'org_admin');
+INSERT INTO public.memberships (org_id, user_id, role)
+VALUES ('YOUR_ORG_ID'::uuid, 'YOUR_USER_UUID'::uuid, 'org_admin');
 ```
 
 ---
@@ -86,7 +86,7 @@ Si al registrarte no llega el email de confirmación:
 
 ## Cómo convertir un usuario en Superadmin
 
-El **superadmin** puede hacer **CRUD completo** en todos los modelos: `organizations`, `teams`, `memberships`, `shifts`, `shift_requests`, `availability_events`, `organization_invitations` y `profiles` (lectura en `audit_log`; no se permite borrar registros de auditoría).
+El **superadmin** puede hacer **CRUD completo** en todos los modelos: `organizations`, `memberships`, `shifts`, `shift_requests`, `availability_events`, `organization_invitations` y `profiles` (lectura en `audit_log`; no se permite borrar registros de auditoría).
 
 ### Requisitos
 
@@ -108,8 +108,8 @@ Si ya tienes organizaciones, usa el `id` de cualquiera (p. ej. la primera):
 
 ```sql
 -- Reemplaza YOUR_ORG_ID y YOUR_USER_UUID
-INSERT INTO public.memberships (org_id, user_id, team_id, role)
-VALUES ('1807e075-7055-4d8c-a097-5ed5d04dc757'::uuid, 'ee42ac49-a5eb-482e-aeb5-49d765d20e36'::uuid, NULL, 'superadmin');
+INSERT INTO public.memberships (org_id, user_id, role)
+VALUES ('1807e075-7055-4d8c-a097-5ed5d04dc757'::uuid, 'ee42ac49-a5eb-482e-aeb5-49d765d20e36'::uuid, 'superadmin');
 ```
 
 #### Opción B: Crear una org “Sistema” para superadmins
@@ -123,8 +123,8 @@ WITH sys_org AS (
   ON CONFLICT (slug) DO UPDATE SET name = 'Sistema'  -- por si ya existe
   RETURNING id
 )
-INSERT INTO public.memberships (org_id, user_id, team_id, role)
-SELECT id, 'YOUR_USER_UUID'::uuid, NULL, 'superadmin'
+INSERT INTO public.memberships (org_id, user_id, role)
+SELECT id, 'YOUR_USER_UUID'::uuid, 'superadmin'
 FROM sys_org;
 ```
 

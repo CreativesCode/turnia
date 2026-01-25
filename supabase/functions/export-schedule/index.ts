@@ -13,9 +13,8 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    const { orgId, teamId, start, end } = (await req.json()) as {
+    const { orgId, start, end } = (await req.json()) as {
       orgId: string;
-      teamId?: string;
       start: string;
       end: string;
     };
@@ -27,17 +26,13 @@ Deno.serve(async (req) => {
       );
     }
 
-    let q = supabase
+    const { data: rows, error } = await supabase
       .from('shifts')
       .select('id, shift_type, status, start_at, end_at, assigned_user_id')
       .eq('org_id', orgId)
       .gte('start_at', start)
       .lte('end_at', end)
       .order('start_at');
-
-    if (teamId) q = q.eq('team_id', teamId);
-
-    const { data: rows, error } = await q;
 
     if (error) {
       return new Response(

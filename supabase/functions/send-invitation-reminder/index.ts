@@ -35,7 +35,7 @@ Deno.serve(async (req) => {
 
     const { data: rows, error } = await supabase
       .from('organization_invitations')
-      .select('id, org_id, team_id, email, role, token, expires_at, metadata, invited_by')
+      .select('id, org_id, email, role, token, expires_at, metadata, invited_by')
       .eq('status', 'pending')
       .gt('expires_at', now.toISOString())
       .lte('expires_at', in48h);

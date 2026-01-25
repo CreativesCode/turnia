@@ -52,7 +52,7 @@ Deno.serve(async (req) => {
 
     const { data: inv, error: invErr } = await supabase
       .from('organization_invitations')
-      .select('id, org_id, team_id, email, role, status, metadata, invited_by')
+      .select('id, org_id, email, role, status, metadata, invited_by')
       .eq('id', invitation_id)
       .single();
 

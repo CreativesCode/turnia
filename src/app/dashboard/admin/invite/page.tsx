@@ -6,11 +6,8 @@ import { createClient } from '@/lib/supabase/client';
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 
-type Team = { id: string; name: string; slug: string | null };
-
 export default function AdminInvitePage() {
   const [orgId, setOrgId] = useState<string | null>(null);
-  const [teams, setTeams] = useState<Team[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshKey, setRefreshKey] = useState(0);
 
@@ -29,14 +26,6 @@ export default function AdminInvitePage() {
         .in('role', ['org_admin', 'superadmin']);
       const oid = memberships?.[0]?.org_id ?? null;
       setOrgId(oid ?? null);
-      if (oid) {
-        const { data: teamsData } = await supabase
-          .from('teams')
-          .select('id, name, slug')
-          .eq('org_id', oid)
-          .order('name');
-        setTeams((teamsData ?? []) as Team[]);
-      }
       setLoading(false);
     };
     run();
@@ -61,7 +50,7 @@ export default function AdminInvitePage() {
         <h1 className="mt-2 text-xl font-semibold text-text-primary">Invitar usuarios</h1>
         <p className="mt-1 text-sm text-text-secondary">Crea invitaciones por correo y comparte el enlace. El enlace expira en 7 días.</p>
       </div>
-      <InviteUserForm orgId={orgId} teams={teams} onSuccess={onInviteSuccess} />
+      <InviteUserForm orgId={orgId} onSuccess={onInviteSuccess} />
       <div>
         <h2 className="mb-2 text-lg font-semibold text-text-primary">Invitaciones</h2>
         <InvitationsList orgId={orgId} refreshKey={refreshKey} />

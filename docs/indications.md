@@ -1,5 +1,7 @@
 # Turnia — Product & Tech Specification (SPA + Capacitor)
 
+> **Nota (2026)**: Se prescindió del modelo **Team**. Memberships, shifts y shift_requests son solo **org-scoped**. El rol `team_manager` se mantiene como etiqueta de permiso (gestión de turnos en la org).
+
 ## 1) Overview
 **Turnia** is a web application for hospitals/clinics to manage **on-call shifts (“turnos de guardia”)** with clear **roles, permissions, traceability (audit log)** and a workflow for **requesting / offering / swapping shifts**.  
 Primary goal: replace Excel/WhatsApp workflows with a secure, auditable, role-based system that works on desktop (admin) and mobile (staff).
@@ -28,9 +30,8 @@ Primary platform: **SPA (web)** + **Capacitor** to ship **native mobile apps**.
 ## 3) Core Concepts (Domain)
 ### Entities
 - **Organization (Org)**: hospital/clinic client.
-- **Team / Service (Team)**: e.g. UCI, Urgencias, Pabellón.
 - **User / Profile**: staff member.
-- **Membership**: user’s role in an org and optionally in a team.
+- **Membership**: user’s role in an org.
 - **Shift**: scheduled guard shift (day/night/24h/etc), assigned or unassigned.
 - **Shift Request**: request to give away / take / swap / cover a shift.
 - **Availability events**: vacation, sick leave, training, etc. (blocks assignment).
@@ -44,10 +45,8 @@ Primary platform: **SPA (web)** + **Capacitor** to ship **native mobile apps**.
 
 ---
 
-## 4) Roles & Permission Model (RBAC + scoped to Org/Team)
-Turnia supports roles that can be assigned:
-- at **Org scope** (covers all teams), and/or
-- at **Team scope** (only for one service).
+## 4) Roles & Permission Model (RBAC + scoped to Org)
+Turnia supports roles assigned at **Org scope**.
 
 ### 4.1 Roles
 1) **Superadmin / Platform Admin**
@@ -55,18 +54,17 @@ Turnia supports roles that can be assigned:
    - Not involved in hospital operational scheduling.
 
 2) **Org Admin**
-   - Manages org settings, teams, role assignments.
-   - Can access all teams in the org.
+   - Manages org settings and role assignments.
 
 3) **Team Manager (Scheduler / Jefatura / Coordinador)**
-   - Manages scheduling for one or more teams.
+   - Manages scheduling for the org.
    - Creates/edits shift plans and approves requests.
-   - Has full visibility for those teams.
+   - Has full visibility of shifts in the org.
 
 4) **User (Staff)**
    - Views:
      - own shifts
-     - team shifts (visibility rules apply)
+     - org shifts (visibility rules apply)
    - Creates shift requests:
      - give away shift
      - request coverage
@@ -79,19 +77,17 @@ Turnia supports roles that can be assigned:
 
 ### 4.2 Permission Principles (must-haves)
 - **Least privilege**: users see only what they should see.
-- **Scoped membership**: a user may be Manager in Team A and User in Team B.
 - **Auditability**: all schedule-impacting actions are logged.
 - **Configurable org policy**:
-  - Can users see all team shifts or only published views?
+  - Can users see all org shifts or only published views?
   - Can users self-assign open shifts or always require approval?
 
 ---
 
 ## 5) Functional Requirements
 
-## 5.1 Organization & Team Setup
+## 5.1 Organization Setup
 - Create org (tenant).
-- Create teams/services under org.
 - Configure:
   - shift types (day/night/24h)
   - default rules (rest windows, fairness, etc.) — see section 5.5
@@ -104,13 +100,13 @@ Turnia supports roles that can be assigned:
 - Edit shift details:
   - time window
   - type
-  - location/team
+  - location
   - assigned user
 - Publish schedule (optional “draft vs published” states).
 
 ### Views
 - Calendar view (month/week/day)
-- List view (filters by team, type, user, date)
+- List view (filters by type, user, date)
 
 ### Controls
 - Bulk operations:

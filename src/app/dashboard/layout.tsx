@@ -1,5 +1,5 @@
-import { LogoutButton } from '@/components/auth/LogoutButton';
 import { AuthGuard } from '@/components/auth/AuthGuard';
+import { LogoutButton } from '@/components/auth/LogoutButton';
 
 export default function DashboardLayout({
   children,

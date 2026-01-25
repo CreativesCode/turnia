@@ -1,5 +1,5 @@
 // Edge Function: validar token de invitación (pública, sin auth)
-// Devuelve org, rol, team, email para mostrar en /invite/[token]
+// Devuelve org, rol, email para mostrar en /invite
 // @see project-roadmap.md Módulo 1
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
@@ -32,7 +32,7 @@ Deno.serve(async (req) => {
 
     const { data: inv, error } = await supabase
       .from('organization_invitations')
-      .select('id, org_id, team_id, email, role, status, expires_at, invited_by')
+      .select('id, org_id, email, role, status, expires_at, invited_by')
       .eq('token', token)
       .single();
 
@@ -62,9 +62,8 @@ Deno.serve(async (req) => {
       );
     }
 
-    const [orgRes, teamRes, inviterRes] = await Promise.all([
+    const [orgRes, inviterRes] = await Promise.all([
       supabase.from('organizations').select('name, slug').eq('id', inv.org_id).single(),
-      inv.team_id ? supabase.from('teams').select('name, slug').eq('id', inv.team_id).single() : Promise.resolve({ data: null }),
       supabase.from('profiles').select('full_name').eq('id', inv.invited_by).single(),
     ]);
 
@@ -77,9 +76,6 @@ Deno.serve(async (req) => {
         org_id: inv.org_id,
         org_name: orgRes.data?.name ?? null,
         org_slug: orgRes.data?.slug ?? null,
-        team_id: inv.team_id,
-        team_name: teamRes.data?.name ?? null,
-        team_slug: teamRes.data?.slug ?? null,
         invited_by_name: inviterRes.data?.full_name ?? null,
         expires_at: inv.expires_at,
       }),

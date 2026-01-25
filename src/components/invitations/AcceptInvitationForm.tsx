@@ -12,9 +12,6 @@ export type InvitationData = {
   org_id: string;
   org_name: string | null;
   org_slug: string | null;
-  team_id: string | null;
-  team_name: string | null;
-  team_slug: string | null;
   invited_by_name: string | null;
   expires_at: string;
 };
@@ -131,7 +128,6 @@ export function AcceptInvitationForm({ invitation, sessionUser, token }: Props) 
         <div className="mb-4 rounded-lg border border-border bg-subtle-bg p-3 text-sm text-text-secondary">
           <p className="font-medium text-text-primary">{invitation.org_name || 'Organización'}</p>
           <p>Rol: {ROLE_LABELS[invitation.role] || invitation.role}</p>
-          {invitation.team_name && <p>Equipo: {invitation.team_name}</p>}
           {invitation.invited_by_name && <p className="mt-1 text-muted">Invitado por {invitation.invited_by_name}</p>}
         </div>
         {error && <p className="mb-3 text-sm text-red-600">{error}</p>}
@@ -210,7 +206,6 @@ export function AcceptInvitationForm({ invitation, sessionUser, token }: Props) 
       <div className="mb-4 rounded-lg border border-border bg-subtle-bg p-3 text-sm text-text-secondary">
         <p className="font-medium text-text-primary">{invitation.org_name || 'Organización'}</p>
         <p>Te invitan como: {ROLE_LABELS[invitation.role] || invitation.role}</p>
-        {invitation.team_name && <p>Equipo: {invitation.team_name}</p>}
         <p className="mt-1">Correo: {invitation.email}</p>
         {invitation.invited_by_name && <p className="text-muted">Invitado por {invitation.invited_by_name}</p>}
       </div>

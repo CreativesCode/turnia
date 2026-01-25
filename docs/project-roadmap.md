@@ -117,13 +117,13 @@ useEffect(() => {
   const channel = supabase
     .channel('shifts')
     .on('postgres_changes', 
-      { event: 'UPDATE', schema: 'public', table: 'shifts', filter: `team_id=eq.${teamId}` },
+      { event: 'UPDATE', schema: 'public', table: 'shifts', filter: `org_id=eq.${orgId}` },
       handleUpdate
     )
     .subscribe();
   
   return () => { supabase.removeChannel(channel); };
-}, [teamId]);
+}, [orgId]);
 
 // ❌ INCORRECTO: Suscripción a toda la tabla sin cleanup
 supabase.from('shifts').on('UPDATE', handleUpdate).subscribe();
@@ -255,9 +255,8 @@ git commit -m "fix(requests): prevent duplicate request submissions"
 
 #### 2. **Base de Datos (Schema Completo)**
 - ✅ Tabla `organizations` (tenants multi-org)
-- ✅ Tabla `teams` (servicios/departamentos por org)
 - ✅ Tabla `profiles` (extensión de auth.users)
-- ✅ Tabla `memberships` (roles por org/team)
+- ✅ Tabla `memberships` (roles por org)
 - ✅ Tabla `shifts` (turnos con tipos: day/night/24h/custom)
 - ✅ Tabla `shift_requests` (solicitudes: give_away, swap, take_open)
 - ✅ Tabla `availability_events` (vacaciones, bajas, etc.)
@@ -277,7 +276,7 @@ git commit -m "fix(requests): prevent duplicate request submissions"
 #### 4. **Sistema de Roles (RBAC)**
 - ✅ 5 roles definidos: `superadmin`, `org_admin`, `team_manager`, `user`, `viewer`
 - ✅ Helper functions para permisos (`canManageOrg`, `canManageShifts`, etc.)
-- ✅ Memberships con scope de org y team
+- ✅ Memberships con scope de org
 
 #### 5. **Estructura de Rutas**
 - ✅ Landing page (`/`)
@@ -332,17 +331,17 @@ git commit -m "fix(requests): prevent duplicate request submissions"
 ##### **Tareas realizadas:**
 
 1. **Base de datos**
-   - [x] Tabla `organization_invitations` (id, org_id, team_id, email, role, token, invited_by, status, expires_at, metadata, created_at, accepted_at)
+   - [x] Tabla `organization_invitations` (id, org_id, email, role, token, invited_by, status, expires_at, metadata, created_at, accepted_at)
    - [x] Políticas RLS para `organization_invitations`
    - [x] Índices en `token` y `email`
 
 2. **API/Edge Functions**
    - [x] **Edge Function: `invite-user`** — Valida org_admin/superadmin, crea invitación, token, expiración 7 días. Enlace para copiar/pegar. (Email vía Resend opcional cuando haya dominio; ver `docs/invitation-emails.md`.)
-   - [x] **Edge Function: `validate-invitation`** — Verifica token, estado y expiración; devuelve org, rol, team, email.
+   - [x] **Edge Function: `validate-invitation`** — Verifica token, estado y expiración; devuelve org, rol, email.
    - [x] **Edge Function: `accept-invitation`** — Crea membership, marca `accepted`, `accepted_at`, audit_log.
 
 3. **Frontend - Invitar Usuarios**
-   - [x] Página `/dashboard/admin/invite` con formulario (email, rol, team opcional, mensaje opcional)
+   - [x] Página `/dashboard/admin/invite` con formulario (email, rol, mensaje opcional)
    - [x] Lista de invitaciones (pendientes, aceptadas, expiradas, canceladas)
    - [x] `InviteUserForm.tsx` — Crear invitación y copiar enlace
    - [x] `InvitationsList.tsx` — Listar, copiar enlace, cancelar
@@ -366,7 +365,9 @@ git commit -m "fix(requests): prevent duplicate request submissions"
 
 ---
 
-### 📊 **Módulo 2: Gestión de Organizaciones y Teams**
+### 📊 **Módulo 2: Gestión de Organizaciones**
+
+> **Nota**: Se prescindió del modelo Team; memberships, shifts y shift_requests son solo org-scoped.
 
 #### **2.1 Crear y Gestionar Organizaciones** — CONCLUIDO
 - [x] Página `/dashboard/admin/organizations`
@@ -380,24 +381,11 @@ git commit -m "fix(requests): prevent duplicate request submissions"
 - [x] Component `OrganizationList.tsx` (solo superadmin)
 - [x] Component `CreateOrganizationModal.tsx`
 
-#### **2.2 Crear y Gestionar Teams**
-- [ ] Página `/dashboard/admin/teams`
-  - [ ] Listar teams de la org
-  - [ ] Crear nuevo team (nombre, slug)
-  - [ ] Editar team
-  - [ ] Eliminar team (con validación de turnos activos)
-  - [ ] Ver miembros del team
-
-- [ ] Component `TeamsList.tsx`
-- [ ] Component `CreateTeamForm.tsx`
-- [ ] Component `EditTeamForm.tsx`
-
-#### **2.3 Gestión de Miembros**
+#### **2.2 Gestión de Miembros**
 - [ ] Página `/dashboard/admin/members`
   - [ ] Listar todos los miembros de la org
   - [ ] Ver memberships por usuario
   - [ ] Cambiar rol de un usuario
-  - [ ] Asignar/desasignar usuario a teams
   - [ ] Eliminar usuario de la org
 
 - [ ] Component `MembersList.tsx`
@@ -406,7 +394,6 @@ git commit -m "fix(requests): prevent duplicate request submissions"
 
 - [ ] API/RPC functions:
   - [ ] `change_user_role(user_id, org_id, new_role)`
-  - [ ] `assign_to_team(user_id, team_id, role)`
   - [ ] `remove_from_org(user_id, org_id)`
 
 ---
@@ -436,7 +423,6 @@ git commit -m "fix(requests): prevent duplicate request submissions"
 - [ ] Mostrar info al hacer click en turno:
   - [ ] Horario
   - [ ] Usuario asignado
-  - [ ] Team
   - [ ] Tipo
   - [ ] Ubicación
   - [ ] Acciones (editar, eliminar, solicitar cambio)
@@ -444,7 +430,6 @@ git commit -m "fix(requests): prevent duplicate request submissions"
 #### **3.2 Crear y Editar Turnos (Manager/Admin)**
 - [ ] Component `CreateShiftModal.tsx`
   - [ ] Formulario:
-    - [ ] Seleccionar team
     - [ ] Fecha y hora inicio
     - [ ] Fecha y hora fin
     - [ ] Tipo de turno
@@ -489,9 +474,8 @@ git commit -m "fix(requests): prevent duplicate request submissions"
 
 #### **3.4 Lista de Turnos con Filtros**
 - [ ] Implementar `ShiftList.tsx` completo
-  - [ ] Tabla con columnas: fecha, horario, tipo, usuario, team, estado
+  - [ ] Tabla con columnas: fecha, horario, tipo, usuario, estado
   - [ ] Filtros:
-    - [ ] Por team (dropdown)
     - [ ] Por tipo (checkbox: day, night, 24h, custom)
     - [ ] Por usuario (autocomplete)
     - [ ] Por rango de fechas (date picker)
@@ -534,7 +518,7 @@ git commit -m "fix(requests): prevent duplicate request submissions"
 
 #### **4.2 Bandeja de Solicitudes (Manager)**
 - [ ] Implementar `RequestsInbox.tsx` completo
-  - [ ] Listar solicitudes pendientes del team
+  - [ ] Listar solicitudes pendientes de la org
   - [ ] Filtrar por tipo (give_away, swap, take_open)
   - [ ] Filtrar por estado
   - [ ] Ordenar por fecha
@@ -611,7 +595,7 @@ git commit -m "fix(requests): prevent duplicate request submissions"
 - [ ] Request rejected → Notificar al requester
 - [ ] Shift assigned → Notificar al usuario asignado
 - [ ] Shift changed → Notificar al usuario afectado
-- [ ] Schedule published → Notificar al team
+- [ ] Schedule published → Notificar a la org
 
 #### **5.3 Email Notifications (Fallback)**
 - [ ] Configurar email templates en Supabase
@@ -654,7 +638,7 @@ git commit -m "fix(requests): prevent duplicate request submissions"
 - [ ] Component `AvailabilityCalendar.tsx`
 - [ ] Component `AddAvailabilityEventForm.tsx`
 
-#### **6.2 Ver Disponibilidad del Team (Manager)**
+#### **6.2 Ver Disponibilidad (Manager)**
 - [ ] Página `/dashboard/manager/availability`
   - [ ] Ver disponibilidad de todos los miembros
   - [ ] Filtrar por usuario
@@ -674,7 +658,6 @@ git commit -m "fix(requests): prevent duplicate request submissions"
   - [ ] Generar PDF (opcional, fase 2)
 
 - [ ] Página `/dashboard/admin/exports`
-  - [ ] Seleccionar team
   - [ ] Seleccionar rango de fechas
   - [ ] Seleccionar formato (CSV, Excel)
   - [ ] Botón descargar
@@ -885,7 +868,7 @@ git commit -m "fix(requests): prevent duplicate request submissions"
 ### **FASE 1: MVP Core (2-3 semanas)**
 1. ✅ Base de datos y auth (COMPLETADO)
 2. ✅ **Sistema de Invitaciones** (COMPLETADO)
-3. Gestión básica de Organizations y Teams
+3. Gestión básica de Organizations
 4. Crear y asignar turnos (formulario básico)
 5. Calendario básico (lectura)
 
@@ -937,8 +920,7 @@ git commit -m "fix(requests): prevent duplicate request submissions"
 
 ## 🎯 SIGUIENTE PASO INMEDIATO
 
-**Módulo 2: Gestión de Organizaciones y Teams**
+**Módulo 2: Gestión de Organizaciones**
 
 1. ~~Página `/dashboard/admin/organizations`~~ — hecho (listar, crear, editar, eliminar)
-2. Página `/dashboard/admin/teams` — CRUD de teams
-3. Página `/dashboard/admin/members` — listar miembros, cambiar roles, asignar a teams
+2. Página `/dashboard/admin/members` — listar miembros, cambiar roles

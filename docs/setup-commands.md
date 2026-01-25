@@ -229,7 +229,7 @@ turnia/
 
 ## 6) Migraciones SQL (resumen de entidades)
 
-Las tablas deben reflejar: **Organization**, **Team**, **User** (auth.users + `profiles`), **Membership** (org/team, rol), **Shift**, **ShiftRequest**, **AvailabilityEvent**, **AuditLog**.
+Las tablas deben reflejar: **Organization**, **User** (auth.users + `profiles`), **Membership** (org, rol), **Shift**, **ShiftRequest**, **AvailabilityEvent**, **AuditLog**. (Se prescindió del modelo Team.)
 
 Ejemplo de creación de la primera migración:
 
@@ -239,12 +239,12 @@ supabase migration new create_core_tables
 
 Luego editar `supabase/migrations/YYYYMMDDHHMMSS_create_core_tables.sql` con:
 
-- `organizations`, `teams`, `profiles`, `memberships` (org_id, team_id, role: superadmin|org_admin|team_manager|user|viewer).
-- `shifts` (org, team, tipo día/noche/24h, asignado, estado draft/published).
+- `organizations`, `profiles`, `memberships` (org_id, user_id, role: superadmin|org_admin|team_manager|user|viewer).
+- `shifts` (org_id, tipo día/noche/24h, asignado, estado draft/published).
 - `shift_requests` (tipos: give_away, swap, take_open; estados; aprobación).
 - `availability_events` (vacaciones, licencia, etc.).
 - `audit_log` (actor, timestamp, entity, old/new, comment).
-- **RLS** en todas las tablas, con políticas por `auth.uid()`, rol y `org_id`/`team_id` para aislamiento multi-tenant.
+- **RLS** en todas las tablas, con políticas por `auth.uid()`, rol y `org_id` para aislamiento multi-tenant.
 
 ---
 
@@ -322,11 +322,11 @@ npx cap sync
 | SPA + Capacitor | Next.js + `output: 'export'` + Capacitor |
 | Supabase Auth | `@supabase/supabase-js`, `@supabase/ssr` |
 | PostgreSQL + RLS | Supabase + políticas en migraciones |
-| Realtime | Supabase Realtime en canales por org/team |
+| Realtime | Supabase Realtime en canales por org |
 | Edge Functions (aprobar, notificar, exportar) | `supabase/functions/` |
 | Calendario (mes/semana/día) | FullCalendar |
 | Roles (Superadmin, Org Admin, Team Manager, User, Viewer) | `memberships.role` + RLS + helpers en `lib/rbac.ts` |
-| Multi-tenant (Org/Team) | `org_id`, `team_id` en tablas + RLS |
+| Multi-tenant (Org) | `org_id` en tablas + RLS |
 | Audit log inmutable | Tabla `audit_log` + solo Edge Functions/triggers la escriben |
 | Push + email | Capacitor Push + Edge Function + proveedor de email (Resend, etc.) |
 | Export CSV | Edge Function `export-schedule` o Route Handler con `service_role` |
@@ -339,4 +339,4 @@ npx cap sync
 - **Capacitor y Next.js**: con `output: 'export'`, la app es estática; para API routes dinámicas usarás Supabase (Edge Functions, Realtime, Auth). Ajusta `server.url` en `capacitor.config.ts` para desarrollo.
 - **Push**: en Android (FCM) e iOS (APNs) hay que configurar credenciales y, si usas Supabase, el flujo de push (o un backend propio que envíe a FCM/APNs).
 
-Si quieres, el siguiente paso puede ser: 1) un `create-next-app` concreto adaptado a tu carpeta actual, o 2) el SQL de la primera migración con RLS para orgs, teams, memberships, shifts y audit_log.
+Si quieres, el siguiente paso puede ser: 1) un `create-next-app` concreto adaptado a tu carpeta actual, o 2) el SQL de la primera migración con RLS para orgs, memberships, shifts y audit_log.

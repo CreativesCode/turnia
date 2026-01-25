@@ -14,7 +14,6 @@ type Row = {
   id: string;
   email: string;
   role: string;
-  team_id: string | null;
   status: string;
   expires_at: string;
   created_at: string;
@@ -55,7 +54,7 @@ export function InvitationsList({ orgId, refreshKey }: Props) {
     const supabase = createClient();
     const { data, error } = await supabase
       .from('organization_invitations')
-      .select('id, email, role, team_id, status, expires_at, created_at, token')
+      .select('id, email, role, status, expires_at, created_at, token')
       .eq('org_id', orgId)
       .in('status', ['pending', 'accepted', 'expired', 'cancelled'])
       .order('created_at', { ascending: false });

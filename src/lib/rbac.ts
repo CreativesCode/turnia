@@ -1,5 +1,5 @@
 /**
- * RBAC: roles y helpers de permisos (Org/Team scoped)
+ * RBAC: roles y helpers de permisos (scoped a Org)
  * @see indications.md §4
  */
 
@@ -12,7 +12,6 @@ export type Role =
 
 export type MembershipRow = {
   org_id: string;
-  team_id: string | null;
   role: Role;
 };
 

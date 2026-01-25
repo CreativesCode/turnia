@@ -73,11 +73,10 @@ Deno.serve(async (req) => {
       org_id: string;
       email?: string;
       role?: string;
-      team_id?: string | null;
       custom_message?: string;
     };
-    const { org_id, email, role, team_id = null, custom_message } = body;
-    console.log('[invite-user] Body parsed:', { org_id, email, role, team_id });
+    const { org_id, email, role, custom_message } = body;
+    console.log('[invite-user] Body parsed:', { org_id, email, role });
 
     if (!org_id || !email || !role) {
       console.log('[invite-user] ERROR: Missing required fields');
@@ -133,7 +132,6 @@ Deno.serve(async (req) => {
       .from('organization_invitations')
       .insert({
         org_id,
-        team_id: team_id || null,
         email: email.trim().toLowerCase(),
         role,
         token,
