@@ -1,0 +1,130 @@
+'use client';
+
+import { createClient } from '@/lib/supabase/client';
+import { useCallback, useEffect, useState } from 'react';
+import { ROLE_LABELS, ROLES_EDITABLE } from './role-labels';
+import type { MemberForDetails } from './MemberDetails';
+
+type Props = {
+  member: MemberForDetails;
+  orgId: string;
+  onSuccess: () => void;
+  onClose: () => void;
+};
+
+const ERROR_MESSAGES: Record<string, string> = {
+  forbidden: 'No tienes permiso para cambiar el rol.',
+  invalid_role: 'Rol no válido.',
+  membership_not_found: 'No se encontró la membresía.',
+  cannot_change_superadmin: 'Solo un superadmin puede cambiar el rol de un superadmin.',
+  cannot_remove_last_admin: 'No se puede quitar el último administrador de la organización.',
+};
+
+/**
+ * Modal para cambiar el rol de un miembro. Llama a la RPC change_user_role.
+ */
+export function EditMembershipForm({ member, orgId, onSuccess, onClose }: Props) {
+  const [role, setRole] = useState(member.role);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const onEscape = useCallback(
+    (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    },
+    [onClose]
+  );
+  useEffect(() => {
+    document.addEventListener('keydown', onEscape);
+    return () => document.removeEventListener('keydown', onEscape);
+  }, [onEscape]);
+
+  const submit = useCallback(
+    async (e: React.FormEvent) => {
+      e.preventDefault();
+      setError(null);
+      setSaving(true);
+      const supabase = createClient();
+      const { data, error: rpcError } = await supabase.rpc('change_user_role', {
+        p_org_id: orgId,
+        p_user_id: member.user_id,
+        p_new_role: role,
+      });
+      setSaving(false);
+      if (rpcError) {
+        setError(rpcError.message);
+        return;
+      }
+      const res = data as { ok?: boolean; error?: string } | null;
+      if (!res?.ok) {
+        setError(ERROR_MESSAGES[res?.error ?? ''] ?? res?.error ?? 'Error al cambiar el rol');
+        return;
+      }
+      onSuccess();
+      onClose();
+    },
+    [orgId, member.user_id, role, onSuccess, onClose]
+  );
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="edit-membership-title"
+    >
+      <button
+        type="button"
+        onClick={onClose}
+        className="absolute inset-0 bg-black/50"
+        aria-label="Cerrar"
+      />
+      <form
+        onSubmit={submit}
+        className="relative w-full max-w-sm rounded-xl border border-border bg-background p-6 shadow-lg"
+      >
+        <h2 id="edit-membership-title" className="text-lg font-semibold text-text-primary">
+          Editar rol
+        </h2>
+        <p className="mt-1 text-sm text-text-secondary">
+          {member.full_name?.trim() || member.email || 'Usuario'}
+        </p>
+        <div className="mt-4">
+          <label htmlFor="edit-role" className="block text-sm font-medium text-text-secondary">
+            Rol
+          </label>
+          <select
+            id="edit-role"
+            value={role}
+            onChange={(e) => setRole(e.target.value)}
+            className="mt-1.5 block w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-text-primary focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+          >
+            {ROLES_EDITABLE.map((r) => (
+              <option key={r} value={r}>
+                {ROLE_LABELS[r] ?? r}
+              </option>
+            ))}
+          </select>
+        </div>
+        {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
+        <div className="mt-6 flex flex-wrap justify-end gap-3">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={saving}
+            className="min-h-[44px] min-w-[44px] rounded-lg border border-border px-4 py-2.5 text-sm font-medium text-text-secondary hover:bg-subtle-bg disabled:opacity-50"
+          >
+            Cancelar
+          </button>
+          <button
+            type="submit"
+            disabled={saving}
+            className="min-h-[44px] min-w-[44px] rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50"
+          >
+            {saving ? 'Guardando…' : 'Guardar'}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}

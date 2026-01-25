@@ -15,6 +15,12 @@ export default function AdminPage() {
           Organizaciones
         </Link>
         <Link
+          href="/dashboard/admin/members"
+          className="rounded-lg border border-border bg-background px-4 py-2 text-sm font-medium text-text-primary hover:bg-subtle-bg"
+        >
+          Miembros
+        </Link>
+        <Link
           href="/dashboard/admin/invite"
           className="rounded-lg border border-border bg-background px-4 py-2 text-sm font-medium text-text-primary hover:bg-subtle-bg"
         >

@@ -381,20 +381,20 @@ git commit -m "fix(requests): prevent duplicate request submissions"
 - [x] Component `OrganizationList.tsx` (solo superadmin)
 - [x] Component `CreateOrganizationModal.tsx`
 
-#### **2.2 Gestión de Miembros**
-- [ ] Página `/dashboard/admin/members`
-  - [ ] Listar todos los miembros de la org
-  - [ ] Ver memberships por usuario
-  - [ ] Cambiar rol de un usuario
-  - [ ] Eliminar usuario de la org
+#### **2.2 Gestión de Miembros** — CONCLUIDO
+- [x] Página `/dashboard/admin/members`
+  - [x] Listar todos los miembros de la org
+  - [x] Ver memberships por usuario (detalle en modal)
+  - [x] Cambiar rol de un usuario
+  - [x] Eliminar usuario de la org
 
-- [ ] Component `MembersList.tsx`
-- [ ] Component `EditMembershipForm.tsx`
-- [ ] Component `MemberDetails.tsx`
+- [x] Component `MembersList.tsx`
+- [x] Component `EditMembershipForm.tsx`
+- [x] Component `MemberDetails.tsx`
 
-- [ ] API/RPC functions:
-  - [ ] `change_user_role(user_id, org_id, new_role)`
-  - [ ] `remove_from_org(user_id, org_id)`
+- [x] API/RPC functions:
+  - [x] `change_user_role(p_org_id, p_user_id, p_new_role)` — RPC en migración `20250126100000_members_management.sql`
+  - [x] `remove_from_org(p_org_id, p_user_id)` — RPC en la misma migración
 
 ---
 
@@ -920,7 +920,8 @@ git commit -m "fix(requests): prevent duplicate request submissions"
 
 ## 🎯 SIGUIENTE PASO INMEDIATO
 
-**Módulo 2: Gestión de Organizaciones**
+**Módulo 3: Calendario y Gestión de Turnos**
 
-1. ~~Página `/dashboard/admin/organizations`~~ — hecho (listar, crear, editar, eliminar)
-2. Página `/dashboard/admin/members` — listar miembros, cambiar roles
+1. Implementar FullCalendar en `ShiftCalendar.tsx` (vistas: mensual, semanal, diaria, lista)
+2. Cargar turnos desde Supabase y colorear por tipo (day/night/24h/custom)
+3. Crear y editar turnos: `CreateShiftModal`, `EditShiftModal`, Edge Functions `create-shift`, `update-shift`, `delete-shift`
