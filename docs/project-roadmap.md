@@ -291,11 +291,11 @@ git commit -m "fix(requests): prevent duplicate request submissions"
 #### 6. **Componentes Base (Placeholders)**
 - ✅ `ShiftCalendar.tsx` (estructura preparada para FullCalendar)
 - ✅ `ShiftList.tsx` (estructura básica)
-- ✅ `RequestsInbox.tsx` (estructura básica)
+- ✅ `RequestsInbox.tsx` (bandeja manager completa: lista, filtros, RequestDetailModal)
 - ✅ `AuthGuard.tsx` (protección de rutas)
 
 #### 7. **Edge Functions (Estructura Preparada)**
-- ✅ `approve-request` (esqueleto)
+- ✅ `approve-request` (completa: aprobar/rechazar, aplicar cambios en turnos, audit_log; reject integrado con action=reject)
 - ✅ `send-notification` (esqueleto)
 - ✅ `export-schedule` (esqueleto)
 
@@ -343,7 +343,19 @@ git commit -m "fix(requests): prevent duplicate request submissions"
 #### 13. **Crear solicitudes desde ShiftDetailModal (Módulo 4.1 — parcial)**
 - [x] `GiveAwayRequestModal`, `TakeOpenRequestModal`, `SwapRequestModal` (comentario opcional; evita duplicados pending)
 - [x] RLS `shift_requests_insert_member` y `user_can_create_requests(org_id)` (migración `20250130000000_shift_requests_insert_members.sql`)
-- [x] `useScheduleOrg`: `userId`, `canCreateRequests`
+- [x] `useScheduleOrg`: `userId`, `canCreateRequests`, `canApproveRequests`
+
+#### 14. **Página Mis solicitudes (Módulo 4.1)**
+- [x] Página `/dashboard/staff/my-requests` con `MyRequestsList`
+- [x] Listar solicitudes del usuario; estados: draft, submitted, accepted, approved, rejected, cancelled
+- [x] Cancelar solicitud si está en draft/submitted/accepted (RLS `shift_requests_update_requester_cancel`)
+
+#### 15. **Bandeja de solicitudes y flujo de aprobación (Módulos 4.2, 4.3)**
+- [x] `RequestsInbox.tsx` completo: listar solicitudes de la org, filtrar por tipo y estado, ordenar por fecha
+- [x] `RequestDetailModal.tsx`: detalle, turnos/usuarios involucrados, aprobar, rechazar, comentario del manager
+- [x] Página `/dashboard/manager/requests`
+- [x] Edge Function `approve-request`: validar permisos (team_manager, org_admin, superadmin), validar estado (submitted/accepted), aplicar en turnos (give_away→sin asignar, take_open→asignar a requester, swap→intercambiar), actualizar estado, `audit_log`
+- [x] Rechazo integrado en `approve-request` con `action: 'reject'` (razón en audit_log)
 
 ---
 
@@ -541,7 +553,7 @@ Cada organización define sus propios **tipos de turno** (las categorías en las
 
 ### 🔄 **Módulo 4: Sistema de Solicitudes (Requests)**
 
-#### **4.1 Crear Solicitudes (Staff)** — parcial
+#### **4.1 Crear Solicitudes (Staff)** — CONCLUIDO (opcional: sugerir reemplazo en Give Away)
 - [x] **Acción «solicitar cambio» desde `ShiftDetailModal`** (dar de baja, intercambiar, tomar turno). RLS `shift_requests_insert_member` (migración `20250130000000`).
 
 - [x] **Give Away / Coverage Request**
@@ -564,48 +576,48 @@ Cada organización define sus propios **tipos de turno** (las categorías en las
   - [x] Component `TakeOpenRequestModal.tsx` (abierto desde ShiftDetailModal)
   - [x] Usuario ve turnos sin asignar (clic en turno abierto)
   - [x] Solicita tomar un turno abierto
-  - [ ] Manager aprueba (4.3 `approve-request`)
+  - [x] Manager aprueba (4.3 `approve-request`)
 
-- [ ] Página `/dashboard/staff/my-requests`
-  - [ ] Listar solicitudes del usuario
-  - [ ] Estados: draft, submitted, accepted, approved, rejected, cancelled
-  - [ ] Cancelar solicitud (si está pending)
+- [x] Página `/dashboard/staff/my-requests`
+  - [x] Listar solicitudes del usuario
+  - [x] Estados: draft, submitted, accepted, approved, rejected, cancelled
+  - [x] Cancelar solicitud (si está pending: draft/submitted/accepted)
 
-#### **4.2 Bandeja de Solicitudes (Manager)**
-- [ ] Implementar `RequestsInbox.tsx` completo
-  - [ ] Listar solicitudes pendientes de la org
-  - [ ] Filtrar por tipo (give_away, swap, take_open)
-  - [ ] Filtrar por estado
-  - [ ] Ordenar por fecha
+#### **4.2 Bandeja de Solicitudes (Manager)** — CONCLUIDO
+- [x] Implementar `RequestsInbox.tsx` completo
+  - [x] Listar solicitudes de la org (filtro por pendientes, aprobadas, etc.)
+  - [x] Filtrar por tipo (give_away, swap, take_open)
+  - [x] Filtrar por estado
+  - [x] Ordenar por fecha
 
-- [ ] Component `RequestDetailModal.tsx`
-  - [ ] Ver detalles de la solicitud
-  - [ ] Ver turnos involucrados
-  - [ ] Ver usuarios involucrados
-  - [ ] Botón aprobar
-  - [ ] Botón rechazar
-  - [ ] Campo para comentario del manager
+- [x] Component `RequestDetailModal.tsx`
+  - [x] Ver detalles de la solicitud
+  - [x] Ver turnos involucrados
+  - [x] Ver usuarios involucrados
+  - [x] Botón aprobar
+  - [x] Botón rechazar
+  - [x] Campo para comentario del manager
 
-- [ ] Página `/dashboard/manager/requests`
+- [x] Página `/dashboard/manager/requests`
 
-#### **4.3 Flujo de Aprobación**
-- [ ] Edge Function `approve-request` (completar)
-  - [ ] Validar permisos del aprobador
-  - [ ] Validar estado de la solicitud
-  - [ ] Aplicar cambios en turnos:
-    - Give away: reasignar o dejar sin asignar
+#### **4.3 Flujo de Aprobación** — CONCLUIDO
+- [x] Edge Function `approve-request` (completa)
+  - [x] Validar permisos del aprobador (team_manager, org_admin, superadmin)
+  - [x] Validar estado de la solicitud (submitted, accepted)
+  - [x] Aplicar cambios en turnos:
+    - Give away: dejar sin asignar
     - Swap: intercambiar asignaciones
     - Take open: asignar turno al solicitante
-  - [ ] Actualizar estado a `approved`
-  - [ ] Registrar en audit_log
-  - [ ] Enviar notificaciones
+  - [x] Actualizar estado a `approved`
+  - [x] Registrar en audit_log
+  - [ ] Enviar notificaciones (Módulo 5)
 
-- [ ] Edge Function `reject-request`
-  - [ ] Validar permisos
-  - [ ] Actualizar estado a `rejected`
-  - [ ] Registrar razón del rechazo
-  - [ ] Registrar en audit_log
-  - [ ] Notificar al solicitante
+- [x] Rechazo (integrado en `approve-request` con `action: 'reject'`)
+  - [x] Validar permisos
+  - [x] Actualizar estado a `rejected`
+  - [x] Registrar razón del rechazo (comment en audit_log)
+  - [x] Registrar en audit_log
+  - [ ] Notificar al solicitante (Módulo 5)
 
 #### **4.4 Workflow de Swap (con aceptación de contraparte)**
 - [ ] Flujo de estados:
@@ -929,8 +941,8 @@ Cada organización define sus propios **tipos de turno** (las categorías en las
 6. ✅ Calendario básico (lectura): FullCalendar, colorear por tipo, círculo+usuario, orden por hora
 
 ### **FASE 2: Requests Workflow (2 semanas)**
-6. Sistema de solicitudes (give away, swap, take open)
-7. Bandeja de aprobaciones para manager
+6. ✅ Sistema de solicitudes (give away, swap, take open) — COMPLETADO (my-requests, cancelar)
+7. ✅ Bandeja de aprobaciones para manager — COMPLETADO (RequestsInbox, RequestDetailModal, approve-request)
 8. Notificaciones básicas (email)
 
 ### **FASE 3: Calendar & Views (1-2 semanas)**
@@ -964,14 +976,14 @@ Cada organización define sus propios **tipos de turno** (las categorías en las
 
 ### Estado General del Proyecto
 - **Total de módulos**: 14
-- **Módulos completados**: Invitaciones (M1), 2.1 Organizaciones, 2.2 Miembros, 2.3 Tipos de turno (+ infraestructura base)
-- **Módulos en curso**: 4.1 Crear solicitudes (parcial; falta my-requests, sugerir reemplazo), 4.2–4.4, 3.3 Operaciones en lote, 3.4 Lista de turnos
-- **Progreso estimado**: ~34–36%
+- **Módulos completados**: Invitaciones (M1), 2.1 Organizaciones, 2.2 Miembros, 2.3 Tipos de turno, 4.1 Crear solicitudes, 4.2 Bandeja manager, 4.3 Flujo de aprobación (+ infraestructura base)
+- **Módulos en curso**: 4.4 Swap con aceptación de contraparte, 3.3 Operaciones en lote, 3.4 Lista de turnos
+- **Progreso estimado**: ~40–42%
 
 ### Tareas por Estado
-- ✅ **Completadas**: ~105 tareas (incl. solicitar cambio desde ShiftDetailModal: GiveAway, Swap, TakeOpen; RLS shift_requests_insert_member)
-- 🔄 **En progreso**: 4.1 (my-requests, sugerir reemplazo), 4.2–4.4, 3.3, 3.4
-- ⏳ **Pendientes**: ~170 tareas
+- ✅ **Completadas**: ~125 tareas (incl. my-requests, RequestsInbox, RequestDetailModal, approve-request, reject integrado)
+- 🔄 **En progreso**: 4.4 (AcceptSwapButton, notificaciones), 3.3, 3.4
+- ⏳ **Pendientes**: ~150 tareas
 
 ---
 
@@ -979,14 +991,14 @@ Cada organización define sus propios **tipos de turno** (las categorías en las
 
 **Módulo 3 (Calendario y turnos)** — Hecho: FullCalendar, `ShiftDetailModal` (editar, eliminar, **solicitar cambio**), Create/EditShiftModal, Edge Functions create/update/delete-shift, filtros, validaciones (RPC `check_shift_conflicts`).
 
-**Módulo 4.1 (Crear solicitudes)** — Hecho: acción «solicitar cambio» desde `ShiftDetailModal` (Dar de baja, Intercambiar, Tomar turno) con `GiveAwayRequestModal`, `TakeOpenRequestModal`, `SwapRequestModal`; RLS para INSERT.
+**Módulo 4.1 (Crear solicitudes)** — Hecho: acción «solicitar cambio» desde `ShiftDetailModal`; `GiveAwayRequestModal`, `TakeOpenRequestModal`, `SwapRequestModal`; RLS para INSERT; página `/dashboard/staff/my-requests` (listar, cancelar si pending).
+
+**Módulo 4.2 y 4.3 (Bandeja y aprobación)** — Hecho: `RequestsInbox`, `RequestDetailModal`, página `/dashboard/manager/requests`; Edge Function `approve-request` (aprobar/rechazar, aplicar cambios en turnos, audit_log).
 
 **Pendiente:**
-1. Página `/dashboard/staff/my-requests`: listar mis solicitudes, cancelar si pending (4.1).
-2. Opción «sugerir reemplazo» en Give Away (4.1, opcional).
-3. Bandeja manager: `RequestsInbox` completo, `RequestDetailModal`, aprobar/rechazar; `approve-request` y `reject-request` (4.2, 4.3).
-4. Swap: `AcceptSwapButton` para User B y notificaciones (4.4, 5).
-5. Operaciones en lote (3.3): plantillas, copiar semana/mes, bulk assign.
-6. Lista de turnos con filtros (3.4): `ShiftList` completo.
+1. Opción «sugerir reemplazo» en Give Away (4.1, opcional).
+2. Swap: `AcceptSwapButton` para User B y notificaciones (4.4, 5).
+3. Operaciones en lote (3.3): plantillas, copiar semana/mes, bulk assign.
+4. Lista de turnos con filtros (3.4): `ShiftList` completo.
 
 *Opcional: reordenar tipos (`sort_order`), iterar color si ya existe en la org; `min_rest_hours` desde `org_settings` (Módulo 9) cuando exista.*

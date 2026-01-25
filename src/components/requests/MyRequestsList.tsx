@@ -97,7 +97,7 @@ export function MyRequestsList({ orgId, userId, refreshKey = 0 }: Props) {
       return;
     }
 
-    const list = (data ?? []) as Row[];
+    const list = ((data ?? []) as unknown) as Row[];
     setRows(list);
 
     const userIds = new Set<string>();

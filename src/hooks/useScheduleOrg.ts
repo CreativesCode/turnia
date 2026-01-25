@@ -1,7 +1,7 @@
 'use client';
 
 import { createClient } from '@/lib/supabase/client';
-import { canManageShifts, canCreateRequests, type MembershipRow } from '@/lib/rbac';
+import { canManageShifts, canCreateRequests, canApproveRequests, type MembershipRow } from '@/lib/rbac';
 import { useCallback, useEffect, useState } from 'react';
 
 export type UseScheduleOrgResult = {
@@ -9,6 +9,7 @@ export type UseScheduleOrgResult = {
   userId: string | null;
   canManageShifts: boolean;
   canCreateRequests: boolean;
+  canApproveRequests: boolean;
   isLoading: boolean;
   error: string | null;
   refetch: () => void;
@@ -24,6 +25,7 @@ export function useScheduleOrg(): UseScheduleOrgResult {
   const [userId, setUserId] = useState<string | null>(null);
   const [canEdit, setCanEdit] = useState(false);
   const [canCreateReqs, setCanCreateReqs] = useState(false);
+  const [canApproveReqs, setCanApproveReqs] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -38,6 +40,7 @@ export function useScheduleOrg(): UseScheduleOrgResult {
       setUserId(null);
       setCanEdit(false);
       setCanCreateReqs(false);
+      setCanApproveReqs(false);
       setIsLoading(false);
       return;
     }
@@ -53,6 +56,7 @@ export function useScheduleOrg(): UseScheduleOrgResult {
       setUserId(null);
       setCanEdit(false);
       setCanCreateReqs(false);
+      setCanApproveReqs(false);
       setIsLoading(false);
       return;
     }
@@ -62,6 +66,7 @@ export function useScheduleOrg(): UseScheduleOrgResult {
       setUserId(null);
       setCanEdit(false);
       setCanCreateReqs(false);
+      setCanApproveReqs(false);
       setIsLoading(false);
       return;
     }
@@ -71,6 +76,7 @@ export function useScheduleOrg(): UseScheduleOrgResult {
     setUserId(user.id);
     setCanEdit(canManageShifts(m));
     setCanCreateReqs(canCreateRequests(m));
+    setCanApproveReqs(canApproveRequests(m));
     setIsLoading(false);
   }, []);
 
@@ -78,5 +84,5 @@ export function useScheduleOrg(): UseScheduleOrgResult {
     run();
   }, [run]);
 
-  return { orgId, userId, canManageShifts: canEdit, canCreateRequests: canCreateReqs, isLoading, error, refetch: run };
+  return { orgId, userId, canManageShifts: canEdit, canCreateRequests: canCreateReqs, canApproveRequests: canApproveReqs, isLoading, error, refetch: run };
 }
