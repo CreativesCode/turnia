@@ -20,6 +20,11 @@ Si eres nuevo en el proyecto, empieza por aquí:
 
 - [📝 Indicaciones](./indications.md) - Directrices y consideraciones del proyecto
 
+- [🔄 Solicitudes de turnos](./solicitudes-turnos.md) - Ceder, intercambiar, pedir turno abierto
+  - Tipos: give_away, swap, take_open
+  - Flujos paso a paso y estados
+  - Qué está implementado y qué falta (Módulo 4)
+
 ## 🎨 Diseño y UI
 
 - [🎨 Colores](./colors.md) - Paleta de colores del proyecto
@@ -88,6 +93,7 @@ docs/
 ├── setup-commands.md                  # Comandos de setup
 ├── first-admin.md                     # Configuración admin
 ├── invitation-emails.md               # Email de invitaciones (Resend, opcional)
+├── solicitudes-turnos.md              # Ceder / swap / pedir turno abierto (Módulo 4)
 ├── colors.md                          # Paleta de colores
 ├── indications.md                     # Directrices generales
 │
@@ -107,6 +113,9 @@ docs/
 ### "Quiero entender el proyecto completo"
 1. [README Principal](../README.md)
 2. [Project Roadmap](./project-roadmap.md)
+
+### "¿Cómo funciona ceder un turno, intercambiarlo o pedir uno abierto?"
+1. [Solicitudes de turnos](./solicitudes-turnos.md)
 
 ### "Quiero trabajar con las apps nativas"
 1. [Assets Summary](./assets-summary.md) ⭐ Empezar aquí

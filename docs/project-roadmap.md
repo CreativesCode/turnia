@@ -329,6 +329,17 @@ git commit -m "fix(requests): prevent duplicate request submissions"
 - ✅ Badge circular (color + letra en negrita; texto blanco/negro según luminancia)
 - ✅ Edge Function `export-schedule`: join con `organization_shift_types`, exporta name/letter
 
+#### 12. **Calendario y turnos (Módulo 3.1 y 3.2 — parcial)**
+- [x] FullCalendar en `ShiftCalendar.tsx`: vistas mes, semana, día, lista
+- [x] Carga de turnos desde Supabase (join `organization_shift_types`), colorear por tipo
+- [x] Visualización: barra con color del tipo, círculo blanco con letra + nombre de usuario; orden por hora (`eventOrder="start"`)
+- [x] `ShiftDetailModal`: detalle al clic (horario, asignado, tipo, ubicación, estado); editar y eliminar
+- [x] `CreateShiftModal`: solo fecha, tipo, asignar, ubicación, estado; horas desde el tipo
+- [x] `EditShiftModal`: mismo esquema que crear (solo fecha)
+- [x] Edge Functions `create-shift`, `update-shift`, `delete-shift` (con `--no-verify-jwt`; cliente con `refreshSession`)
+- [x] Filtros en calendario: `ShiftCalendarFilters` (por tipo de turno, usuario, estado draft/published)
+- [x] Validaciones: overlap, disponibilidad (`availability_events`), descanso mínimo; RPC `check_shift_conflicts`; integradas en Create/EditShiftModal y en Edge Functions create-shift/update-shift
+
 ---
 
 ## 🚀 MÓDULOS Y FUNCIONALIDADES PENDIENTES
@@ -432,8 +443,8 @@ Cada organización define sus propios **tipos de turno** (las categorías en las
   - [ ] Iterar `hue + 37` si el hex ya existe en la org para garantizar distinción (opcional).
 
 - [x] **Integración (parcial)**
-  - [ ] `CreateShiftModal` / `EditShiftModal`: selector de tipo de turno desde `organization_shift_types` (Módulo 3).
-  - [ ] Calendario y listas: colorear por `organization_shift_types.color` y mostrar `letter` o `name` (Módulo 3).
+  - [x] `CreateShiftModal` / `EditShiftModal`: selector de tipo de turno desde `organization_shift_types` (Módulo 3).
+  - [x] Calendario y listas: colorear por `organization_shift_types.color` y mostrar `letter` o `name` (Módulo 3).
   - [x] `export-schedule`: join con `organization_shift_types`; exporta `shift_type` (name) y `type_letter`.
 
 **Nota**: Los turnos concretos (registros en `shifts`) se crean y asignan en el **Módulo 3** (Calendario y Gestión de Turnos). Los **tipos de turno** definidos aquí son las “plantillas” o categorías que cada organización debe tener creadas antes de poder generar turnos.
@@ -443,53 +454,52 @@ Cada organización define sus propios **tipos de turno** (las categorías en las
 ### 📅 **Módulo 3: Calendario y Gestión de Turnos**
 
 #### **3.1 Visualización de Calendario**
-- [ ] Implementar FullCalendar en `ShiftCalendar.tsx`
-  - [ ] Vista mensual (daygrid)
-  - [ ] Vista semanal (timegrid)
-  - [ ] Vista diaria (timegrid)
-  - [ ] Vista lista (list)
-  - [ ] Cambio entre vistas
+- [x] Implementar FullCalendar en `ShiftCalendar.tsx`
+  - [x] Vista mensual (daygrid)
+  - [x] Vista semanal (timegrid)
+  - [x] Vista diaria (timegrid)
+  - [x] Vista lista (list)
+  - [x] Cambio entre vistas
 
-- [ ] Cargar turnos desde Supabase (join con `organization_shift_types`)
-  - [ ] Filtrar por tipo de turno (tipos de la org)
-  - [ ] Filtrar por usuario
-  - [ ] Filtrar por estado (draft/published)
+- [x] Cargar turnos desde Supabase (join con `organization_shift_types`)
+  - [x] Filtrar por tipo de turno (tipos de la org)
+  - [x] Filtrar por usuario
+  - [x] Filtrar por estado (draft/published)
 
-- [ ] Colorear turnos según `organization_shift_types.color` (cada org define sus tipos y colores)
-  - [ ] Mostrar `letter` o `name` del tipo en la vista (tooltip, badge, etc.)
+- [x] Colorear turnos según `organization_shift_types.color` (cada org define sus tipos y colores)
+  - [x] Mostrar `letter` o `name` del tipo en la vista: barra con color del tipo, círculo blanco con letra en color + nombre del usuario; `eventOrder="start"` para ordenar por hora en el día.
 
-- [ ] Mostrar info al hacer click en turno:
-  - [ ] Horario
-  - [ ] Usuario asignado
-  - [ ] Tipo
-  - [ ] Ubicación
-  - [ ] Acciones (editar, eliminar, solicitar cambio)
+- [x] Mostrar info al hacer click en turno (`ShiftDetailModal`):
+  - [x] Horario
+  - [x] Usuario asignado
+  - [x] Tipo
+  - [x] Ubicación
+  - [x] Acciones (editar, eliminar, solicitar cambio — pendiente)
 
 #### **3.2 Crear y Editar Turnos (Manager/Admin)**
-- [ ] Component `CreateShiftModal.tsx`
-  - [ ] Formulario:
-    - [ ] Fecha y hora inicio
-    - [ ] Fecha y hora fin
-    - [ ] Tipo de turno (selector desde `organization_shift_types` de la org; la org debe tener al menos un tipo — ver Módulo 2.3)
-    - [ ] Asignar usuario (opcional)
-    - [ ] Ubicación (opcional)
-    - [ ] Estado (draft/published)
+- [x] Component `CreateShiftModal.tsx`
+  - [x] Formulario:
+    - [x] Fecha (solo fecha; inicio/fin se calculan desde `organization_shift_types.start_time`/`end_time`)
+    - [x] Tipo de turno (selector desde `organization_shift_types` de la org; la org debe tener al menos un tipo — ver Módulo 2.3)
+    - [x] Asignar usuario (opcional)
+    - [x] Ubicación (opcional)
+    - [x] Estado (draft/published)
 
-- [ ] Component `EditShiftModal.tsx`
-  - [ ] Editar campos del turno
-  - [ ] Validar conflictos (overlaps)
-  - [ ] Validar disponibilidad del usuario
+- [x] Component `EditShiftModal.tsx`
+  - [x] Editar campos del turno (igual que crear: solo fecha, tipo, asignar, ubicación, estado; horas desde el tipo)
+  - [x] Validar conflictos (overlaps, disponibilidad, descanso) vía RPC antes de guardar
+  - [x] Validar disponibilidad del usuario (availability_events)
 
-- [ ] Validaciones:
-  - [ ] No permitir overlap del mismo usuario
-  - [ ] Verificar disponibilidad (availability_events)
-  - [ ] Regla de descanso mínimo (configurable)
+- [x] Validaciones:
+  - [x] No permitir overlap del mismo usuario
+  - [x] Verificar disponibilidad (availability_events)
+  - [x] Regla de descanso mínimo (RPC con p_min_rest_hours; 0 hasta org_settings)
 
-- [ ] API:
-  - [ ] Edge Function `create-shift`
-  - [ ] Edge Function `update-shift`
-  - [ ] Edge Function `delete-shift`
-  - [ ] RPC `check_shift_conflicts(user_id, start_at, end_at)`
+- [x] API:
+  - [x] Edge Function `create-shift` (desplegada con `--no-verify-jwt`; cliente usa `refreshSession` antes de invocar; valida con RPC)
+  - [x] Edge Function `update-shift` (idem; valida con RPC)
+  - [x] Edge Function `delete-shift` (idem)
+  - [x] RPC `check_shift_conflicts` (overlap, availability_events, min_rest_hours); migración `20250129000000_check_shift_conflicts.sql`
 
 #### **3.3 Operaciones en Lote**
 - [ ] Generar turnos desde plantilla:
@@ -906,10 +916,10 @@ Cada organización define sus propios **tipos de turno** (las categorías en las
 ### **FASE 1: MVP Core (2-3 semanas)**
 1. ✅ Base de datos y auth (COMPLETADO)
 2. ✅ **Sistema de Invitaciones** (COMPLETADO)
-3. Gestión básica de Organizations
+3. ✅ Gestión básica de Organizations (COMPLETADO)
 4. ✅ **Tipos de turno por organización** (2.3: UI, letra, color, horario, badge circular) — CONCLUIDO
-5. Crear y asignar turnos (formulario básico; usa `organization_shift_types`)
-6. Calendario básico (lectura)
+5. ✅ Crear y asignar turnos (CreateShiftModal, EditShiftModal, Edge Functions create/update/delete-shift; solo fecha, horas desde el tipo)
+6. ✅ Calendario básico (lectura): FullCalendar, colorear por tipo, círculo+usuario, orden por hora
 
 ### **FASE 2: Requests Workflow (2 semanas)**
 6. Sistema de solicitudes (give away, swap, take open)
@@ -948,20 +958,23 @@ Cada organización define sus propios **tipos de turno** (las categorías en las
 ### Estado General del Proyecto
 - **Total de módulos**: 14
 - **Módulos completados**: Invitaciones (M1), 2.1 Organizaciones, 2.2 Miembros, 2.3 Tipos de turno (+ infraestructura base)
-- **Progreso estimado**: ~18-22%
+- **Módulos en curso**: 3.3 Operaciones en lote, 3.4 Lista de turnos con filtros
+- **Progreso estimado**: ~30-32%
 
 ### Tareas por Estado
-- ✅ **Completadas**: ~65 tareas
-- 🔄 **En progreso**: 0 tareas
-- ⏳ **Pendientes**: ~210 tareas
+- ✅ **Completadas**: ~95 tareas (incl. filtros calendario, RPC check_shift_conflicts, validaciones en modales y Edge Functions)
+- 🔄 **En progreso**: Módulo 3.3 (operaciones en lote), 3.4 (ShiftList)
+- ⏳ **Pendientes**: ~180 tareas
 
 ---
 
 ## 🎯 SIGUIENTE PASO INMEDIATO
 
-**Módulo 3 (Calendario y turnos)** — 2.3 Tipos de turno está concluido.  
-1. Implementar FullCalendar en `ShiftCalendar.tsx` (vistas: mensual, semanal, diaria, lista)  
-2. Cargar turnos desde Supabase (join con `organization_shift_types`) y colorear por `organization_shift_types.color`  
-3. Crear y editar turnos: `CreateShiftModal`, `EditShiftModal` (selector de tipo desde `organization_shift_types`), Edge Functions `create-shift`, `update-shift`, `delete-shift`
+**Módulo 3 (Calendario y turnos)** — Hecho: FullCalendar (mes/semana/día/lista), carga y color por tipo, visualización (círculo+usuario, orden por hora), `ShiftDetailModal`, `CreateShiftModal`, `EditShiftModal` (solo fecha), Edge Functions `create-shift`, `update-shift`, `delete-shift`; **filtros** (`ShiftCalendarFilters`: tipo, usuario, estado); **validaciones** (RPC `check_shift_conflicts`: overlap, disponibilidad, descanso mínimo) en modales y Edge Functions.
 
-*Opcional en 2.3: reordenar tipos (`sort_order`), iterar color si ya existe en la org.*
+**Pendiente:**
+1. Acción «solicitar cambio» desde `ShiftDetailModal` (Módulo 4).
+2. Operaciones en lote (3.3): plantillas, copiar semana/mes, bulk assign.
+3. Lista de turnos con filtros (3.4): `ShiftList` completo.
+
+*Opcional: reordenar tipos (`sort_order`), iterar color si ya existe en la org; `min_rest_hours` desde `org_settings` (Módulo 9) cuando exista.*
