@@ -298,7 +298,7 @@ git commit -m "fix(requests): prevent duplicate request submissions"
 #### 7. **Edge Functions (Estructura Preparada)**
 - ✅ `approve-request` (completa: aprobar/rechazar, aplicar cambios en turnos, audit_log; reject integrado con action=reject)
 - ✅ `send-notification` (esqueleto)
-- ✅ `export-schedule` (esqueleto)
+- ✅ `export-schedule` (completa: CSV, Excel; auth; perfiles, ubicación; /dashboard/admin/exports)
 
 #### 8. **Documentación**
 - ✅ `indications.md` - Especificación completa del producto
@@ -374,6 +374,10 @@ git commit -m "fix(requests): prevent duplicate request submissions"
 - [x] `approve-request` y `respond-to-swap`: insertar notificaciones (aprobado/rechazado; swap aceptado/rechazado por contraparte)
 - [x] `NotificationBell.tsx` (campana con badge, desplegable), `NotificationsList.tsx`, página `/dashboard/notifications`
 - [x] Marcar como leída, enlace a entidad (`?request=id` en manager/requests); `RequestsInbox` abre modal con `?request=`
+
+#### 19. **Exportar horarios (Módulo 7.1 — concluido)** ✅
+- [x] Edge Function `export-schedule`: auth (team_manager, org_admin, superadmin), CSV (BOM UTF-8, escapado, asignado vía profiles, ubicación), Excel (.xlsx vía esm.sh/xlsx)
+- [x] Página `/dashboard/admin/exports`, `ExportScheduleForm` (rango fechas, formato CSV/Excel, descargar)
 
 ---
 
@@ -741,18 +745,18 @@ Cada organización define sus propios **tipos de turno** (las categorías en las
 
 ### 📈 **Módulo 7: Reportes y Exports**
 
-#### **7.1 Exportar Horarios**
-- [ ] Edge Function `export-schedule` (completar)
-  - [ ] Generar CSV con turnos del período
-  - [ ] Generar Excel con formato
-  - [ ] Generar PDF (opcional, fase 2)
+#### ✅ **7.1 Exportar Horarios** — CONCLUIDO
+- [x] Edge Function `export-schedule` (completar)
+  - [x] Generar CSV con turnos del período (nombre asignado, ubicación; BOM UTF-8; escapado)
+  - [x] Generar Excel con formato (.xlsx vía esm.sh/xlsx)
+  - [ ] Generar PDF (opcional, fase 2; fuera de scope)
 
-- [ ] Página `/dashboard/admin/exports`
-  - [ ] Seleccionar rango de fechas
-  - [ ] Seleccionar formato (CSV, Excel)
-  - [ ] Botón descargar
+- [x] Página `/dashboard/admin/exports`
+  - [x] Seleccionar rango de fechas
+  - [x] Seleccionar formato (CSV, Excel)
+  - [x] Botón descargar
 
-- [ ] Component `ExportScheduleForm.tsx`
+- [x] Component `ExportScheduleForm.tsx`
 
 #### **7.2 Reportes Básicos**
 - [ ] Página `/dashboard/admin/reports`
@@ -980,7 +984,7 @@ Cada organización define sus propios **tipos de turno** (las categorías en las
 15. ✅ In-app notifications (5.4) — COMPLETADO
 
 ### **FASE 5: Reports & Admin Features (1 semana)**
-16. Exports (CSV, Excel)
+16. ✅ Exports (CSV, Excel) — COMPLETADO (export-schedule, /dashboard/admin/exports, ExportScheduleForm)
 17. Reportes básicos
 18. Audit log viewer
 
@@ -1000,7 +1004,7 @@ Cada organización define sus propios **tipos de turno** (las categorías en las
 
 ### Estado General del Proyecto
 - **Total de módulos**: 14
-- **Módulos completados**: Invitaciones (M1), 2.1 Organizaciones, 2.2 Miembros, 2.3 Tipos de turno, **3.3 Operaciones en lote**, **3.4 Lista de turnos**, 4.1 Crear solicitudes, 4.2 Bandeja manager, 4.3 Flujo de aprobación, **4.4 Workflow de Swap**, **5.4 In-App Notifications** (+ infraestructura base)
+- **Módulos completados**: Invitaciones (M1), 2.1 Organizaciones, 2.2 Miembros, 2.3 Tipos de turno, **3.3 Operaciones en lote**, **3.4 Lista de turnos**, 4.1 Crear solicitudes, 4.2 Bandeja manager, 4.3 Flujo de aprobación, **4.4 Workflow de Swap**, **5.4 In-App Notifications**, **7.1 Exportar horarios** (+ infraestructura base)
 - **Módulos en curso**: —
 - **Progreso estimado**: ~45–47%
 
@@ -1089,6 +1093,10 @@ Cada organización define sus propios **tipos de turno** (las categorías en las
 - [x] NotificationBell (badge, desplegable), NotificationsList, /dashboard/notifications
 - [x] Marcar como leída, link a entidad (?request=id en manager/requests)
 
+#### Módulo 7.1 — Exportar horarios ✅
+- [x] Edge Function export-schedule: auth, CSV (asignado, ubicación, BOM, escapado), Excel (esm.sh/xlsx)
+- [x] /dashboard/admin/exports, ExportScheduleForm (rango fechas, CSV/Excel, descargar)
+
 ---
 
 ## 🎯 SIGUIENTE PASO INMEDIATO
@@ -1103,10 +1111,13 @@ Cada organización define sus propios **tipos de turno** (las categorías en las
 
 **Módulo 5.4 (In-App Notifications)** — Hecho: tabla `notifications`, trigger al crear solicitud (swap→User B, todas→managers), `NotificationBell`, `NotificationsList`, `/dashboard/notifications`; notificaciones en `approve-request` y `respond-to-swap`; marcar como leída, enlace a entidad.
 
+**Módulo 7.1 (Exportar horarios)** — Hecho: Edge Function `export-schedule` (auth, CSV, Excel; asignado, ubicación); `/dashboard/admin/exports`, `ExportScheduleForm`.
+
 **Pendiente:**
 1. Opción «sugerir reemplazo» en Give Away (4.1, opcional).
 2. ~~Notificaciones (Módulo 5): a User B al crear swap, a ambos al aprobar/rechazar.~~ — **CONCLUIDO (5.4 in-app)**
 3. ~~Operaciones en lote (3.3): plantillas, copiar semana/mes, bulk assign.~~ — **CONCLUIDO**
 4. ~~Lista de turnos con filtros (3.4): `ShiftList` completo.~~ — **CONCLUIDO**
+5. ~~Exportar horarios (7.1): CSV, Excel, /dashboard/admin/exports.~~ — **CONCLUIDO**
 
-*Opcional: reordenar tipos (`sort_order`), iterar color si ya existe en la org; `min_rest_hours` desde `org_settings` (Módulo 9) cuando exista; notificaciones email (5.3), push (5.1).*
+*Opcional: reordenar tipos (`sort_order`), iterar color si ya existe en la org; `min_rest_hours` desde `org_settings` (Módulo 9) cuando exista; notificaciones email (5.3), push (5.1); reportes (7.2), audit log (8.1).*

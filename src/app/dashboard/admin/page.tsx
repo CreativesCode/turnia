@@ -32,6 +32,12 @@ export default function AdminPage() {
         >
           Tipos de turno
         </Link>
+        <Link
+          href="/dashboard/admin/exports"
+          className="rounded-lg border border-border bg-background px-4 py-2 text-sm font-medium text-text-primary hover:bg-subtle-bg"
+        >
+          Exportar horarios
+        </Link>
       </div>
     </div>
   );
