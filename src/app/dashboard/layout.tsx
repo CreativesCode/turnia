@@ -1,5 +1,6 @@
 import { AuthGuard } from '@/components/auth/AuthGuard';
 import { LogoutButton } from '@/components/auth/LogoutButton';
+import { NotificationBell } from '@/components/notifications/NotificationBell';
 
 export default function DashboardLayout({
   children,
@@ -23,7 +24,9 @@ export default function DashboardLayout({
             <a href="/dashboard/staff" className="text-text-secondary hover:text-primary-600">Staff</a>
             <a href="/dashboard/staff/my-requests" className="text-text-secondary hover:text-primary-600">Mis solicitudes</a>
             <a href="/dashboard/viewer" className="text-text-secondary hover:text-primary-600">Viewer</a>
-            <span className="ml-auto">
+            <a href="/dashboard/notifications" className="text-text-secondary hover:text-primary-600">Notificaciones</a>
+            <span className="ml-auto flex items-center gap-2">
+              <NotificationBell />
               <LogoutButton />
             </span>
           </nav>

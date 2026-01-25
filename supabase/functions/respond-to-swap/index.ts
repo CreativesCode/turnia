@@ -48,7 +48,7 @@ Deno.serve(async (req) => {
 
     const { data: sr, error: fetchErr } = await supabase
       .from('shift_requests')
-      .select('id, org_id, request_type, status, target_user_id')
+      .select('id, org_id, request_type, status, target_user_id, requester_id')
       .eq('id', requestId)
       .single();
 
@@ -103,6 +103,21 @@ Deno.serve(async (req) => {
       after_snapshot: { status: newStatus },
       comment: response === 'decline' ? 'Rechazado por la contraparte' : null,
     });
+
+    // Notificar al solicitante (User A)
+    const requesterId = (sr as { requester_id?: string }).requester_id;
+    if (requesterId) {
+      await supabase.from('notifications').insert({
+        user_id: requesterId,
+        title: response === 'accept' ? 'Intercambio aceptado' : 'Intercambio rechazado',
+        message: response === 'accept'
+          ? 'La contraparte ha aceptado tu solicitud de intercambio. Espera la aprobación del responsable.'
+          : 'La contraparte ha rechazado tu solicitud de intercambio.',
+        type: 'request',
+        entity_type: 'shift_request',
+        entity_id: requestId,
+      });
+    }
 
     return new Response(
       JSON.stringify({ ok: true, status: newStatus }),

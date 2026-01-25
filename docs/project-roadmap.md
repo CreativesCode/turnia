@@ -261,6 +261,7 @@ git commit -m "fix(requests): prevent duplicate request submissions"
 - ✅ Tabla `shift_requests` (solicitudes: give_away, swap, take_open)
 - ✅ Tabla `availability_events` (vacaciones, bajas, etc.)
 - ✅ Tabla `audit_log` (trazabilidad inmutable)
+- ✅ Tabla `notifications` (in-app: user_id, title, message, type, entity_type, entity_id, read_at)
 - ✅ Row Level Security (RLS) habilitado en todas las tablas
 - ✅ Políticas RLS básicas (basadas en membership de org)
 - ✅ Trigger automático para crear perfil al registrarse
@@ -367,6 +368,12 @@ git commit -m "fix(requests): prevent duplicate request submissions"
 - [x] Component `PendingSwapsForYou.tsx` en `/dashboard/staff/my-requests`
 - [x] Edge Function `respond-to-swap` (accept/decline; audit_log)
 - [x] Deploy con `--no-verify-jwt`; `supabase/config.toml` con `[functions.respond-to-swap] verify_jwt = false`
+
+#### 18. **Notificaciones in-app (Módulo 5.4 — concluido)**
+- [x] Tabla `notifications`, RLS, trigger al insertar shift_request (swap→User B; submitted→managers)
+- [x] `approve-request` y `respond-to-swap`: insertar notificaciones (aprobado/rechazado; swap aceptado/rechazado por contraparte)
+- [x] `NotificationBell.tsx` (campana con badge, desplegable), `NotificationsList.tsx`, página `/dashboard/notifications`
+- [x] Marcar como leída, enlace a entidad (`?request=id` en manager/requests); `RequestsInbox` abre modal con `?request=`
 
 ---
 
@@ -581,7 +588,7 @@ Cada organización define sus propios **tipos de turno** (las categorías en las
   - [x] target_user_id = asignado del turno objetivo
   - [x] Agrega comentario
   - [x] Envía solicitud (estado: submitted)
-  - [ ] Notificar al otro usuario (Módulo 5)
+  - [x] Notificar al otro usuario (Módulo 5)
 
 - [x] **Take Open Shift**
   - [x] Component `TakeOpenRequestModal.tsx` (abierto desde ShiftDetailModal)
@@ -621,14 +628,14 @@ Cada organización define sus propios **tipos de turno** (las categorías en las
     - Take open: asignar turno al solicitante
   - [x] Actualizar estado a `approved`
   - [x] Registrar en audit_log
-  - [ ] Enviar notificaciones (Módulo 5)
+  - [x] Enviar notificaciones (Módulo 5)
 
 - [x] Rechazo (integrado en `approve-request` con `action: 'reject'`)
   - [x] Validar permisos
   - [x] Actualizar estado a `rejected`
   - [x] Registrar razón del rechazo (comment en audit_log)
   - [x] Registrar en audit_log
-  - [ ] Notificar al solicitante (Módulo 5)
+  - [x] Notificar al solicitante (Módulo 5)
 
 #### **4.4 Workflow de Swap (con aceptación de contraparte)** — CONCLUIDO
 - [x] Flujo de estados:
@@ -641,8 +648,8 @@ Cada organización define sus propios **tipos de turno** (las categorías en las
 - [x] Component `PendingSwapsForYou.tsx` en `/dashboard/staff/my-requests`
 - [x] Edge Function `respond-to-swap` (accept/decline; audit_log)
 - [x] Deploy con `--no-verify-jwt`; `supabase/config.toml` con `[functions.respond-to-swap] verify_jwt = false`
-- [ ] Notificación a User B cuando se crea la solicitud (Módulo 5)
-- [ ] Notificación a ambos cuando se aprueba/rechaza (Módulo 5)
+- [x] Notificación a User B cuando se crea la solicitud (Módulo 5)
+- [x] Notificación a ambos cuando se aprueba/rechaza (Módulo 5)
 
 ---
 
@@ -670,10 +677,10 @@ Cada organización define sus propios **tipos de turno** (las categorías en las
   - [ ] Registrar intentos de envío
 
 #### **5.2 Eventos de Notificación**
-- [ ] Request submitted → Notificar a manager
-- [ ] Request accepted (swap) → Notificar a requester y manager
-- [ ] Request approved → Notificar a todos los involucrados
-- [ ] Request rejected → Notificar al requester
+- [x] Request submitted → Notificar a manager
+- [x] Request accepted (swap) → Notificar a requester (y manager: opcional)
+- [x] Request approved → Notificar a todos los involucrados
+- [x] Request rejected → Notificar al requester
 - [ ] Shift assigned → Notificar al usuario asignado
 - [ ] Shift changed → Notificar al usuario afectado
 - [ ] Schedule published → Notificar a la org
@@ -683,8 +690,8 @@ Cada organización define sus propios **tipos de turno** (las categorías en las
 - [ ] Template para cada evento
 - [ ] Opción para usuario de activar/desactivar emails
 
-#### **5.4 In-App Notifications**
-- [ ] Tabla `notifications`:
+#### **5.4 In-App Notifications** — CONCLUIDO
+- [x] Tabla `notifications`:
   ```sql
   - id (uuid)
   - user_id (uuid, ref auth.users)
@@ -697,10 +704,10 @@ Cada organización define sus propios **tipos de turno** (las categorías en las
   - created_at (timestamptz)
   ```
 
-- [ ] Component `NotificationBell.tsx` (icono con badge)
-- [ ] Component `NotificationsList.tsx`
-- [ ] Marcar como leída
-- [ ] Link a la entidad relacionada
+- [x] Component `NotificationBell.tsx` (icono con badge)
+- [x] Component `NotificationsList.tsx`
+- [x] Marcar como leída
+- [x] Link a la entidad relacionada
 
 ---
 
@@ -958,7 +965,7 @@ Cada organización define sus propios **tipos de turno** (las categorías en las
 6. ✅ Sistema de solicitudes (give away, swap, take open) — COMPLETADO (my-requests, cancelar)
 7. ✅ Bandeja de aprobaciones para manager — COMPLETADO (RequestsInbox, RequestDetailModal, approve-request)
 8. ✅ Workflow de swap con aceptación de contraparte (4.4) — COMPLETADO (AcceptSwapButton, PendingSwapsForYou, respond-to-swap)
-9. Notificaciones básicas (email)
+9. ✅ Notificaciones in-app (5.4) — COMPLETADO (tabla notifications, trigger, NotificationBell, NotificationsList, approve-request/respond-to-swap)
 
 ### **FASE 3: Calendar & Views (1-2 semanas)**
 10. ✅ Implementar FullCalendar completo — COMPLETADO
@@ -968,7 +975,7 @@ Cada organización define sus propios **tipos de turno** (las categorías en las
 ### **FASE 4: Notifications & Mobile (1-2 semanas)**
 13. Push notifications (Capacitor)
 14. Optimización UI mobile
-15. In-app notifications
+15. ✅ In-app notifications (5.4) — COMPLETADO
 
 ### **FASE 5: Reports & Admin Features (1 semana)**
 16. Exports (CSV, Excel)
@@ -991,14 +998,14 @@ Cada organización define sus propios **tipos de turno** (las categorías en las
 
 ### Estado General del Proyecto
 - **Total de módulos**: 14
-- **Módulos completados**: Invitaciones (M1), 2.1 Organizaciones, 2.2 Miembros, 2.3 Tipos de turno, **3.4 Lista de turnos**, 4.1 Crear solicitudes, 4.2 Bandeja manager, 4.3 Flujo de aprobación, **4.4 Workflow de Swap** (+ infraestructura base)
+- **Módulos completados**: Invitaciones (M1), 2.1 Organizaciones, 2.2 Miembros, 2.3 Tipos de turno, **3.4 Lista de turnos**, 4.1 Crear solicitudes, 4.2 Bandeja manager, 4.3 Flujo de aprobación, **4.4 Workflow de Swap**, **5.4 In-App Notifications** (+ infraestructura base)
 - **Módulos en curso**: 3.3 Operaciones en lote
-- **Progreso estimado**: ~42–44%
+- **Progreso estimado**: ~45–47%
 
 ### Tareas por Estado
-- ✅ **Completadas**: ~140 tareas (véase listado abajo)
+- ✅ **Completadas**: ~155 tareas (véase listado abajo)
 - 🔄 **En progreso**: 3.3 Operaciones en lote
-- ⏳ **Pendientes**: ~135 tareas (notificaciones M5, disponibilidad, reportes, etc.)
+- ⏳ **Pendientes**: ~120 tareas (5.1 push, 5.3 email, disponibilidad, reportes, etc.)
 
 ### 📋 Tareas completadas (listado)
 
@@ -1067,6 +1074,12 @@ Cada organización define sus propios **tipos de turno** (las categorías en las
 - [x] AcceptSwapButton, PendingSwapsForYou en /dashboard/staff/my-requests
 - [x] Edge Function respond-to-swap (accept/decline; audit_log); verify_jwt=false
 
+#### Módulo 5.4 — In-App Notifications
+- [x] Tabla notifications, RLS, trigger notify_on_shift_request_insert (swap→target; submitted→managers)
+- [x] approve-request y respond-to-swap: insertar notificaciones (aprobado/rechazado; swap aceptado/rechazado)
+- [x] NotificationBell (badge, desplegable), NotificationsList, /dashboard/notifications
+- [x] Marcar como leída, link a entidad (?request=id en manager/requests)
+
 ---
 
 ## 🎯 SIGUIENTE PASO INMEDIATO
@@ -1079,10 +1092,12 @@ Cada organización define sus propios **tipos de turno** (las categorías en las
 
 **Módulo 4.4 (Workflow de Swap)** — Hecho: `AcceptSwapButton`, `PendingSwapsForYou`, Edge Function `respond-to-swap`; flujo submitted → accepted/cancelled (User B) → approved (manager). Deploy con `--no-verify-jwt`.
 
+**Módulo 5.4 (In-App Notifications)** — Hecho: tabla `notifications`, trigger al crear solicitud (swap→User B, todas→managers), `NotificationBell`, `NotificationsList`, `/dashboard/notifications`; notificaciones en `approve-request` y `respond-to-swap`; marcar como leída, enlace a entidad.
+
 **Pendiente:**
 1. Opción «sugerir reemplazo» en Give Away (4.1, opcional).
-2. Notificaciones (Módulo 5): a User B al crear swap, a ambos al aprobar/rechazar.
+2. ~~Notificaciones (Módulo 5): a User B al crear swap, a ambos al aprobar/rechazar.~~ — **CONCLUIDO (5.4 in-app)**
 3. Operaciones en lote (3.3): plantillas, copiar semana/mes, bulk assign.
 4. ~~Lista de turnos con filtros (3.4): `ShiftList` completo.~~ — **CONCLUIDO**
 
-*Opcional: reordenar tipos (`sort_order`), iterar color si ya existe en la org; `min_rest_hours` desde `org_settings` (Módulo 9) cuando exista.*
+*Opcional: reordenar tipos (`sort_order`), iterar color si ya existe en la org; `min_rest_hours` desde `org_settings` (Módulo 9) cuando exista; notificaciones email (5.3), push (5.1).*

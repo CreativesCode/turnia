@@ -6,6 +6,7 @@
  */
 
 import { useCallback, useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { RequestDetailModal, type RequestDetailRow } from '@/components/requests/RequestDetailModal';
 
@@ -54,6 +55,8 @@ export function RequestsInbox({ orgId, canApprove, refreshKey = 0 }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [filters, setFilters] = useState<Filters>({ requestType: '', status: 'submitted,accepted' });
   const [detail, setDetail] = useState<RequestDetailRow | null>(null);
+  const searchParams = useSearchParams();
+  const openRequestId = searchParams?.get('request') ?? null;
 
   const load = useCallback(async () => {
     if (!orgId) {
@@ -119,6 +122,14 @@ export function RequestsInbox({ orgId, canApprove, refreshKey = 0 }: Props) {
   useEffect(() => {
     load();
   }, [load, refreshKey]);
+
+  // Abrir detalle si viene ?request=id (p. ej. desde una notificación)
+  useEffect(() => {
+    if (openRequestId && rows.length > 0) {
+      const r = rows.find((row) => row.id === openRequestId);
+      if (r) setDetail(r);
+    }
+  }, [openRequestId, rows]);
 
   if (!orgId) {
     return (

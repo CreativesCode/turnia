@@ -179,6 +179,38 @@ Deno.serve(async (req) => {
       comment: comment || null,
     });
 
+    // Notificaciones: requester siempre; en swap también target_user_id
+    const toNotify: { user_id: string; title: string; message: string }[] = [];
+    if (action === 'approve') {
+      toNotify.push({ user_id: row.requester_id, title: 'Solicitud aprobada', message: 'Tu solicitud ha sido aprobada.' });
+      if (row.request_type === 'swap' && row.target_user_id) {
+        toNotify.push({
+          user_id: row.target_user_id,
+          title: 'Intercambio aprobado',
+          message: 'El intercambio de turnos ha sido aprobado.',
+        });
+      }
+    } else {
+      toNotify.push({ user_id: row.requester_id, title: 'Solicitud rechazada', message: 'Tu solicitud ha sido rechazada.' });
+      if (row.request_type === 'swap' && row.target_user_id) {
+        toNotify.push({
+          user_id: row.target_user_id,
+          title: 'Intercambio rechazado',
+          message: 'El intercambio de turnos ha sido rechazado.',
+        });
+      }
+    }
+    for (const n of toNotify) {
+      await supabase.from('notifications').insert({
+        user_id: n.user_id,
+        title: n.title,
+        message: n.message,
+        type: 'request',
+        entity_type: 'shift_request',
+        entity_id: requestId,
+      });
+    }
+
     return new Response(
       JSON.stringify({ ok: true, status: newStatus }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
