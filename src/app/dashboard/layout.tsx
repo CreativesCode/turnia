@@ -18,6 +18,7 @@ export default function DashboardLayout({
             <a href="/dashboard/admin/invite" className="text-text-secondary hover:text-primary-600">Invitar</a>
             <a href="/dashboard/admin/shift-types" className="text-text-secondary hover:text-primary-600">Tipos de turno</a>
             <a href="/dashboard/manager" className="text-text-secondary hover:text-primary-600">Calendario</a>
+            <a href="/dashboard/manager/shifts" className="text-text-secondary hover:text-primary-600">Lista de turnos</a>
             <a href="/dashboard/manager/requests" className="text-text-secondary hover:text-primary-600">Solicitudes</a>
             <a href="/dashboard/staff" className="text-text-secondary hover:text-primary-600">Staff</a>
             <a href="/dashboard/staff/my-requests" className="text-text-secondary hover:text-primary-600">Mis solicitudes</a>
