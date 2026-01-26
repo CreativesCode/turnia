@@ -803,14 +803,14 @@ Cada organización define sus propios **tipos de turno** (las categorías en las
 
 ### 🔒 **Módulo 9: Seguridad y Permisos Avanzados**
 
-#### **9.1 Refinar Políticas RLS**
-- [ ] Política para INSERT en shifts (solo manager/admin)
-- [ ] Política para UPDATE en shifts (solo manager/admin)
-- [ ] Política para DELETE en shifts (solo admin)
-- [ ] Política para INSERT en shift_requests (user, manager)
-- [ ] Política para UPDATE en shift_requests (manager para approve/reject)
-- [ ] Política para INSERT/UPDATE/DELETE en memberships (solo org_admin)
-- [ ] Política para INSERT/UPDATE en availability_events (propio usuario)
+#### **9.1 Refinar Políticas RLS** — CONCLUIDO
+- [x] Política para INSERT en shifts (solo manager/admin) — `shifts_insert_manager`, helper `user_can_manage_shifts(oid)` (migración `20250207000000_refine_rls_policies.sql`)
+- [x] Política para UPDATE en shifts (solo manager/admin) — `shifts_update_manager`
+- [x] Política para DELETE en shifts (solo admin) — `shifts_delete_admin` (org_admin o superadmin; team_manager no puede eliminar)
+- [x] Política para INSERT en shift_requests (user, manager) — `shift_requests_insert_member` (20250130000000)
+- [x] Política para UPDATE en shift_requests (manager para approve/reject) — `shift_requests_update_manager_approve_reject`; target swap: `shift_requests_update_target_swap_respond` (20250207000000)
+- [x] Política para INSERT/UPDATE/DELETE en memberships (solo org_admin) — `memberships_insert_org_admin`, `_update_org_admin`, `_delete_org_admin` (org_admin en su org; no puede asignar rol superadmin)
+- [x] Política para INSERT/UPDATE/DELETE en availability_events (propio usuario) — `availability_insert_member`, `_update_member`, `_delete_member` (20250205000000)
 
 #### **9.2 Validaciones en Edge Functions**
 - [ ] Validar permisos antes de cada operación privilegiada
@@ -1004,9 +1004,9 @@ Cada organización define sus propios **tipos de turno** (las categorías en las
 
 ### Estado General del Proyecto
 - **Total de módulos**: 14
-- **Módulos completados**: Invitaciones (M1), 2.1 Organizaciones, 2.2 Miembros, 2.3 Tipos de turno, **3.3 Operaciones en lote**, **3.4 Lista de turnos**, 4.1 Crear solicitudes, 4.2 Bandeja manager, 4.3 Flujo de aprobación, **4.4 Workflow de Swap**, **5.4 In-App Notifications**, **7.1 Exportar horarios**, **7.2 Reportes básicos**, **8.1 Visualizar Audit Log**, **8.2 Triggers automáticos** (+ infraestructura base)
+- **Módulos completados**: Invitaciones (M1), 2.1 Organizaciones, 2.2 Miembros, 2.3 Tipos de turno, **3.3 Operaciones en lote**, **3.4 Lista de turnos**, 4.1 Crear solicitudes, 4.2 Bandeja manager, 4.3 Flujo de aprobación, **4.4 Workflow de Swap**, **5.4 In-App Notifications**, **7.1 Exportar horarios**, **7.2 Reportes básicos**, **8.1 Visualizar Audit Log**, **8.2 Triggers automáticos**, **9.1 Refinar RLS** (+ infraestructura base)
 - **Módulos en curso**: —
-- **Progreso estimado**: ~45–47%
+- **Progreso estimado**: ~47–49%
 
 ### Tareas por Estado
 - ✅ **Completadas**: ~155 tareas (véase listado abajo)
@@ -1115,6 +1115,14 @@ Cada organización define sus propios **tipos de turno** (las categorías en las
 - [x] Triggers `audit_shifts`, `audit_shift_requests`, `audit_memberships` (AFTER INSERT OR UPDATE OR DELETE)
 - [x] AuditLogList: etiquetas `shift` (Turno), `insert` (Creación); AuditLogDetailModal: enlace «Ver turno» cuando entity=shift
 
+#### Módulo 9.1 — Refinar Políticas RLS ✅
+- [x] Helper `user_can_manage_shifts(oid)` (team_manager, org_admin, superadmin en esa org)
+- [x] Shifts: `shifts_insert_manager`, `shifts_update_manager` (manager o admin); `shifts_delete_admin` (solo org_admin o superadmin)
+- [x] Shift_requests: `shift_requests_update_manager_approve_reject` (approve/reject); `shift_requests_update_target_swap_respond` (target aceptar/rechazar swap)
+- [x] Memberships: `memberships_insert_org_admin`, `_update_org_admin`, `_delete_org_admin` (org_admin en su org; no puede asignar superadmin)
+- [x] Availability_events: ya en 20250205000000 (insert/update/delete propio usuario)
+- [x] Migración `20250207000000_refine_rls_policies.sql`
+
 ---
 
 ## 🎯 SIGUIENTE PASO INMEDIATO
@@ -1148,4 +1156,6 @@ Cada organización define sus propios **tipos de turno** (las categorías en las
 
 **Módulo 8.2 (Triggers automáticos)** — Hecho: función `log_audit_event`, `audit_trigger_fn`; triggers en `shifts`, `shift_requests`, `memberships`; etiquetas en AuditLog (shift, insert) y enlace «Ver turno» en el modal.
 
-*Opcional: reordenar tipos (`sort_order`), iterar color si ya existe en la org; `min_rest_hours` desde `org_settings` (Módulo 9) cuando exista; notificaciones email (5.3), push (5.1).*
+**Módulo 9.1 (Refinar Políticas RLS)** — Hecho: migración `20250207000000_refine_rls_policies.sql`. Helper `user_can_manage_shifts(oid)`. Shifts: INSERT/UPDATE manager o admin; DELETE solo org_admin o superadmin. Shift_requests: UPDATE manager (approve/reject), UPDATE target (swap accept/decline). Memberships: INSERT/UPDATE/DELETE org_admin en su org (sin asignar superadmin). Availability_events ya estaba (20250205000000).
+
+*Opcional: reordenar tipos (`sort_order`), iterar color si ya existe en la org; notificaciones email (5.3), push (5.1).*
