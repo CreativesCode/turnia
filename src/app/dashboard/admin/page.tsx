@@ -44,6 +44,12 @@ export default function AdminPage() {
         >
           Reportes básicos
         </Link>
+        <Link
+          href="/dashboard/admin/audit"
+          className="rounded-lg border border-border bg-background px-4 py-2 text-sm font-medium text-text-primary hover:bg-subtle-bg"
+        >
+          Registro de auditoría
+        </Link>
       </div>
     </div>
   );

@@ -379,6 +379,12 @@ git commit -m "fix(requests): prevent duplicate request submissions"
 - [x] Edge Function `export-schedule`: auth (team_manager, org_admin, superadmin), CSV (BOM UTF-8, escapado, asignado vía profiles, ubicación), Excel (.xlsx vía esm.sh/xlsx)
 - [x] Página `/dashboard/admin/exports`, `ExportScheduleForm` (rango fechas, formato CSV/Excel, descargar)
 
+#### 20. **Visualizar Audit Log (Módulo 8.1 — concluido)** ✅
+- [x] Página `/dashboard/admin/audit` (org_admin, superadmin; superadmin elige org)
+- [x] `AuditLogList`: filtros entidad, actor, acción, rango fechas; tabla; paginación 50
+- [x] `AuditLogDetailModal`: snapshot antes/después, comentario, enlace a solicitud
+- [x] Índice `audit_log_org_created_idx` (org_id, created_at desc)
+
 ---
 
 ## 🚀 MÓDULOS Y FUNCIONALIDADES PENDIENTES
@@ -772,21 +778,22 @@ Cada organización define sus propios **tipos de turno** (las categorías en las
 
 ### 🔍 **Módulo 8: Audit Log y Trazabilidad**
 
-#### **8.1 Visualizar Audit Log**
-- [ ] Página `/dashboard/admin/audit`
-  - [ ] Listar eventos del audit log
-  - [ ] Filtros:
-    - Por entidad (shift, shift_request, membership, etc.)
+#### **8.1 Visualizar Audit Log** — CONCLUIDO
+- [x] Página `/dashboard/admin/audit`
+  - [x] Listar eventos del audit log
+  - [x] Filtros:
+    - Por entidad (shift_request, membership, organization_invitation)
     - Por actor (usuario que realizó la acción)
-    - Por acción (create, update, delete, approve, etc.)
+    - Por acción (request_approved, request_rejected, swap_accepted/declined, update, delete, accept)
     - Por rango de fechas
-  - [ ] Ver detalles de cada evento:
+  - [x] Ver detalles de cada evento (modal):
     - Snapshot antes
     - Snapshot después
-    - Diff visual
+    - Comentario; enlace a solicitud cuando entity=shift_request
 
-- [ ] Component `AuditLogList.tsx`
-- [ ] Component `AuditLogDetailModal.tsx`
+- [x] Component `AuditLogList.tsx`
+- [x] Component `AuditLogDetailModal.tsx`
+- [x] Índice `audit_log_org_created_idx` (org_id, created_at desc) en migración `20250202000000_audit_log_index.sql`
 
 #### **8.2 Triggers Automáticos**
 - [ ] Trigger para registrar cambios en `shifts`
@@ -986,7 +993,7 @@ Cada organización define sus propios **tipos de turno** (las categorías en las
 ### **FASE 5: Reports & Admin Features (1 semana)**
 16. ✅ Exports (CSV, Excel) — COMPLETADO (export-schedule, /dashboard/admin/exports, ExportScheduleForm)
 17. ✅ Reportes básicos — COMPLETADO (ReportsBasicDashboard, /dashboard/admin/reports; turnos por usuario, nocturnos/fin de semana, sin asignar, solicitudes por estado; Recharts)
-18. Audit log viewer
+18. ✅ Audit log viewer — COMPLETADO (8.1: /dashboard/admin/audit, AuditLogList, AuditLogDetailModal; filtros entidad, actor, acción, fechas; snapshot antes/después)
 
 ### **FASE 6: Polish & Testing (1 semana)**
 19. UI/UX improvements
@@ -1004,7 +1011,7 @@ Cada organización define sus propios **tipos de turno** (las categorías en las
 
 ### Estado General del Proyecto
 - **Total de módulos**: 14
-- **Módulos completados**: Invitaciones (M1), 2.1 Organizaciones, 2.2 Miembros, 2.3 Tipos de turno, **3.3 Operaciones en lote**, **3.4 Lista de turnos**, 4.1 Crear solicitudes, 4.2 Bandeja manager, 4.3 Flujo de aprobación, **4.4 Workflow de Swap**, **5.4 In-App Notifications**, **7.1 Exportar horarios**, **7.2 Reportes básicos** (+ infraestructura base)
+- **Módulos completados**: Invitaciones (M1), 2.1 Organizaciones, 2.2 Miembros, 2.3 Tipos de turno, **3.3 Operaciones en lote**, **3.4 Lista de turnos**, 4.1 Crear solicitudes, 4.2 Bandeja manager, 4.3 Flujo de aprobación, **4.4 Workflow de Swap**, **5.4 In-App Notifications**, **7.1 Exportar horarios**, **7.2 Reportes básicos**, **8.1 Visualizar Audit Log** (+ infraestructura base)
 - **Módulos en curso**: —
 - **Progreso estimado**: ~45–47%
 
@@ -1102,6 +1109,13 @@ Cada organización define sus propios **tipos de turno** (las categorías en las
 - [x] ReportsBasicDashboard: turnos por usuario (tabla por tipo), distribución nocturnos/fines de semana (barra), turnos sin asignar (card + enlace a lista), solicitudes por estado (torta + tabla)
 - [x] Recharts: BarChart, PieChart, Tooltip, Cell
 
+#### Módulo 8.1 — Visualizar Audit Log ✅
+- [x] /dashboard/admin/audit: selector de org (superadmin), AuditLogList
+- [x] Filtros: entidad (shift_request, membership, organization_invitation), actor (miembros org), acción, rango fechas
+- [x] Tabla: fecha, entidad, acción, actor, comentario; clic fila → AuditLogDetailModal
+- [x] AuditLogDetailModal: snapshot antes/después (JSON), comentario, enlace a solicitud si entity=shift_request
+- [x] Paginación 50 por página; índice audit_log_org_created_idx
+
 ---
 
 ## 🎯 SIGUIENTE PASO INMEDIATO
@@ -1120,12 +1134,10 @@ Cada organización define sus propios **tipos de turno** (las categorías en las
 
 **Módulo 7.2 (Reportes básicos)** — Hecho: `/dashboard/admin/reports`, `ReportsBasicDashboard` (rango fechas; turnos por usuario/tipo, distribución nocturnos y fines de semana, turnos sin asignar, solicitudes por estado; Recharts).
 
+**Módulo 8.1 (Visualizar Audit Log)** — Hecho: `/dashboard/admin/audit`, `AuditLogList` (filtros: entidad, actor, acción, rango fechas; paginación), `AuditLogDetailModal` (snapshot antes/después, comentario, enlace a solicitud); índice `audit_log_org_created_idx`.
+
 **Pendiente:**
 1. Opción «sugerir reemplazo» en Give Away (4.1, opcional).
-2. ~~Notificaciones (Módulo 5): a User B al crear swap, a ambos al aprobar/rechazar.~~ — **CONCLUIDO (5.4 in-app)**
-3. ~~Operaciones en lote (3.3): plantillas, copiar semana/mes, bulk assign.~~ — **CONCLUIDO**
-4. ~~Lista de turnos con filtros (3.4): `ShiftList` completo.~~ — **CONCLUIDO**
-5. ~~Exportar horarios (7.1): CSV, Excel, /dashboard/admin/exports.~~ — **CONCLUIDO**
-6. ~~Reportes básicos (7.2): turnos por usuario, nocturnos/fin de semana, sin asignar, solicitudes por estado.~~ — **CONCLUIDO**
+2. Triggers automáticos en shifts/memberships (8.2; audit ya se escribe desde Edge Functions y RPCs).
 
-*Opcional: reordenar tipos (`sort_order`), iterar color si ya existe en la org; `min_rest_hours` desde `org_settings` (Módulo 9) cuando exista; notificaciones email (5.3), push (5.1); audit log (8.1).*
+*Opcional: reordenar tipos (`sort_order`), iterar color si ya existe en la org; `min_rest_hours` desde `org_settings` (Módulo 9) cuando exista; notificaciones email (5.3), push (5.1).*
