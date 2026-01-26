@@ -758,15 +758,15 @@ Cada organización define sus propios **tipos de turno** (las categorías en las
 
 - [x] Component `ExportScheduleForm.tsx`
 
-#### **7.2 Reportes Básicos**
-- [ ] Página `/dashboard/admin/reports`
-  - [ ] Reporte: Turnos por usuario (count por tipo)
-  - [ ] Reporte: Distribución de noches/fines de semana
-  - [ ] Reporte: Turnos sin asignar
-  - [ ] Reporte: Solicitudes por estado
-  - [ ] Gráficos (Chart.js o Recharts)
+#### **7.2 Reportes Básicos** — CONCLUIDO
+- [x] Página `/dashboard/admin/reports`
+  - [x] Reporte: Turnos por usuario (count por tipo)
+  - [x] Reporte: Distribución de noches/fines de semana
+  - [x] Reporte: Turnos sin asignar
+  - [x] Reporte: Solicitudes por estado
+  - [x] Gráficos (Recharts: barras, torta)
 
-- [ ] Component `ReportsBasicDashboard.tsx`
+- [x] Component `ReportsBasicDashboard.tsx`
 
 ---
 
@@ -985,7 +985,7 @@ Cada organización define sus propios **tipos de turno** (las categorías en las
 
 ### **FASE 5: Reports & Admin Features (1 semana)**
 16. ✅ Exports (CSV, Excel) — COMPLETADO (export-schedule, /dashboard/admin/exports, ExportScheduleForm)
-17. Reportes básicos
+17. ✅ Reportes básicos — COMPLETADO (ReportsBasicDashboard, /dashboard/admin/reports; turnos por usuario, nocturnos/fin de semana, sin asignar, solicitudes por estado; Recharts)
 18. Audit log viewer
 
 ### **FASE 6: Polish & Testing (1 semana)**
@@ -1004,7 +1004,7 @@ Cada organización define sus propios **tipos de turno** (las categorías en las
 
 ### Estado General del Proyecto
 - **Total de módulos**: 14
-- **Módulos completados**: Invitaciones (M1), 2.1 Organizaciones, 2.2 Miembros, 2.3 Tipos de turno, **3.3 Operaciones en lote**, **3.4 Lista de turnos**, 4.1 Crear solicitudes, 4.2 Bandeja manager, 4.3 Flujo de aprobación, **4.4 Workflow de Swap**, **5.4 In-App Notifications**, **7.1 Exportar horarios** (+ infraestructura base)
+- **Módulos completados**: Invitaciones (M1), 2.1 Organizaciones, 2.2 Miembros, 2.3 Tipos de turno, **3.3 Operaciones en lote**, **3.4 Lista de turnos**, 4.1 Crear solicitudes, 4.2 Bandeja manager, 4.3 Flujo de aprobación, **4.4 Workflow de Swap**, **5.4 In-App Notifications**, **7.1 Exportar horarios**, **7.2 Reportes básicos** (+ infraestructura base)
 - **Módulos en curso**: —
 - **Progreso estimado**: ~45–47%
 
@@ -1097,6 +1097,11 @@ Cada organización define sus propios **tipos de turno** (las categorías en las
 - [x] Edge Function export-schedule: auth, CSV (asignado, ubicación, BOM, escapado), Excel (esm.sh/xlsx)
 - [x] /dashboard/admin/exports, ExportScheduleForm (rango fechas, CSV/Excel, descargar)
 
+#### Módulo 7.2 — Reportes básicos ✅
+- [x] /dashboard/admin/reports: rango de fechas, selector de org (superadmin)
+- [x] ReportsBasicDashboard: turnos por usuario (tabla por tipo), distribución nocturnos/fines de semana (barra), turnos sin asignar (card + enlace a lista), solicitudes por estado (torta + tabla)
+- [x] Recharts: BarChart, PieChart, Tooltip, Cell
+
 ---
 
 ## 🎯 SIGUIENTE PASO INMEDIATO
@@ -1113,11 +1118,14 @@ Cada organización define sus propios **tipos de turno** (las categorías en las
 
 **Módulo 7.1 (Exportar horarios)** — Hecho: Edge Function `export-schedule` (auth, CSV, Excel; asignado, ubicación); `/dashboard/admin/exports`, `ExportScheduleForm`.
 
+**Módulo 7.2 (Reportes básicos)** — Hecho: `/dashboard/admin/reports`, `ReportsBasicDashboard` (rango fechas; turnos por usuario/tipo, distribución nocturnos y fines de semana, turnos sin asignar, solicitudes por estado; Recharts).
+
 **Pendiente:**
 1. Opción «sugerir reemplazo» en Give Away (4.1, opcional).
 2. ~~Notificaciones (Módulo 5): a User B al crear swap, a ambos al aprobar/rechazar.~~ — **CONCLUIDO (5.4 in-app)**
 3. ~~Operaciones en lote (3.3): plantillas, copiar semana/mes, bulk assign.~~ — **CONCLUIDO**
 4. ~~Lista de turnos con filtros (3.4): `ShiftList` completo.~~ — **CONCLUIDO**
 5. ~~Exportar horarios (7.1): CSV, Excel, /dashboard/admin/exports.~~ — **CONCLUIDO**
+6. ~~Reportes básicos (7.2): turnos por usuario, nocturnos/fin de semana, sin asignar, solicitudes por estado.~~ — **CONCLUIDO**
 
-*Opcional: reordenar tipos (`sort_order`), iterar color si ya existe en la org; `min_rest_hours` desde `org_settings` (Módulo 9) cuando exista; notificaciones email (5.3), push (5.1); reportes (7.2), audit log (8.1).*
+*Opcional: reordenar tipos (`sort_order`), iterar color si ya existe en la org; `min_rest_hours` desde `org_settings` (Módulo 9) cuando exista; notificaciones email (5.3), push (5.1); audit log (8.1).*

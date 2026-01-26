@@ -38,6 +38,12 @@ export default function AdminPage() {
         >
           Exportar horarios
         </Link>
+        <Link
+          href="/dashboard/admin/reports"
+          className="rounded-lg border border-border bg-background px-4 py-2 text-sm font-medium text-text-primary hover:bg-subtle-bg"
+        >
+          Reportes básicos
+        </Link>
       </div>
     </div>
   );
