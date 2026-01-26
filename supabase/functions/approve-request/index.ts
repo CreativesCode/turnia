@@ -211,6 +211,26 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Push: invocar send-notification (best-effort; no fallar si FCM/APNs falla)
+    const baseUrl = Deno.env.get('SUPABASE_URL') ?? '';
+    if (baseUrl) {
+      await Promise.allSettled(
+        toNotify.map((n) =>
+          fetch(`${baseUrl}/functions/v1/send-notification`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              userId: n.user_id,
+              type: 'request',
+              title: n.title,
+              body: n.message,
+              email: false,
+            }),
+          })
+        )
+      );
+    }
+
     return new Response(
       JSON.stringify({ ok: true, status: newStatus }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

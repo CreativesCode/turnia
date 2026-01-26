@@ -9,10 +9,11 @@
 
 ## Android (FCM)
 
-1. **Firebase**: crea un proyecto en [Firebase Console](https://console.firebase.google.com) y añade la app Android (package `com.turnia.app` o el que uses). Descarga `google-services.json` y colócalo en `android/app/`.
-2. **Canal y icono** (recomendado): en `AndroidManifest.xml`:
-   - `com.google.firebase.messaging.default_notification_channel_id`
-   - `com.google.firebase.messaging.default_notification_icon` (icono en blanco sobre transparente).
+1. **Firebase**: crea un proyecto en [Firebase Console](https://console.firebase.google.com) y añade la app Android (package `com.turnia.app`). Descarga `google-services.json` y colócalo en `android/app/`. (El archivo está en `.gitignore`.)
+2. **Manifest**: ya configurado en `android/app/src/main/AndroidManifest.xml`:
+   - Permiso `POST_NOTIFICATIONS` (Android 13+).
+   - `com.google.firebase.messaging.default_notification_channel_id` = `turnia_notifications` (string en `res/values/strings.xml`).
+   - Opcional: `com.google.firebase.messaging.default_notification_icon` (icono en blanco sobre transparente) para mejor aspecto; si se omite, se usa el icono de la app.
 3. **Service Account para enviar**:
    - En Firebase: Project Settings → Service accounts → Generate new private key. Obtendrás un JSON.
    - En Supabase: `supabase secrets set FIREBASE_SERVICE_ACCOUNT_JSON='...'` con el contenido del JSON (como string; si hay `\n` en `private_key`, déjalos o usa `\\n` según cómo lo inyectes).
@@ -21,18 +22,8 @@
 
 ## iOS (APNs)
 
-1. **Capability**: en Xcode, habilita Push Notifications en el target.
-2. **AppDelegate**: en `AppDelegate.swift` (o el que use tu proyecto):
-
-   ```swift
-   func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
-     NotificationCenter.default.post(name: .capacitorDidRegisterForRemoteNotifications, object: deviceToken)
-   }
-   func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
-     NotificationCenter.default.post(name: .capacitorDidFailToRegisterForRemoteNotifications, object: error)
-   }
-   ```
-
+1. **Capability**: en Xcode, habilita **Push Notifications** en el target (Signing & Capabilities → + Capability).
+2. **AppDelegate**: ya está configurado en `ios/App/App/AppDelegate.swift` (`didRegisterForRemoteNotificationsWithDeviceToken`, `didFailToRegisterForRemoteNotificationsWithError`); reenvía el token a `@capacitor/push-notifications`.
 3. **Envío (APNs)**: `send-notification` todavía **no** envía a dispositivos iOS. Para hacerlo hace falta:
    - Key o certificado en Apple Developer (Key en APNs o Certificado de Push).
    - En el backend, usar `node-apn` o el HTTP/2 APNs API con ese key/cert. Se puede añadir en una futura iteración.

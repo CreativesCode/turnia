@@ -104,19 +104,40 @@ Deno.serve(async (req) => {
       comment: response === 'decline' ? 'Rechazado por la contraparte' : null,
     });
 
-    // Notificar al solicitante (User A)
+    // Notificar al solicitante (User A): in-app y push
     const requesterId = (sr as { requester_id?: string }).requester_id;
     if (requesterId) {
+      const title = response === 'accept' ? 'Intercambio aceptado' : 'Intercambio rechazado';
+      const message = response === 'accept'
+        ? 'La contraparte ha aceptado tu solicitud de intercambio. Espera la aprobación del responsable.'
+        : 'La contraparte ha rechazado tu solicitud de intercambio.';
       await supabase.from('notifications').insert({
         user_id: requesterId,
-        title: response === 'accept' ? 'Intercambio aceptado' : 'Intercambio rechazado',
-        message: response === 'accept'
-          ? 'La contraparte ha aceptado tu solicitud de intercambio. Espera la aprobación del responsable.'
-          : 'La contraparte ha rechazado tu solicitud de intercambio.',
+        title,
+        message,
         type: 'request',
         entity_type: 'shift_request',
         entity_id: requestId,
       });
+      // Push: invocar send-notification (best-effort)
+      const baseUrl = Deno.env.get('SUPABASE_URL') ?? '';
+      if (baseUrl) {
+        try {
+          await fetch(`${baseUrl}/functions/v1/send-notification`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              userId: requesterId,
+              type: 'request',
+              title,
+              body: message,
+              email: false,
+            }),
+          });
+        } catch (_) {
+          /* ignore; in-app ya enviada */
+        }
+      }
     }
 
     return new Response(

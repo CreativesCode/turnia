@@ -721,18 +721,19 @@ Cada organización define sus propios **tipos de turno** (las categorías en las
 
 ### 📊 **Módulo 6: Disponibilidad y Eventos**
 
-#### **6.1 Registrar Disponibilidad (Staff)**
-- [ ] Página `/dashboard/staff/availability`
-  - [ ] Calendario de disponibilidad
-  - [ ] Agregar eventos:
+#### **6.1 Registrar Disponibilidad (Staff)** — CONCLUIDO
+- [x] Página `/dashboard/staff/availability`
+  - [x] Calendario de disponibilidad (FullCalendar: mes, lista; clic en día para agregar, clic en evento para editar)
+  - [x] Agregar eventos:
     - Vacaciones
     - Licencia médica
     - Capacitación
     - No disponible (sin especificar)
-  - [ ] Editar/eliminar eventos
+  - [x] Editar/eliminar eventos (modal con Eliminar)
 
-- [ ] Component `AvailabilityCalendar.tsx`
-- [ ] Component `AddAvailabilityEventForm.tsx`
+- [x] Component `AvailabilityCalendar.tsx`
+- [x] Component `AvailabilityEventModal.tsx` (crear/editar/eliminar)
+- [x] RLS: `availability_insert_member`, `availability_update_member`, `availability_delete_member` (migración `20250205000000_availability_events_member_rls.sql`)
 
 #### **6.2 Ver Disponibilidad (Manager)**
 - [ ] Página `/dashboard/manager/availability`
@@ -1137,11 +1138,13 @@ Cada organización define sus propios **tipos de turno** (las categorías en las
 
 **Módulo 8.1 (Visualizar Audit Log)** — Hecho: `/dashboard/admin/audit`, `AuditLogList` (filtros: entidad, actor, acción, rango fechas; paginación), `AuditLogDetailModal` (snapshot antes/después, comentario, enlace a solicitud); índice `audit_log_org_created_idx`.
 
-**Módulo 5.1 (Push Notifications)** — Estructura lista:
+**Módulo 5.1 (Push Notifications)** — Estructura lista; invocación desde approve/respond hecha:
 - [x] Tabla `push_tokens`, RLS; Edge Function `register-push-token` (auth, upsert por token)
 - [x] Cliente: `PushNotificationRegistration` + `PushNotificationRegistrationLoader` en layout dashboard; Capacitor `register()` y envío a `register-push-token` en iOS/Android
 - [x] `send-notification`: lee `push_tokens`, envía vía FCM (Android) si `FIREBASE_SERVICE_ACCOUNT_JSON`; APNs (iOS) pendiente; `docs/push-notifications.md`
-- [ ] Completar: FCM (google-services.json, secret), APNs (AppDelegate, key/cert), invocar `send-notification` desde approve-request/respond-to-swap
+- [x] Invocar `send-notification` desde approve-request y respond-to-swap (push al aprobar/rechazar y al aceptar/rechazar swap)
+- [x] AppDelegate (iOS): `didRegisterForRemoteNotificationsWithDeviceToken` / `didFailToRegisterForRemoteNotificationsWithError`; Android: `POST_NOTIFICATIONS`, canal `turnia_notifications` (manifest + `MainActivity`), `docs/push-notifications.md` actualizado; `google-services.json` en `.gitignore`
+- [ ] Usuario: FCM (`google-services.json` en `android/app/`, `FIREBASE_SERVICE_ACCOUNT_JSON` en Supabase), APNs (key/cert en backend para envío iOS)
 
 **Pendiente:**
 1. Opción «sugerir reemplazo» en Give Away (4.1, opcional).

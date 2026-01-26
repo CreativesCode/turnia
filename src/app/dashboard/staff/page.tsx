@@ -15,6 +15,12 @@ export default function StaffPage() {
           Mis solicitudes
         </Link>
         <Link
+          href="/dashboard/staff/availability"
+          className="min-h-[44px] rounded-lg border border-border px-4 py-2.5 text-sm font-medium text-text-secondary hover:bg-subtle-bg"
+        >
+          Mi disponibilidad
+        </Link>
+        <Link
           href="/dashboard/manager"
           className="min-h-[44px] rounded-lg border border-border px-4 py-2.5 text-sm font-medium text-text-secondary hover:bg-subtle-bg"
         >

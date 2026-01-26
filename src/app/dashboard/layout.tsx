@@ -28,6 +28,7 @@ export default function DashboardLayout({
             <a href="/dashboard/manager/requests" className="text-text-secondary hover:text-primary-600">Solicitudes</a>
             <a href="/dashboard/staff" className="text-text-secondary hover:text-primary-600">Staff</a>
             <a href="/dashboard/staff/my-requests" className="text-text-secondary hover:text-primary-600">Mis solicitudes</a>
+            <a href="/dashboard/staff/availability" className="text-text-secondary hover:text-primary-600">Disponibilidad</a>
             <a href="/dashboard/viewer" className="text-text-secondary hover:text-primary-600">Viewer</a>
             <a href="/dashboard/notifications" className="text-text-secondary hover:text-primary-600">Notificaciones</a>
             <span className="ml-auto flex items-center gap-2">
