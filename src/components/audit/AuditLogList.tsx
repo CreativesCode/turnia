@@ -10,12 +10,14 @@ import { createClient } from '@/lib/supabase/client';
 import { AuditLogDetailModal, type AuditLogRow } from './AuditLogDetailModal';
 
 const ENTITY_LABELS: Record<string, string> = {
+  shift: 'Turno',
   shift_request: 'Solicitud',
   membership: 'Miembro',
   organization_invitation: 'Invitación',
 };
 
 const ACTION_LABELS: Record<string, string> = {
+  insert: 'Creación',
   request_approved: 'Solicitud aprobada',
   request_rejected: 'Solicitud rechazada',
   swap_accepted_by_target: 'Swap aceptado por contraparte',

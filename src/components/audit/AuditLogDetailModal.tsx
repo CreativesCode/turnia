@@ -70,8 +70,10 @@ export function AuditLogDetailModal({
   const hasComment = !!entry?.comment?.trim();
   const entityLink =
     entry?.entity === 'shift_request' && entry?.entity_id
-      ? `/dashboard/manager/requests?request=${entry.entity_id}`
-      : null;
+      ? { href: `/dashboard/manager/requests?request=${entry.entity_id}`, label: 'Ver solicitud' }
+      : entry?.entity === 'shift' && entry?.entity_id
+        ? { href: `/dashboard/manager/shifts?shift=${entry.entity_id}`, label: 'Ver turno' }
+        : null;
 
   return (
     <div
@@ -120,10 +122,10 @@ export function AuditLogDetailModal({
             {entityLink && (
               <div>
                 <Link
-                  href={entityLink}
+                  href={entityLink.href}
                   className="text-primary-600 hover:text-primary-700 hover:underline"
                 >
-                  Ver solicitud →
+                  {entityLink.label} →
                 </Link>
               </div>
             )}

@@ -795,11 +795,11 @@ Cada organización define sus propios **tipos de turno** (las categorías en las
 - [x] Component `AuditLogDetailModal.tsx`
 - [x] Índice `audit_log_org_created_idx` (org_id, created_at desc) en migración `20250202000000_audit_log_index.sql`
 
-#### **8.2 Triggers Automáticos**
-- [ ] Trigger para registrar cambios en `shifts`
-- [ ] Trigger para registrar cambios en `shift_requests`
-- [ ] Trigger para registrar cambios en `memberships`
-- [ ] Función `log_audit_event(entity, entity_id, action, before, after, comment)`
+#### **8.2 Triggers Automáticos** — CONCLUIDO
+- [x] Trigger para registrar cambios en `shifts`
+- [x] Trigger para registrar cambios en `shift_requests`
+- [x] Trigger para registrar cambios en `memberships`
+- [x] Función `log_audit_event(org_id, entity, entity_id, action, before, after, comment)` (actor_id vía auth.uid())
 
 ---
 
@@ -1011,7 +1011,7 @@ Cada organización define sus propios **tipos de turno** (las categorías en las
 
 ### Estado General del Proyecto
 - **Total de módulos**: 14
-- **Módulos completados**: Invitaciones (M1), 2.1 Organizaciones, 2.2 Miembros, 2.3 Tipos de turno, **3.3 Operaciones en lote**, **3.4 Lista de turnos**, 4.1 Crear solicitudes, 4.2 Bandeja manager, 4.3 Flujo de aprobación, **4.4 Workflow de Swap**, **5.4 In-App Notifications**, **7.1 Exportar horarios**, **7.2 Reportes básicos**, **8.1 Visualizar Audit Log** (+ infraestructura base)
+- **Módulos completados**: Invitaciones (M1), 2.1 Organizaciones, 2.2 Miembros, 2.3 Tipos de turno, **3.3 Operaciones en lote**, **3.4 Lista de turnos**, 4.1 Crear solicitudes, 4.2 Bandeja manager, 4.3 Flujo de aprobación, **4.4 Workflow de Swap**, **5.4 In-App Notifications**, **7.1 Exportar horarios**, **7.2 Reportes básicos**, **8.1 Visualizar Audit Log**, **8.2 Triggers automáticos** (+ infraestructura base)
 - **Módulos en curso**: —
 - **Progreso estimado**: ~45–47%
 
@@ -1116,6 +1116,11 @@ Cada organización define sus propios **tipos de turno** (las categorías en las
 - [x] AuditLogDetailModal: snapshot antes/después (JSON), comentario, enlace a solicitud si entity=shift_request
 - [x] Paginación 50 por página; índice audit_log_org_created_idx
 
+#### Módulo 8.2 — Triggers automáticos ✅
+- [x] Función `log_audit_event(org_id, entity, entity_id, action, before, after, comment)`; `audit_trigger_fn` (TG_TABLE_NAME → shift, shift_request, membership; TG_OP → insert, update, delete)
+- [x] Triggers `audit_shifts`, `audit_shift_requests`, `audit_memberships` (AFTER INSERT OR UPDATE OR DELETE)
+- [x] AuditLogList: etiquetas `shift` (Turno), `insert` (Creación); AuditLogDetailModal: enlace «Ver turno» cuando entity=shift
+
 ---
 
 ## 🎯 SIGUIENTE PASO INMEDIATO
@@ -1138,6 +1143,7 @@ Cada organización define sus propios **tipos de turno** (las categorías en las
 
 **Pendiente:**
 1. Opción «sugerir reemplazo» en Give Away (4.1, opcional).
-2. Triggers automáticos en shifts/memberships (8.2; audit ya se escribe desde Edge Functions y RPCs).
+
+**Módulo 8.2 (Triggers automáticos)** — Hecho: función `log_audit_event`, `audit_trigger_fn`; triggers en `shifts`, `shift_requests`, `memberships`; etiquetas en AuditLog (shift, insert) y enlace «Ver turno» en el modal.
 
 *Opcional: reordenar tipos (`sort_order`), iterar color si ya existe en la org; `min_rest_hours` desde `org_settings` (Módulo 9) cuando exista; notificaciones email (5.3), push (5.1).*
