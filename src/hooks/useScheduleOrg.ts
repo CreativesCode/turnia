@@ -1,13 +1,14 @@
 'use client';
 
 import { createClient } from '@/lib/supabase/client';
-import { canManageShifts, canCreateRequests, canApproveRequests, type MembershipRow } from '@/lib/rbac';
+import { canManageShifts, canManageOrg, canCreateRequests, canApproveRequests, type MembershipRow } from '@/lib/rbac';
 import { useCallback, useEffect, useState } from 'react';
 
 export type UseScheduleOrgResult = {
   orgId: string | null;
   userId: string | null;
   canManageShifts: boolean;
+  canManageOrg: boolean;
   canCreateRequests: boolean;
   canApproveRequests: boolean;
   isLoading: boolean;
@@ -24,6 +25,7 @@ export function useScheduleOrg(): UseScheduleOrgResult {
   const [orgId, setOrgId] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [canEdit, setCanEdit] = useState(false);
+  const [canManageOrgFlag, setCanManageOrgFlag] = useState(false);
   const [canCreateReqs, setCanCreateReqs] = useState(false);
   const [canApproveReqs, setCanApproveReqs] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -39,6 +41,7 @@ export function useScheduleOrg(): UseScheduleOrgResult {
       setOrgId(null);
       setUserId(null);
       setCanEdit(false);
+      setCanManageOrgFlag(false);
       setCanCreateReqs(false);
       setCanApproveReqs(false);
       setIsLoading(false);
@@ -55,6 +58,7 @@ export function useScheduleOrg(): UseScheduleOrgResult {
       setOrgId(null);
       setUserId(null);
       setCanEdit(false);
+      setCanManageOrgFlag(false);
       setCanCreateReqs(false);
       setCanApproveReqs(false);
       setIsLoading(false);
@@ -65,6 +69,7 @@ export function useScheduleOrg(): UseScheduleOrgResult {
       setOrgId(null);
       setUserId(null);
       setCanEdit(false);
+      setCanManageOrgFlag(false);
       setCanCreateReqs(false);
       setCanApproveReqs(false);
       setIsLoading(false);
@@ -75,6 +80,7 @@ export function useScheduleOrg(): UseScheduleOrgResult {
     setOrgId(first.org_id);
     setUserId(user.id);
     setCanEdit(canManageShifts(m));
+    setCanManageOrgFlag(canManageOrg(m));
     setCanCreateReqs(canCreateRequests(m));
     setCanApproveReqs(canApproveRequests(m));
     setIsLoading(false);
@@ -84,5 +90,5 @@ export function useScheduleOrg(): UseScheduleOrgResult {
     run();
   }, [run]);
 
-  return { orgId, userId, canManageShifts: canEdit, canCreateRequests: canCreateReqs, canApproveRequests: canApproveReqs, isLoading, error, refetch: run };
+  return { orgId, userId, canManageShifts: canEdit, canManageOrg: canManageOrgFlag, canCreateRequests: canCreateReqs, canApproveRequests: canApproveReqs, isLoading, error, refetch: run };
 }

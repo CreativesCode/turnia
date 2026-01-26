@@ -55,7 +55,7 @@ Deno.serve(async (req) => {
 
     const { data: shifts, error: shiftsErr } = await supabase
       .from('shifts')
-      .select('id, org_id, start_at, end_at, assigned_user_id')
+      .select('id, org_id, start_at, end_at, assigned_user_id, shift_type_id')
       .in('id', ids);
 
     if (shiftsErr || !shifts || shifts.length !== ids.length) {
@@ -135,7 +135,9 @@ Deno.serve(async (req) => {
         }
       }
 
-      // 2) Para cada turno: solapamiento con otros turnos del usuario y availability_events (vía RPC)
+      // 2) Para cada turno: solapamiento con otros turnos del usuario y availability_events (vía RPC); min_rest_hours desde org_settings
+      const { data: os } = await supabase.from('org_settings').select('min_rest_hours').eq('org_id', orgId).maybeSingle();
+      const minRest = (os as { min_rest_hours?: number } | null)?.min_rest_hours ?? 0;
       for (const s of shifts) {
         const { data: rpc, error: rpcErr } = await supabase.rpc('check_shift_conflicts', {
           p_user_id: assigned_user_id,
@@ -143,7 +145,7 @@ Deno.serve(async (req) => {
           p_end_at: s.end_at,
           p_exclude_shift_id: null,
           p_org_id: orgId,
-          p_min_rest_hours: 0,
+          p_min_rest_hours: minRest,
         });
         if (!rpcErr) {
           const row = Array.isArray(rpc) ? rpc[0] : rpc;
@@ -184,6 +186,46 @@ Deno.serve(async (req) => {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
+    }
+
+    // Notificaciones: Shift assigned / unassigned (Módulo 5.2)
+    const typeIds = [...new Set((shifts as { shift_type_id: string }[]).map((s) => s.shift_type_id).filter(Boolean))];
+    let typeMap: Record<string, string> = {};
+    if (typeIds.length > 0) {
+      const { data: types } = await supabase
+        .from('organization_shift_types')
+        .select('id, name')
+        .in('id', typeIds);
+      typeMap = Object.fromEntries(
+        ((types ?? []) as { id: string; name: string }[]).map((t) => [t.id, t.name])
+      );
+    }
+    for (const s of shifts as { id: string; start_at: string; assigned_user_id: string | null; shift_type_id: string }[]) {
+      const dateStr = new Date(s.start_at).toLocaleDateString('es-ES', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+      });
+      if (assigned_user_id) {
+        const typeName = typeMap[s.shift_type_id] ?? 'Turno';
+        await supabase.from('notifications').insert({
+          user_id: assigned_user_id,
+          title: 'Turno asignado',
+          message: `Te han asignado un turno: ${dateStr}, ${typeName}.`,
+          type: 'shift',
+          entity_type: 'shift',
+          entity_id: s.id,
+        });
+      } else if (s.assigned_user_id) {
+        await supabase.from('notifications').insert({
+          user_id: s.assigned_user_id,
+          title: 'Turno desasignado',
+          message: `Te han quitado el turno del ${dateStr}.`,
+          type: 'shift',
+          entity_type: 'shift',
+          entity_id: s.id,
+        });
+      }
     }
 
     return new Response(JSON.stringify({ ok: true, updated: ids.length }), {

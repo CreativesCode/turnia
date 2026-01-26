@@ -114,14 +114,16 @@ Deno.serve(async (req) => {
         );
       }
 
-      // Validar conflictos: overlap, disponibilidad, descanso mínimo
+      // Validar conflictos: overlap, disponibilidad, descanso mínimo (desde org_settings)
+      const { data: os } = await supabase.from('org_settings').select('min_rest_hours').eq('org_id', org_id).maybeSingle();
+      const minRest = (os as { min_rest_hours?: number } | null)?.min_rest_hours ?? 0;
       const { data: rpc, error: rpcErr } = await supabase.rpc('check_shift_conflicts', {
         p_user_id: assigned_user_id,
         p_start_at: start_at,
         p_end_at: end_at,
         p_exclude_shift_id: null,
         p_org_id: org_id,
-        p_min_rest_hours: 0,
+        p_min_rest_hours: minRest,
       });
       if (!rpcErr) {
         const row = Array.isArray(rpc) ? rpc[0] : rpc;
@@ -152,6 +154,29 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: insertErr.message }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Notificación: Shift assigned (Módulo 5.2)
+    if (assigned_user_id) {
+      const { data: stRow2 } = await supabase
+        .from('organization_shift_types')
+        .select('name')
+        .eq('id', shift_type_id)
+        .single();
+      const typeName = (stRow2 as { name?: string } | null)?.name ?? 'Turno';
+      const dateStr = new Date(start_at).toLocaleDateString('es-ES', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+      });
+      await supabase.from('notifications').insert({
+        user_id: assigned_user_id,
+        title: 'Turno asignado',
+        message: `Te han asignado un turno: ${dateStr}, ${typeName}.`,
+        type: 'shift',
+        entity_type: 'shift',
+        entity_id: inserted.id,
       });
     }
 

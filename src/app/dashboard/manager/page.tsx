@@ -2,11 +2,14 @@
 
 /**
  * Página Manager: calendario de turnos, crear/editar/eliminar.
+ * Soporta ?shift=id para abrir el detalle desde notificaciones (Módulo 5.2).
  * @see project-roadmap.md Módulo 3
  */
 
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
+import { createClient } from '@/lib/supabase/client';
 import { ShiftCalendar } from '@/components/calendar/ShiftCalendar';
 import {
   ShiftCalendarFilters,
@@ -20,6 +23,7 @@ import { useScheduleOrg } from '@/hooks/useScheduleOrg';
 import type { ShiftWithType } from '@/components/calendar/ShiftCalendar';
 
 export default function ManagerPage() {
+  const searchParams = useSearchParams();
   const { orgId, userId, canManageShifts, canCreateRequests, isLoading, error } = useScheduleOrg();
   const [refreshKey, setRefreshKey] = useState(0);
   const [filters, setFilters] = useState<ShiftCalendarFiltersState>(defaultFilters);
@@ -28,6 +32,36 @@ export default function ManagerPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [createInitialDate, setCreateInitialDate] = useState<Date | undefined>();
   const [editShift, setEditShift] = useState<ShiftWithType | null>(null);
+
+  // Abrir detalle de turno desde ?shift=id (p. ej. desde notificaciones)
+  useEffect(() => {
+    const shiftId = searchParams.get('shift');
+    if (!shiftId || !orgId) return;
+    const supabase = createClient();
+    (async () => {
+      const { data: s, error: e } = await supabase
+        .from('shifts')
+        .select(
+          `id, org_id, shift_type_id, status, start_at, end_at, assigned_user_id, location,
+           organization_shift_types (id, name, letter, color, start_time, end_time)`
+        )
+        .eq('id', shiftId)
+        .eq('org_id', orgId)
+        .single();
+      if (e || !s) return;
+      const ot = Array.isArray((s as { organization_shift_types?: unknown }).organization_shift_types)
+        ? (s as { organization_shift_types?: unknown[] }).organization_shift_types?.[0]
+        : (s as { organization_shift_types?: unknown }).organization_shift_types;
+      const shift: ShiftWithType = { ...s, organization_shift_types: ot ?? null } as ShiftWithType;
+      let name: string | null = null;
+      if (shift.assigned_user_id) {
+        const { data: p } = await supabase.from('profiles').select('full_name').eq('id', shift.assigned_user_id).single();
+        name = (p as { full_name?: string } | null)?.full_name ?? null;
+      }
+      setDetailShift(shift);
+      setDetailAssignedName(name);
+    })();
+  }, [orgId, searchParams]);
 
   const handleRefresh = useCallback(() => {
     setRefreshKey((k) => k + 1);

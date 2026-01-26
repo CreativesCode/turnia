@@ -684,14 +684,14 @@ Cada organización define sus propios **tipos de turno** (las categorías en las
   - [ ] Fallback a email si falla (Resend/SendGrid)
   - [ ] Registrar intentos de envío (opcional)
 
-#### **5.2 Eventos de Notificación**
+#### **5.2 Eventos de Notificación** — CONCLUIDO
 - [x] Request submitted → Notificar a manager
 - [x] Request accepted (swap) → Notificar a requester (y manager: opcional)
 - [x] Request approved → Notificar a todos los involucrados
 - [x] Request rejected → Notificar al requester
-- [ ] Shift assigned → Notificar al usuario asignado
-- [ ] Shift changed → Notificar al usuario afectado
-- [ ] Schedule published → Notificar a la org
+- [x] Shift assigned → Notificar al usuario asignado (create-shift, update-shift, bulk-update-shifts)
+- [x] Shift changed → Notificar al usuario afectado (update-shift: modificado, desasignado)
+- [x] Schedule published → Notificar al asignado cuando draft→published (update-shift)
 
 #### **5.3 Email Notifications (Fallback)**
 - [ ] Configurar email templates en Supabase
@@ -729,20 +729,20 @@ Cada organización define sus propios **tipos de turno** (las categorías en las
     - Licencia médica
     - Capacitación
     - No disponible (sin especificar)
-  - [x] Editar/eliminar eventos (modal con Eliminar)
+  - [x] Editar/eliminar eventos (modal con Eliminar; confirmación de eliminación con `ConfirmModal`, no `confirm()` nativo)
 
 - [x] Component `AvailabilityCalendar.tsx`
-- [x] Component `AvailabilityEventModal.tsx` (crear/editar/eliminar)
+- [x] Component `AvailabilityEventModal.tsx` (crear/editar/eliminar; eliminar con `ConfirmModal`)
 - [x] RLS: `availability_insert_member`, `availability_update_member`, `availability_delete_member` (migración `20250205000000_availability_events_member_rls.sql`)
 
-#### **6.2 Ver Disponibilidad (Manager)**
-- [ ] Página `/dashboard/manager/availability`
-  - [ ] Ver disponibilidad de todos los miembros
-  - [ ] Filtrar por usuario
-  - [ ] Filtrar por tipo de evento
-  - [ ] Vista calendario
+#### **6.2 Ver Disponibilidad (Manager)** — CONCLUIDO
+- [x] Página `/dashboard/manager/availability`
+  - [x] Ver disponibilidad de todos los miembros
+  - [x] Filtrar por usuario
+  - [x] Filtrar por tipo de evento
+  - [x] Vista calendario
 
-- [ ] Bloquear asignación de turnos si hay conflicto con availability
+- [x] Bloquear asignación de turnos si hay conflicto con availability (RPC `check_shift_conflicts` y Create/EditShiftModal)
 
 ---
 
@@ -816,23 +816,18 @@ Cada organización define sus propios **tipos de turno** (las categorías en las
 - [ ] Rate limiting (prevenir abuse)
 - [ ] Logging de intentos fallidos
 
-#### **9.3 Configuraciones de Org**
-- [ ] Tabla `org_settings`:
-  ```sql
-  - org_id (uuid, pk, ref organizations)
-  - allow_self_assign_open_shifts (boolean)
-  - require_approval_for_swaps (boolean)
-  - require_approval_for_give_aways (boolean)
-  - min_rest_hours (integer) - descanso mínimo entre turnos
-  - settings_json (jsonb) - configuraciones adicionales
-  ```
+#### **9.3 Configuraciones de Org** — CONCLUIDO
+- [x] Tabla `org_settings` (migración `20250206000000_org_settings.sql`):
+  - org_id (pk, ref organizations), allow_self_assign_open_shifts, require_approval_for_swaps, require_approval_for_give_aways, min_rest_hours, settings_json, created_at, updated_at
+  - RLS: SELECT miembros; INSERT/UPDATE org_admin y superadmin
 
-- [ ] Página `/dashboard/admin/settings`
-  - [ ] Editar configuraciones de la org
-  - [ ] Los tipos de turno se gestionan en el Módulo 2.3 (`organization_shift_types`).
-  - [ ] Configurar reglas de descanso
+- [x] Página `/dashboard/admin/settings`
+  - [x] Editar configuraciones de la org (org_admin: su org; superadmin: selector de org)
+  - [x] Configurar reglas de descanso (min_rest_hours usado en check_shift_conflicts y en create/update/bulk/copy/generate-shifts)
 
-- [ ] Component `OrgSettingsForm.tsx`
+- [x] Component `OrgSettingsForm.tsx`
+  - [x] allow_self_assign_open_shifts, require_approval_for_swaps, require_approval_for_give_aways, min_rest_hours
+  - [ ] Uso de allow_self_assign_open_shifts y require_approval_* en flujos (opcional; los valores se guardan para uso futuro)
 
 ---
 

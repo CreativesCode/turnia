@@ -56,7 +56,7 @@ Deno.serve(async (req) => {
 
     const { data: shift, error: shiftErr } = await supabase
       .from('shifts')
-      .select('id, org_id, start_at, end_at, assigned_user_id')
+      .select('id, org_id, start_at, end_at, assigned_user_id, status, shift_type_id')
       .eq('id', id)
       .single();
 
@@ -135,19 +135,21 @@ Deno.serve(async (req) => {
     if (location !== undefined) updates.location = location || null;
     if (status === 'draft' || status === 'published') updates.status = status;
 
-    // Validar conflictos si hay usuario asignado (el nuevo o el actual)
+    // Validar conflictos si hay usuario asignado (el nuevo o el actual); min_rest_hours desde org_settings
     const newAssigned =
       assigned_user_id !== undefined ? assigned_user_id || null : shift.assigned_user_id;
     if (newAssigned) {
       const newStart = (updates.start_at as string) ?? shift.start_at;
       const newEnd = (updates.end_at as string) ?? shift.end_at;
+      const { data: os } = await supabase.from('org_settings').select('min_rest_hours').eq('org_id', org_id).maybeSingle();
+      const minRest = (os as { min_rest_hours?: number } | null)?.min_rest_hours ?? 0;
       const { data: rpc, error: rpcErr } = await supabase.rpc('check_shift_conflicts', {
         p_user_id: newAssigned,
         p_start_at: newStart,
         p_end_at: newEnd,
         p_exclude_shift_id: id,
         p_org_id: org_id,
-        p_min_rest_hours: 0,
+        p_min_rest_hours: minRest,
       });
       if (!rpcErr) {
         const row = Array.isArray(rpc) ? rpc[0] : rpc;
@@ -177,6 +179,78 @@ Deno.serve(async (req) => {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
+    }
+
+    // Notificaciones: Shift assigned / changed / unassigned / Schedule published (Módulo 5.2)
+    const oldAssigned = shift.assigned_user_id;
+    const newAssigned =
+      assigned_user_id !== undefined ? assigned_user_id || null : shift.assigned_user_id;
+    const finalStart = (updates.start_at as string) ?? shift.start_at;
+    const finalTypeId = (updates.shift_type_id as string) ?? shift.shift_type_id;
+    const oldStatus = shift.status;
+    const newStatus = (updates.status as string) ?? shift.status;
+
+    let typeName = 'Turno';
+    if (finalTypeId) {
+      const { data: stRow } = await supabase
+        .from('organization_shift_types')
+        .select('name')
+        .eq('id', finalTypeId)
+        .single();
+      typeName = (stRow as { name?: string } | null)?.name ?? 'Turno';
+    }
+    const dateStr = new Date(finalStart).toLocaleDateString('es-ES', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+    });
+
+    if (assigned_user_id !== undefined) {
+      if (newAssigned && newAssigned !== oldAssigned) {
+        await supabase.from('notifications').insert({
+          user_id: newAssigned,
+          title: 'Turno asignado',
+          message: `Te han asignado un turno: ${dateStr}, ${typeName}.`,
+          type: 'shift',
+          entity_type: 'shift',
+          entity_id: id,
+        });
+      }
+      if (oldAssigned && newAssigned !== oldAssigned) {
+        await supabase.from('notifications').insert({
+          user_id: oldAssigned,
+          title: 'Turno desasignado',
+          message: `Te han quitado el turno del ${dateStr}.`,
+          type: 'shift',
+          entity_type: 'shift',
+          entity_id: id,
+        });
+      }
+    } else if (newAssigned && Object.keys(updates).length > 0) {
+      if (oldStatus !== 'published' && newStatus === 'published') {
+        await supabase.from('notifications').insert({
+          user_id: newAssigned,
+          title: 'Turno publicado',
+          message: `Tu turno del ${dateStr} ha sido publicado.`,
+          type: 'shift',
+          entity_type: 'shift',
+          entity_id: id,
+        });
+      } else if (
+        updates.start_at != null ||
+        updates.end_at != null ||
+        updates.shift_type_id != null ||
+        updates.location !== undefined
+      ) {
+        await supabase.from('notifications').insert({
+          user_id: newAssigned,
+          title: 'Turno modificado',
+          message: `Tu turno del ${dateStr} ha sido modificado.`,
+          type: 'shift',
+          entity_type: 'shift',
+          entity_id: id,
+        });
+      }
     }
 
     return new Response(JSON.stringify({ ok: true }), {

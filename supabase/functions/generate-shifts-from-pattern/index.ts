@@ -142,6 +142,8 @@ Deno.serve(async (req) => {
     }
 
     const status = body.status === 'published' ? 'published' : 'draft';
+    const { data: os } = await supabase.from('org_settings').select('min_rest_hours').eq('org_id', org_id).maybeSingle();
+    const minRest = (os as { min_rest_hours?: number } | null)?.min_rest_hours ?? 0;
     let generated = 0;
 
     for (let d = new Date(from); d <= to; d.setDate(d.getDate() + 1)) {
@@ -171,7 +173,7 @@ Deno.serve(async (req) => {
             p_end_at: end_at,
             p_exclude_shift_id: null,
             p_org_id: org_id,
-            p_min_rest_hours: 0,
+            p_min_rest_hours: minRest,
           });
           if (!rpcErr) {
             const r = Array.isArray(rpc) ? rpc[0] : rpc;

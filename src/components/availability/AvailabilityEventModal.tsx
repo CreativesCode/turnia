@@ -8,6 +8,7 @@
 
 import { createClient } from '@/lib/supabase/client';
 import { useCallback, useEffect, useState } from 'react';
+import { ConfirmModal } from '@/components/ui/ConfirmModal';
 
 export type AvailabilityEventType = 'vacation' | 'sick_leave' | 'training' | 'unavailable';
 
@@ -23,7 +24,7 @@ export type AvailabilityEvent = {
   updated_at: string;
 };
 
-const AVAILABILITY_TYPE_OPTIONS: { value: AvailabilityEventType; label: string }[] = [
+export const AVAILABILITY_TYPE_OPTIONS: { value: AvailabilityEventType; label: string }[] = [
   { value: 'vacation', label: 'Vacaciones' },
   { value: 'sick_leave', label: 'Licencia médica' },
   { value: 'training', label: 'Capacitación' },
@@ -89,6 +90,7 @@ export function AvailabilityEventModal({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const isEdit = !!editEvent;
 
@@ -96,6 +98,7 @@ export function AvailabilityEventModal({
     if (open) {
       setError(null);
       setDeleting(false);
+      setConfirmDelete(false);
       if (editEvent) {
         setType((editEvent.type as AvailabilityEventType) || 'vacation');
         setStartDate(toDateString(parseDateLocal(editEvent.start_at)));
@@ -167,13 +170,14 @@ export function AvailabilityEventModal({
     [isEdit, editEvent, orgId, userId, type, startDate, endDate, note, validate, onSuccess, onClose]
   );
 
-  const handleDelete = useCallback(async () => {
-    if (!editEvent || !confirm('¿Eliminar este evento de disponibilidad?')) return;
+  const doDelete = useCallback(async () => {
+    if (!editEvent) return;
     setDeleting(true);
     setError(null);
     const supabase = createClient();
     const { error: err } = await supabase.from('availability_events').delete().eq('id', editEvent.id);
     setDeleting(false);
+    setConfirmDelete(false);
     if (err) {
       setError(err.message);
       return;
@@ -267,7 +271,7 @@ export function AvailabilityEventModal({
             {isEdit && (
               <button
                 type="button"
-                onClick={handleDelete}
+                onClick={() => setConfirmDelete(true)}
                 disabled={deleting}
                 className="min-h-[44px] ml-auto rounded-lg border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-medium text-red-700 hover:bg-red-100 disabled:opacity-60"
               >
@@ -277,6 +281,18 @@ export function AvailabilityEventModal({
           </div>
         </form>
       </div>
+
+      <ConfirmModal
+        open={confirmDelete}
+        onClose={() => setConfirmDelete(false)}
+        onConfirm={doDelete}
+        title="Eliminar evento de disponibilidad"
+        message="¿Eliminar este evento de disponibilidad? No se puede deshacer."
+        confirmLabel="Sí, eliminar"
+        cancelLabel="Cancelar"
+        variant="danger"
+        loading={deleting}
+      />
     </div>
   );
 }

@@ -128,6 +128,8 @@ Deno.serve(async (req) => {
       );
     }
 
+    const { data: os } = await supabase.from('org_settings').select('min_rest_hours').eq('org_id', org_id).maybeSingle();
+    const minRest = (os as { min_rest_hours?: number } | null)?.min_rest_hours ?? 0;
     let copied = 0;
     for (const s of list) {
       const newStart = addDays(s.start_at, offsetDays);
@@ -141,7 +143,7 @@ Deno.serve(async (req) => {
           p_end_at: newEnd,
           p_exclude_shift_id: null,
           p_org_id: org_id,
-          p_min_rest_hours: 0,
+          p_min_rest_hours: minRest,
         });
         if (!rpcErr) {
           const row = Array.isArray(rpc) ? rpc[0] : rpc;

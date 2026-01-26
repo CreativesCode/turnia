@@ -156,16 +156,18 @@ export function EditShiftModal({
         st?.end_time ?? null
       );
 
-      // Validar conflictos (overlap, disponibilidad, descanso) si hay usuario asignado
+      // Validar conflictos (overlap, disponibilidad, descanso) si hay usuario asignado; min_rest_hours desde org_settings
       if (assignedUserId) {
         const supabase = createClient();
+        const { data: os } = await supabase.from('org_settings').select('min_rest_hours').eq('org_id', orgId).maybeSingle();
+        const minRest = (os as { min_rest_hours?: number } | null)?.min_rest_hours ?? 0;
         const { data: rpc, error: rpcErr } = await supabase.rpc('check_shift_conflicts', {
           p_user_id: assignedUserId,
           p_start_at: start_at,
           p_end_at: end_at,
           p_exclude_shift_id: shift.id,
           p_org_id: orgId,
-          p_min_rest_hours: 0,
+          p_min_rest_hours: minRest,
         });
         if (!rpcErr) {
           const row = Array.isArray(rpc) ? rpc[0] : rpc;
