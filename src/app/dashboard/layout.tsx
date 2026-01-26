@@ -1,6 +1,7 @@
 import { AuthGuard } from '@/components/auth/AuthGuard';
 import { LogoutButton } from '@/components/auth/LogoutButton';
 import { NotificationBell } from '@/components/notifications/NotificationBell';
+import { PushNotificationRegistrationLoader } from '@/components/notifications/PushNotificationRegistrationLoader';
 
 export default function DashboardLayout({
   children,
@@ -9,6 +10,7 @@ export default function DashboardLayout({
 }) {
   return (
     <AuthGuard>
+      <PushNotificationRegistrationLoader />
       <div className="min-h-screen bg-subtle-bg">
         <header className="border-b border-border bg-background px-4 py-3">
           <nav className="flex flex-wrap items-center gap-4 text-sm">

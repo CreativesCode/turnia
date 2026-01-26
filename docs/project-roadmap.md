@@ -667,26 +667,22 @@ Cada organización define sus propios **tipos de turno** (las categorías en las
 
 ### 📢 **Módulo 5: Notificaciones**
 
-#### **5.1 Push Notifications (Capacitor)**
-- [ ] Configurar Capacitor Push Notifications
-  - [ ] Setup iOS (APNs)
-  - [ ] Setup Android (FCM)
-  - [ ] Registrar device token en Supabase
+#### **5.1 Push Notifications (Capacitor)** — ESTRUCTURA COMPLETA
+- [x] Configurar Capacitor Push Notifications
+  - [x] Cliente: `PushNotificationRegistration` (permisos, `register()`, envío de token a `register-push-token`); solo iOS/Android nativos
+  - [ ] Setup iOS (APNs): AppDelegate + capability; ver `docs/push-notifications.md`
+  - [ ] Setup Android (FCM): `google-services.json`, canal, icono; ver `docs/push-notifications.md`
 
-- [ ] Tabla `push_tokens`:
-  ```sql
-  - id (uuid)
-  - user_id (uuid, ref auth.users)
-  - platform (text: ios, android, web)
-  - token (text)
-  - created_at (timestamptz)
-  - last_used_at (timestamptz)
-  ```
+- [x] Tabla `push_tokens` (migración `20250204000000_push_tokens.sql`):
+  - id (uuid), user_id (uuid, ref auth.users), platform (ios|android|web), token (text, unique), created_at, last_used_at
+  - RLS: SELECT propio; INSERT/UPDATE vía Edge Function `register-push-token` (service_role)
 
-- [ ] Edge Function `send-notification` (completar)
-  - [ ] Enviar push a dispositivos del usuario
-  - [ ] Fallback a email si falla
-  - [ ] Registrar intentos de envío
+- [x] Edge Function `register-push-token`: auth JWT; body `{ token, platform }`; upsert en `push_tokens` por `token`
+
+- [x] Edge Function `send-notification` (completar)
+  - [x] Enviar push a dispositivos del usuario: lee `push_tokens` por `userId`; FCM (Android) si `FIREBASE_SERVICE_ACCOUNT_JSON`; APNs (iOS) pendiente
+  - [ ] Fallback a email si falla (Resend/SendGrid)
+  - [ ] Registrar intentos de envío (opcional)
 
 #### **5.2 Eventos de Notificación**
 - [x] Request submitted → Notificar a manager
@@ -1140,6 +1136,12 @@ Cada organización define sus propios **tipos de turno** (las categorías en las
 **Módulo 7.2 (Reportes básicos)** — Hecho: `/dashboard/admin/reports`, `ReportsBasicDashboard` (rango fechas; turnos por usuario/tipo, distribución nocturnos y fines de semana, turnos sin asignar, solicitudes por estado; Recharts).
 
 **Módulo 8.1 (Visualizar Audit Log)** — Hecho: `/dashboard/admin/audit`, `AuditLogList` (filtros: entidad, actor, acción, rango fechas; paginación), `AuditLogDetailModal` (snapshot antes/después, comentario, enlace a solicitud); índice `audit_log_org_created_idx`.
+
+**Módulo 5.1 (Push Notifications)** — Estructura lista:
+- [x] Tabla `push_tokens`, RLS; Edge Function `register-push-token` (auth, upsert por token)
+- [x] Cliente: `PushNotificationRegistration` + `PushNotificationRegistrationLoader` en layout dashboard; Capacitor `register()` y envío a `register-push-token` en iOS/Android
+- [x] `send-notification`: lee `push_tokens`, envía vía FCM (Android) si `FIREBASE_SERVICE_ACCOUNT_JSON`; APNs (iOS) pendiente; `docs/push-notifications.md`
+- [ ] Completar: FCM (google-services.json, secret), APNs (AppDelegate, key/cert), invocar `send-notification` desde approve-request/respond-to-swap
 
 **Pendiente:**
 1. Opción «sugerir reemplazo» en Give Away (4.1, opcional).

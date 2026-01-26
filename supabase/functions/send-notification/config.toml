@@ -1,0 +1,2 @@
+# Invocada desde otras Edge Functions o servicios; no requiere JWT de usuario.
+verify_jwt = false
