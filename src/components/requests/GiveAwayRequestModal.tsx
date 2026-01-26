@@ -2,6 +2,7 @@
 
 /**
  * Modal para solicitar dar de baja un turno (give_away).
+ * Opción opcional: sugerir un compañero como reemplazo.
  * @see project-roadmap.md Módulo 4.1
  */
 
@@ -9,6 +10,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 
 type Shift = { id: string; org_id: string };
+
+type MemberOption = { user_id: string; full_name: string | null };
 
 type Props = {
   open: boolean;
@@ -26,6 +29,8 @@ export function GiveAwayRequestModal({
   currentUserId,
 }: Props) {
   const [comment, setComment] = useState('');
+  const [suggestedReplacementUserId, setSuggestedReplacementUserId] = useState('');
+  const [members, setMembers] = useState<MemberOption[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pendingExists, setPendingExists] = useState(false);
@@ -46,10 +51,45 @@ export function GiveAwayRequestModal({
   useEffect(() => {
     if (open) {
       setComment('');
+      setSuggestedReplacementUserId('');
       setError(null);
       checkPending();
     }
   }, [open, checkPending]);
+
+  // Cargar miembros de la org (excluyendo al usuario actual) para sugerir reemplazo
+  useEffect(() => {
+    if (!open || !shift?.org_id || !currentUserId) {
+      setMembers([]);
+      return;
+    }
+    const supabase = createClient();
+    supabase
+      .from('memberships')
+      .select('user_id')
+      .eq('org_id', shift.org_id)
+      .then(({ data: mRes }) => {
+        const userIds = ((mRes ?? []) as { user_id: string }[])
+          .map((r) => r.user_id)
+          .filter((id) => id !== currentUserId);
+        if (userIds.length === 0) {
+          setMembers([]);
+          return;
+        }
+        supabase
+          .from('profiles')
+          .select('id, full_name')
+          .in('id', userIds)
+          .then(({ data }) => {
+            setMembers(
+              ((data ?? []) as { id: string; full_name: string | null }[]).map((p) => ({
+                user_id: p.id,
+                full_name: p.full_name,
+              }))
+            );
+          });
+      });
+  }, [open, shift?.org_id, currentUserId]);
 
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
@@ -58,23 +98,27 @@ export function GiveAwayRequestModal({
       setLoading(true);
       setError(null);
       const supabase = createClient();
-      const { data, error: err } = await supabase.functions.invoke('create-request', {
-        body: { requestType: 'give_away', shiftId: shift.id, comment: comment.trim() || undefined },
-      });
+      const body: { requestType: string; shiftId: string; comment?: string; suggested_replacement_user_id?: string | null } = {
+        requestType: 'give_away',
+        shiftId: shift.id,
+        comment: comment.trim() || undefined,
+      };
+      if (suggestedReplacementUserId) body.suggested_replacement_user_id = suggestedReplacementUserId;
+      const { data, error: err } = await supabase.functions.invoke('create-request', { body });
       setLoading(false);
       if (err) {
         setError(err.message);
         return;
       }
-      const body = data as { error?: string } | undefined;
-      if (body?.error) {
-        setError(body.error);
+      const res = data as { error?: string } | undefined;
+      if (res?.error) {
+        setError(res.error);
         return;
       }
       onSuccess();
       onClose();
     },
-    [shift, currentUserId, comment, loading, pendingExists, onSuccess, onClose]
+    [shift, currentUserId, comment, suggestedReplacementUserId, loading, pendingExists, onSuccess, onClose]
   );
 
   if (!open) return null;
@@ -95,6 +139,27 @@ export function GiveAwayRequestModal({
           </p>
         )}
         <form onSubmit={handleSubmit} className="mt-4 space-y-4">
+          {members.length > 0 && (
+            <div>
+              <label htmlFor="giveaway-suggest" className="block text-sm font-medium text-text-primary">
+                Sugerir reemplazo <span className="text-muted">(opcional)</span>
+              </label>
+              <select
+                id="giveaway-suggest"
+                value={suggestedReplacementUserId}
+                onChange={(e) => setSuggestedReplacementUserId(e.target.value)}
+                className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-text-primary focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                disabled={pendingExists}
+              >
+                <option value="">No sugerir a nadie</option>
+                {members.map((m) => (
+                  <option key={m.user_id} value={m.user_id}>
+                    {m.full_name?.trim() || m.user_id.slice(0, 8)}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
           <label className="block text-sm font-medium text-text-primary">
             Comentario <span className="text-muted">(opcional)</span>
           </label>
@@ -103,7 +168,7 @@ export function GiveAwayRequestModal({
             onChange={(e) => setComment(e.target.value)}
             rows={3}
             className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-text-primary placeholder:text-muted focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-            placeholder="Motivo o sugerencia de reemplazo..."
+            placeholder="Motivo o notas adicionales..."
             disabled={pendingExists}
           />
           {error && <p className="text-sm text-red-600">{error}</p>}

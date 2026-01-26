@@ -1,8 +1,10 @@
 // Edge Function: reenviar invitación (nuevo token, nueva expiración, opcional email)
 // Requiere: org_admin o superadmin. body: { invitation_id }
+// @see project-roadmap.md 9.2
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
+import { getAuthUser, checkCanManageOrg, checkRateLimit, logFailedAttempt } from '../_shared/auth.ts';
 
 function generateToken(): string {
   const buf = new Uint8Array(32);
@@ -10,36 +12,38 @@ function generateToken(): string {
   return btoa(String.fromCharCode(...buf)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
+const FN = 'resend-invitation';
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders });
 
   try {
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader?.startsWith('Bearer ')) {
-      return new Response(
-        JSON.stringify({ error: 'Authorization Bearer required' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
     const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
-    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
-    const supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
-      global: { headers: { Authorization: authHeader } },
-    });
+    const serviceKey = Deno.env.get('SERVICE_ROLE_KEY') ?? Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+    const supabase = createClient(supabaseUrl, serviceKey);
 
-    const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
-    if (userError || !user) {
+    const auth = await getAuthUser(req);
+    if ('error' in auth) {
+      await logFailedAttempt(supabase, {
+        functionName: FN,
+        reason: auth.error === 'no_bearer' ? 'Authorization Bearer required' : 'Invalid or expired token',
+        status: 401,
+      });
       return new Response(
-        JSON.stringify({ error: 'Invalid or expired session' }),
+        JSON.stringify({ error: auth.error === 'no_bearer' ? 'Authorization Bearer required' : 'Invalid or expired session' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+    const user = auth.user;
 
-    const supabase = createClient(
-      supabaseUrl,
-      Deno.env.get('SERVICE_ROLE_KEY') ?? Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    );
+    const { allowed } = await checkRateLimit(supabase, user.id, FN);
+    if (!allowed) {
+      await logFailedAttempt(supabase, { functionName: FN, userId: user.id, reason: 'Rate limit exceeded', status: 429 });
+      return new Response(JSON.stringify({ error: 'Demasiadas solicitudes' }), {
+        status: 429,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
     const body = (await req.json()) as { invitation_id?: string };
     const { invitation_id } = body;
@@ -70,15 +74,15 @@ Deno.serve(async (req) => {
       );
     }
 
-    const { data: membership } = await supabase
-      .from('memberships')
-      .select('id')
-      .eq('org_id', inv.org_id)
-      .eq('user_id', user.id)
-      .in('role', ['org_admin', 'superadmin'])
-      .maybeSingle();
-
-    if (!membership) {
+    const canManage = await checkCanManageOrg(supabase, user.id, inv.org_id);
+    if (!canManage) {
+      await logFailedAttempt(supabase, {
+        functionName: FN,
+        userId: user.id,
+        orgId: inv.org_id,
+        reason: 'You must be org_admin or superadmin to resend',
+        status: 403,
+      });
       return new Response(
         JSON.stringify({ error: 'You must be org_admin or superadmin to resend' }),
         { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

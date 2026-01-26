@@ -2,44 +2,50 @@
 // Si org_settings lo permite, auto-aprueba:
 // - take_open: allow_self_assign_open_shifts → asigna turno al requester.
 // - give_away: !require_approval_for_give_aways → deja turno sin asignar.
-// @see project-roadmap.md Módulo 9.3
+// @see project-roadmap.md Módulo 9.3, 9.2
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
+import { getAuthUser, checkRateLimit, logFailedAttempt } from '../_shared/auth.ts';
+
+const FN = 'create-request';
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
   try {
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader?.startsWith('Bearer ')) {
-      return new Response(JSON.stringify({ error: 'Authorization Bearer required' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
     const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
-    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
-    const supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
-      global: { headers: { Authorization: authHeader } },
-    });
-
-    const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
-    if (userError || !user) {
-      return new Response(JSON.stringify({ error: 'Invalid or expired token' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
     const serviceKey = Deno.env.get('SERVICE_ROLE_KEY') ?? Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
     const supabase = createClient(supabaseUrl, serviceKey);
 
-    const { requestType, shiftId, comment } = (await req.json()) as {
+    const auth = await getAuthUser(req);
+    if ('error' in auth) {
+      await logFailedAttempt(supabase, {
+        functionName: FN,
+        reason: auth.error === 'no_bearer' ? 'Authorization Bearer required' : 'Invalid or expired token',
+        status: 401,
+      });
+      return new Response(JSON.stringify({ error: auth.error === 'no_bearer' ? 'Authorization Bearer required' : 'Invalid or expired token' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    const user = auth.user;
+
+    const { allowed } = await checkRateLimit(supabase, user.id, FN);
+    if (!allowed) {
+      await logFailedAttempt(supabase, { functionName: FN, userId: user.id, reason: 'Rate limit exceeded', status: 429 });
+      return new Response(JSON.stringify({ error: 'Demasiadas solicitudes' }), {
+        status: 429,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const { requestType, shiftId, comment, suggested_replacement_user_id } = (await req.json()) as {
       requestType: 'take_open' | 'give_away';
       shiftId: string;
       comment?: string;
+      suggested_replacement_user_id?: string | null;
     };
 
     if (!requestType || !shiftId || !['take_open', 'give_away'].includes(requestType)) {
@@ -74,6 +80,13 @@ Deno.serve(async (req) => {
       }
     } else {
       if (assigned !== user.id) {
+        await logFailedAttempt(supabase, {
+          functionName: FN,
+          userId: user.id,
+          orgId: orgId,
+          reason: 'Solo puedes dar de baja un turno que te está asignado',
+          status: 403,
+        });
         return new Response(
           JSON.stringify({ error: 'Solo puedes dar de baja un turno que te está asignado' }),
           { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -89,6 +102,13 @@ Deno.serve(async (req) => {
       .in('role', ['user', 'team_manager', 'org_admin', 'superadmin'])
       .maybeSingle();
     if (!membership) {
+      await logFailedAttempt(supabase, {
+        functionName: FN,
+        userId: user.id,
+        orgId: orgId,
+        reason: 'No tienes permiso para crear solicitudes en esta organización',
+        status: 403,
+      });
       return new Response(
         JSON.stringify({ error: 'No tienes permiso para crear solicitudes en esta organización' }),
         { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -109,6 +129,18 @@ Deno.serve(async (req) => {
       );
     }
 
+    // give_away: validar que suggested_replacement_user_id sea miembro de la org si se envía
+    let suggestedReplacement: string | null = null;
+    if (requestType === 'give_away' && suggested_replacement_user_id && typeof suggested_replacement_user_id === 'string') {
+      const { data: mem } = await supabase
+        .from('memberships')
+        .select('id')
+        .eq('org_id', orgId)
+        .eq('user_id', suggested_replacement_user_id)
+        .maybeSingle();
+      if (mem) suggestedReplacement = suggested_replacement_user_id;
+    }
+
     const { data: os } = await supabase
       .from('org_settings')
       .select('allow_self_assign_open_shifts, require_approval_for_give_aways')
@@ -122,17 +154,22 @@ Deno.serve(async (req) => {
       (requestType === 'take_open' && allowSelfAssign) ||
       (requestType === 'give_away' && !requireApprovalGiveAways);
 
+    const insertPayload: Record<string, unknown> = {
+      org_id: orgId,
+      request_type: requestType,
+      status: autoApprove ? 'approved' : 'submitted',
+      shift_id: shiftId,
+      requester_id: user.id,
+      comment: (typeof comment === 'string' && comment.trim()) ? comment.trim() : null,
+      approver_id: autoApprove ? null : undefined,
+    };
+    if (requestType === 'give_away' && suggestedReplacement) {
+      insertPayload.suggested_replacement_user_id = suggestedReplacement;
+    }
+
     const { data: inserted, error: insertErr } = await supabase
       .from('shift_requests')
-      .insert({
-        org_id: orgId,
-        request_type: requestType,
-        status: autoApprove ? 'approved' : 'submitted',
-        shift_id: shiftId,
-        requester_id: user.id,
-        comment: (typeof comment === 'string' && comment.trim()) ? comment.trim() : null,
-        approver_id: autoApprove ? null : undefined,
-      })
+      .insert(insertPayload)
       .select('id, status')
       .single();
 

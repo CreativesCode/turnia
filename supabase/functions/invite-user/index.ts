@@ -1,9 +1,10 @@
 // Edge Function: invitar usuario a una organización con rol
 // Requiere: org_admin o superadmin en la org. Crea invitación, token y devuelve link.
-// @see project-roadmap.md Módulo 1
+// @see project-roadmap.md Módulo 1, 9.2
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
+import { getAuthUser, checkCanManageOrg, checkRateLimit, logFailedAttempt } from '../_shared/auth.ts';
 
 function generateToken(): string {
   const buf = new Uint8Array(32);
@@ -11,64 +12,43 @@ function generateToken(): string {
   return btoa(String.fromCharCode(...buf)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
+const FN = 'invite-user';
+
 Deno.serve(async (req) => {
   console.log('[invite-user] Request received:', req.method);
 
   if (req.method === 'OPTIONS') {
-    console.log('[invite-user] Responding to OPTIONS preflight');
     return new Response(null, { status: 204, headers: corsHeaders });
   }
 
   try {
-    console.log('[invite-user] Processing request...');
-
-    const authHeader = req.headers.get('Authorization');
-    console.log('[invite-user] Auth header present:', !!authHeader);
-
-    if (!authHeader?.startsWith('Bearer ')) {
-      console.log('[invite-user] ERROR: No Bearer token');
-      return new Response(
-        JSON.stringify({ error: 'Authorization Bearer required' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Crear cliente con el token del usuario para validar la sesión
     const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
-    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
-    console.log('[invite-user] SUPABASE_URL present:', !!supabaseUrl);
-    console.log('[invite-user] SUPABASE_ANON_KEY present:', !!supabaseAnonKey);
+    const serviceKey = Deno.env.get('SERVICE_ROLE_KEY') ?? Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+    const supabase = createClient(supabaseUrl, serviceKey);
 
-    const supabaseClient = createClient(
-      supabaseUrl,
-      supabaseAnonKey,
-      {
-        global: {
-          headers: { Authorization: authHeader },
-        },
-      }
-    );
-
-    console.log('[invite-user] Getting user...');
-    const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
-    console.log('[invite-user] User found:', !!user, 'Error:', userError?.message);
-
-    if (userError || !user) {
-      console.log('[invite-user] ERROR: Invalid or expired token');
+    const auth = await getAuthUser(req);
+    if ('error' in auth) {
+      await logFailedAttempt(supabase, {
+        functionName: FN,
+        reason: auth.error === 'no_bearer' ? 'Authorization Bearer required' : 'Invalid or expired token',
+        status: 401,
+      });
       return new Response(
-        JSON.stringify({ error: 'Invalid or expired token' }),
+        JSON.stringify({ error: auth.error === 'no_bearer' ? 'Authorization Bearer required' : 'Invalid or expired token' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+    const user = auth.user;
 
-    // Crear cliente con SERVICE_ROLE_KEY para operaciones administrativas
-    // Nota: SERVICE_ROLE_KEY sin prefijo porque Supabase no permite secretos que empiecen con SUPABASE_
-    const serviceRoleKey = Deno.env.get('SERVICE_ROLE_KEY') ?? Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
-    console.log('[invite-user] SERVICE_ROLE_KEY present:', !!serviceRoleKey);
+    const { allowed } = await checkRateLimit(supabase, user.id, FN);
+    if (!allowed) {
+      await logFailedAttempt(supabase, { functionName: FN, userId: user.id, reason: 'Rate limit exceeded', status: 429 });
+      return new Response(JSON.stringify({ error: 'Demasiadas solicitudes' }), {
+        status: 429,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
-    const supabase = createClient(supabaseUrl, serviceRoleKey);
-
-    console.log('[invite-user] Parsing body...');
     const body = (await req.json()) as {
       org_id: string;
       email?: string;
@@ -94,30 +74,16 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Verificar permisos: org_admin/superadmin en esta org, o superadmin en cualquier org
-    const { data: membershipInOrg } = await supabase
-      .from('memberships')
-      .select('id')
-      .eq('org_id', org_id)
-      .eq('user_id', user.id)
-      .in('role', ['org_admin', 'superadmin'])
-      .maybeSingle();
-
-    const isAdminOfThisOrg = !!membershipInOrg;
-
-    let isSuperadmin = false;
-    if (!isAdminOfThisOrg) {
-      const { data: anySuperadmin } = await supabase
-        .from('memberships')
-        .select('id')
-        .eq('user_id', user.id)
-        .eq('role', 'superadmin')
-        .limit(1)
-        .maybeSingle();
-      isSuperadmin = !!anySuperadmin;
-    }
-
-    if (!isAdminOfThisOrg && !isSuperadmin) {
+    // Verificar permisos: org_admin/superadmin en esta org
+    const canManage = await checkCanManageOrg(supabase, user.id, org_id);
+    if (!canManage) {
+      await logFailedAttempt(supabase, {
+        functionName: FN,
+        userId: user.id,
+        orgId: org_id,
+        reason: 'You must be org_admin or superadmin of this organization to invite',
+        status: 403,
+      });
       return new Response(
         JSON.stringify({ error: 'You must be org_admin or superadmin of this organization to invite' }),
         { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

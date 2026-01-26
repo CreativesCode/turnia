@@ -1,10 +1,11 @@
 // Edge Function: exportar horarios a CSV o Excel
 // Requiere: team_manager, org_admin o superadmin.
-// @see project-roadmap.md Módulo 7.1
+// @see project-roadmap.md Módulo 7.1, 9.2
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import * as XLSX from 'https://esm.sh/xlsx@0.18.5';
 import { corsHeaders } from '../_shared/cors.ts';
+import { getAuthUser, checkCanManageShifts, checkRateLimit, logFailedAttempt } from '../_shared/auth.ts';
 
 type ShiftRow = {
   id: string;
@@ -25,34 +26,38 @@ function escapeCsvCell(val: string): string {
   return s;
 }
 
+const FN = 'export-schedule';
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders });
 
   try {
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader?.startsWith('Bearer ')) {
-      return new Response(JSON.stringify({ error: 'Authorization Bearer required' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
     const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
-    const anonKey = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
-    const authClient = createClient(supabaseUrl, anonKey, {
-      global: { headers: { Authorization: authHeader } },
-    });
+    const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? Deno.env.get('SERVICE_ROLE_KEY') ?? '';
+    const supabase = createClient(supabaseUrl, serviceKey);
 
-    const { data: { user }, error: userError } = await authClient.auth.getUser();
-    if (userError || !user) {
-      return new Response(JSON.stringify({ error: 'Invalid or expired token' }), {
+    const auth = await getAuthUser(req);
+    if ('error' in auth) {
+      await logFailedAttempt(supabase, {
+        functionName: FN,
+        reason: auth.error === 'no_bearer' ? 'Authorization Bearer required' : 'Invalid or expired token',
+        status: 401,
+      });
+      return new Response(JSON.stringify({ error: auth.error === 'no_bearer' ? 'Authorization Bearer required' : 'Invalid or expired token' }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
+    const user = auth.user;
 
-    const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
-    const supabase = createClient(supabaseUrl, serviceKey);
+    const { allowed } = await checkRateLimit(supabase, user.id, FN);
+    if (!allowed) {
+      await logFailedAttempt(supabase, { functionName: FN, userId: user.id, reason: 'Rate limit exceeded', status: 429 });
+      return new Response(JSON.stringify({ error: 'Demasiadas solicitudes' }), {
+        status: 429,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
     const body = (await req.json()) as { orgId: string; start: string; end: string; format?: string };
     const { orgId, start, end } = body;
@@ -66,27 +71,15 @@ Deno.serve(async (req) => {
     }
 
     // Permisos: team_manager, org_admin o superadmin
-    const { data: membership } = await supabase
-      .from('memberships')
-      .select('id')
-      .eq('org_id', orgId)
-      .eq('user_id', user.id)
-      .in('role', ['team_manager', 'org_admin', 'superadmin'])
-      .maybeSingle();
-
-    let isSuperadmin = false;
-    if (!membership) {
-      const { data: sa } = await supabase
-        .from('memberships')
-        .select('id')
-        .eq('user_id', user.id)
-        .eq('role', 'superadmin')
-        .limit(1)
-        .maybeSingle();
-      isSuperadmin = !!sa;
-    }
-
-    if (!membership && !isSuperadmin) {
+    const canManage = await checkCanManageShifts(supabase, user.id, orgId);
+    if (!canManage) {
+      await logFailedAttempt(supabase, {
+        functionName: FN,
+        userId: user.id,
+        orgId,
+        reason: 'No tienes permiso para exportar en esta organización',
+        status: 403,
+      });
       return new Response(JSON.stringify({ error: 'No tienes permiso para exportar en esta organización' }), {
         status: 403,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

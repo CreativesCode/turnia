@@ -591,7 +591,7 @@ Cada organización define sus propios **tipos de turno** (las categorías en las
   - [x] Component `GiveAwayRequestModal.tsx` (abierto desde ShiftDetailModal)
   - [x] Usuario selecciona su turno (contexto del modal)
   - [x] Agrega comentario/razón
-  - [ ] Opción de sugerir reemplazo (opcional)
+  - [x] Opción de sugerir reemplazo (opcional): selector en `GiveAwayRequestModal`, columna `suggested_replacement_user_id` en `shift_requests`, `create-request` acepta y valida; `RequestDetailModal` muestra la sugerencia en give_away
   - [x] Envía solicitud (INSERT directo; evita duplicados pending)
 
 - [x] **Swap Request**
@@ -812,10 +812,10 @@ Cada organización define sus propios **tipos de turno** (las categorías en las
 - [x] Política para INSERT/UPDATE/DELETE en memberships (solo org_admin) — `memberships_insert_org_admin`, `_update_org_admin`, `_delete_org_admin` (org_admin en su org; no puede asignar rol superadmin)
 - [x] Política para INSERT/UPDATE/DELETE en availability_events (propio usuario) — `availability_insert_member`, `_update_member`, `_delete_member` (20250205000000)
 
-#### **9.2 Validaciones en Edge Functions**
-- [ ] Validar permisos antes de cada operación privilegiada
-- [ ] Rate limiting (prevenir abuse)
-- [ ] Logging de intentos fallidos
+#### **9.2 Validaciones en Edge Functions** — CONCLUIDO
+- [x] Validar permisos antes de cada operación privilegiada (helpers en `_shared/auth.ts`: checkCanManageShifts, checkCanApproveRequests, checkCanManageOrg, checkCanDeleteShifts; usados en EFs privilegiadas)
+- [x] Rate limiting (prevenir abuse): `checkRateLimit()` en `_shared/auth.ts`, invocado en EFs; por ahora no-op `{ allowed: true }`; se puede conectar a tabla/RPC después
+- [x] Logging de intentos fallidos: `logFailedAttempt()` — console.error + insert en `audit_log` (entity=failed_auth); se llama en respuestas 401/403 (y 429) de las EFs
 
 #### **9.3 Configuraciones de Org** — CONCLUIDO
 - [x] Tabla `org_settings` (migración `20250206000000_org_settings.sql`):
@@ -1152,10 +1152,12 @@ Cada organización define sus propios **tipos de turno** (las categorías en las
 - [ ] Usuario: FCM (`google-services.json` en `android/app/`, `FIREBASE_SERVICE_ACCOUNT_JSON` en Supabase), APNs (key/cert en backend para envío iOS)
 
 **Pendiente:**
-1. Opción «sugerir reemplazo» en Give Away (4.1, opcional).
+1. ~~Opción «sugerir reemplazo» en Give Away (4.1, opcional)~~ — Hecho.
 
 **Módulo 8.2 (Triggers automáticos)** — Hecho: función `log_audit_event`, `audit_trigger_fn`; triggers en `shifts`, `shift_requests`, `memberships`; etiquetas en AuditLog (shift, insert) y enlace «Ver turno» en el modal.
 
 **Módulo 9.1 (Refinar Políticas RLS)** — Hecho: migración `20250207000000_refine_rls_policies.sql`. Helper `user_can_manage_shifts(oid)`. Shifts: INSERT/UPDATE manager o admin; DELETE solo org_admin o superadmin. Shift_requests: UPDATE manager (approve/reject), UPDATE target (swap accept/decline). Memberships: INSERT/UPDATE/DELETE org_admin en su org (sin asignar superadmin). Availability_events ya estaba (20250205000000).
+
+**Módulo 9.2 (Validaciones en Edge Functions)** — Hecho: `_shared/auth.ts` con getAuthUser, checkCanManageShifts, checkCanApproveRequests, checkCanManageOrg, checkCanDeleteShifts, logFailedAttempt, checkRateLimit. EFs privilegiadas: 401/403/429 con logFailedAttempt; checkRateLimit (no-op); delete-shift usa checkCanDeleteShifts (solo org_admin/superadmin). Opción «sugerir reemplazo» en Give Away: `suggested_replacement_user_id` en shift_requests, GiveAwayRequestModal, create-request, RequestDetailModal.
 
 *Opcional: reordenar tipos (`sort_order`), iterar color si ya existe en la org; notificaciones email (5.3), push (5.1).*

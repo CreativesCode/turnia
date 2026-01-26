@@ -1,9 +1,12 @@
 // Edge Function: crear turno
 // Requiere: team_manager, org_admin o superadmin en la org.
-// @see project-roadmap.md Módulo 3.2
+// @see project-roadmap.md Módulo 3.2, 9.2
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
+import { getAuthUser, checkCanManageShifts, checkRateLimit, logFailedAttempt } from '../_shared/auth.ts';
+
+const FN = 'create-shift';
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -11,30 +14,32 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader?.startsWith('Bearer ')) {
-      return new Response(JSON.stringify({ error: 'Authorization Bearer required' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
     const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
-    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
-    const supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
-      global: { headers: { Authorization: authHeader } },
-    });
+    const serviceKey = Deno.env.get('SERVICE_ROLE_KEY') ?? Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+    const supabase = createClient(supabaseUrl, serviceKey);
 
-    const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
-    if (userError || !user) {
-      return new Response(JSON.stringify({ error: 'Invalid or expired token' }), {
+    const auth = await getAuthUser(req);
+    if ('error' in auth) {
+      await logFailedAttempt(supabase, {
+        functionName: FN,
+        reason: auth.error === 'no_bearer' ? 'Authorization Bearer required' : 'Invalid or expired token',
+        status: 401,
+      });
+      return new Response(JSON.stringify({ error: auth.error === 'no_bearer' ? 'Authorization Bearer required' : 'Invalid or expired token' }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
+    const user = auth.user;
 
-    const serviceRoleKey = Deno.env.get('SERVICE_ROLE_KEY') ?? Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
-    const supabase = createClient(supabaseUrl, serviceRoleKey);
+    const { allowed } = await checkRateLimit(supabase, user.id, FN);
+    if (!allowed) {
+      await logFailedAttempt(supabase, { functionName: FN, userId: user.id, reason: 'Rate limit exceeded', status: 429 });
+      return new Response(JSON.stringify({ error: 'Demasiadas solicitudes' }), {
+        status: 429,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
     const body = (await req.json()) as {
       org_id: string;
@@ -57,27 +62,15 @@ Deno.serve(async (req) => {
     const st = status === 'published' ? 'published' : 'draft';
 
     // Permisos: team_manager, org_admin o superadmin en esta org
-    const { data: membership } = await supabase
-      .from('memberships')
-      .select('id')
-      .eq('org_id', org_id)
-      .eq('user_id', user.id)
-      .in('role', ['team_manager', 'org_admin', 'superadmin'])
-      .maybeSingle();
-
-    let isSuperadmin = false;
-    if (!membership) {
-      const { data: sa } = await supabase
-        .from('memberships')
-        .select('id')
-        .eq('user_id', user.id)
-        .eq('role', 'superadmin')
-        .limit(1)
-        .maybeSingle();
-      isSuperadmin = !!sa;
-    }
-
-    if (!membership && !isSuperadmin) {
+    const canManage = await checkCanManageShifts(supabase, user.id, org_id);
+    if (!canManage) {
+      await logFailedAttempt(supabase, {
+        functionName: FN,
+        userId: user.id,
+        orgId: org_id,
+        reason: 'No tienes permiso para crear turnos en esta organización',
+        status: 403,
+      });
       return new Response(
         JSON.stringify({ error: 'No tienes permiso para crear turnos en esta organización' }),
         { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

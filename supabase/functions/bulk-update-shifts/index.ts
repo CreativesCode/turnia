@@ -1,10 +1,13 @@
 // Edge Function: asignar o desasignar varios turnos a la vez.
 // Requiere: team_manager, org_admin o superadmin en la org.
 // Valida conflictos (solapamiento, disponibilidad) al asignar.
-// @see project-roadmap.md Módulo 3.3
+// @see project-roadmap.md Módulo 3.3, 9.2
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
+import { getAuthUser, checkCanManageShifts, checkRateLimit, logFailedAttempt } from '../_shared/auth.ts';
+
+const FN = 'bulk-update-shifts';
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -12,30 +15,32 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader?.startsWith('Bearer ')) {
-      return new Response(JSON.stringify({ error: 'Authorization Bearer required' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
     const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
-    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
-    const supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
-      global: { headers: { Authorization: authHeader } },
-    });
+    const serviceKey = Deno.env.get('SERVICE_ROLE_KEY') ?? Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+    const supabase = createClient(supabaseUrl, serviceKey);
 
-    const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
-    if (userError || !user) {
-      return new Response(JSON.stringify({ error: 'Invalid or expired token' }), {
+    const auth = await getAuthUser(req);
+    if ('error' in auth) {
+      await logFailedAttempt(supabase, {
+        functionName: FN,
+        reason: auth.error === 'no_bearer' ? 'Authorization Bearer required' : 'Invalid or expired token',
+        status: 401,
+      });
+      return new Response(JSON.stringify({ error: auth.error === 'no_bearer' ? 'Authorization Bearer required' : 'Invalid or expired token' }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
+    const user = auth.user;
 
-    const serviceRoleKey = Deno.env.get('SERVICE_ROLE_KEY') ?? Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
-    const supabase = createClient(supabaseUrl, serviceRoleKey);
+    const { allowed } = await checkRateLimit(supabase, user.id, FN);
+    if (!allowed) {
+      await logFailedAttempt(supabase, { functionName: FN, userId: user.id, reason: 'Rate limit exceeded', status: 429 });
+      return new Response(JSON.stringify({ error: 'Demasiadas solicitudes' }), {
+        status: 429,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
     const body = (await req.json()) as { ids: string[]; assigned_user_id: string | null };
     const { ids, assigned_user_id } = body;
@@ -74,27 +79,15 @@ Deno.serve(async (req) => {
     }
 
     // Permisos: team_manager, org_admin o superadmin
-    const { data: membership } = await supabase
-      .from('memberships')
-      .select('id')
-      .eq('org_id', orgId)
-      .eq('user_id', user.id)
-      .in('role', ['team_manager', 'org_admin', 'superadmin'])
-      .maybeSingle();
-
-    let isSuperadmin = false;
-    if (!membership) {
-      const { data: sa } = await supabase
-        .from('memberships')
-        .select('id')
-        .eq('user_id', user.id)
-        .eq('role', 'superadmin')
-        .limit(1)
-        .maybeSingle();
-      isSuperadmin = !!sa;
-    }
-
-    if (!membership && !isSuperadmin) {
+    const canManage = await checkCanManageShifts(supabase, user.id, orgId);
+    if (!canManage) {
+      await logFailedAttempt(supabase, {
+        functionName: FN,
+        userId: user.id,
+        orgId,
+        reason: 'No tienes permiso para editar estos turnos',
+        status: 403,
+      });
       return new Response(
         JSON.stringify({ error: 'No tienes permiso para editar estos turnos' }),
         { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

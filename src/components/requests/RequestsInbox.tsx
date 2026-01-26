@@ -71,7 +71,7 @@ export function RequestsInbox({ orgId, canApprove, refreshKey = 0 }: Props) {
     let q = supabase
       .from('shift_requests')
       .select(
-        `id, request_type, status, comment, created_at, shift_id, target_shift_id, target_user_id, requester_id,
+        `id, request_type, status, comment, created_at, shift_id, target_shift_id, target_user_id, requester_id, suggested_replacement_user_id,
          shift:shifts!shift_id(start_at, end_at, assigned_user_id, organization_shift_types(name, letter)),
          target_shift:shifts!target_shift_id(start_at, end_at, assigned_user_id, organization_shift_types(name, letter))`
       )
@@ -102,6 +102,7 @@ export function RequestsInbox({ orgId, canApprove, refreshKey = 0 }: Props) {
       if (r.shift?.assigned_user_id) userIds.add(r.shift.assigned_user_id);
       if (r.target_shift?.assigned_user_id) userIds.add(r.target_shift.assigned_user_id);
       if (r.target_user_id) userIds.add(r.target_user_id);
+      if (r.suggested_replacement_user_id) userIds.add(r.suggested_replacement_user_id);
     });
     if (userIds.size > 0) {
       const { data: profs } = await supabase

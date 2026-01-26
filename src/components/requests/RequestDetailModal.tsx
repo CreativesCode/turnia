@@ -33,6 +33,7 @@ export type RequestDetailRow = {
   shift_id: string;
   target_shift_id: string | null;
   target_user_id: string | null;
+  suggested_replacement_user_id?: string | null;
   requester_id: string;
   shift: {
     start_at: string;
@@ -189,6 +190,12 @@ export function RequestDetailModal({ open, onClose, onResolved, request, names }
               <div>
                 <dt className="font-medium text-text-secondary">Comentario del solicitante</dt>
                 <dd className="text-text-primary">{request.comment}</dd>
+              </div>
+            )}
+            {request.request_type === 'give_away' && request.suggested_replacement_user_id && (
+              <div>
+                <dt className="font-medium text-text-secondary">Sugerencia de reemplazo</dt>
+                <dd className="text-text-primary">{names[request.suggested_replacement_user_id] ?? request.suggested_replacement_user_id.slice(0, 8)}</dd>
               </div>
             )}
           </dl>
