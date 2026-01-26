@@ -12,6 +12,21 @@ import { isColorLight } from '@/lib/utils';
 import { ConfirmModal } from '@/components/ui/ConfirmModal';
 import type { ShiftWithType } from '@/components/calendar/ShiftCalendar';
 
+function ChevronDown() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0" aria-hidden>
+      <path d="M6 9l6 6 6-6" />
+    </svg>
+  );
+}
+function ChevronUp() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0" aria-hidden>
+      <path d="M18 15l-6-6-6 6" />
+    </svg>
+  );
+}
+
 const PAGE_SIZE = 25;
 
 export type ShiftListFilters = {
@@ -82,6 +97,7 @@ function ShiftListInner({
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   const [page, setPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
+  const [filtersVisible, setFiltersVisible] = useState(false);
   const [typesOpen, setTypesOpen] = useState(false);
   const [deleteShift, setDeleteShift] = useState<ShiftWithType | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -296,16 +312,46 @@ function ShiftListInner({
     );
   }
 
+  const activeCount = [
+    filters.shiftTypeIds.length > 0,
+    !!filters.userId,
+    filters.status !== 'all',
+    !!filters.dateFrom,
+    !!filters.dateTo,
+  ].filter(Boolean).length;
+
   return (
     <div className="space-y-4">
       {/* Filtros */}
-      <div className="flex flex-wrap items-center gap-3 rounded-lg border border-border bg-background p-3">
+      <div className="rounded-lg border border-border bg-background">
+        <button
+          type="button"
+          onClick={() => setFiltersVisible((v) => !v)}
+          className="flex min-h-[44px] w-full items-center justify-between px-3 py-2 text-left text-sm font-medium text-text-secondary hover:bg-subtle-bg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-inset"
+          aria-expanded={filtersVisible}
+          aria-controls="shift-list-filters-panel"
+        >
+          <span className="flex items-center gap-2">
+            {filtersVisible ? 'Ocultar filtros' : 'Filtros'}
+            {!filtersVisible && hasActiveFilters && (
+              <span className="rounded-full bg-primary-100 px-1.5 py-0.5 text-xs font-semibold text-primary-700">
+                {activeCount}
+              </span>
+            )}
+          </span>
+          {filtersVisible ? <ChevronUp /> : <ChevronDown />}
+        </button>
+        {filtersVisible && (
+          <div
+            id="shift-list-filters-panel"
+            className="flex flex-wrap items-center gap-3 border-t border-border p-3"
+          >
         {/* Tipo (checkboxes) */}
         <div className="relative">
           <button
             type="button"
             onClick={() => setTypesOpen((o) => !o)}
-            className="flex min-h-[40px] items-center gap-1.5 rounded-lg border border-border bg-background px-3 py-2 text-sm text-text-secondary hover:bg-subtle-bg"
+            className="flex min-h-[44px] min-w-[44px] items-center gap-1.5 rounded-lg border border-border bg-background px-3 py-2 text-sm text-text-secondary hover:bg-subtle-bg focus:outline-none focus:ring-2 focus:ring-primary-500"
           >
             <span className="font-medium text-text-primary">Tipo:</span>
             <span>{allTypesSelected ? 'Todos' : `${filters.shiftTypeIds.length} seleccionados`}</span>
@@ -348,7 +394,7 @@ function ShiftListInner({
         </div>
 
         {/* Usuario */}
-        <label className="flex min-h-[40px] items-center gap-2">
+        <label className="flex min-h-[44px] items-center gap-2">
           <span className="text-sm font-medium text-text-secondary">Usuario:</span>
           <select
             value={filters.userId ?? ''}
@@ -368,7 +414,7 @@ function ShiftListInner({
         </label>
 
         {/* Rango de fechas */}
-        <label className="flex min-h-[40px] items-center gap-2">
+        <label className="flex min-h-[44px] items-center gap-2">
           <span className="text-sm font-medium text-text-secondary">Desde:</span>
           <input
             type="date"
@@ -380,7 +426,7 @@ function ShiftListInner({
             className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-text-primary"
           />
         </label>
-        <label className="flex min-h-[40px] items-center gap-2">
+        <label className="flex min-h-[44px] items-center gap-2">
           <span className="text-sm font-medium text-text-secondary">Hasta:</span>
           <input
             type="date"
@@ -394,7 +440,7 @@ function ShiftListInner({
         </label>
 
         {/* Estado */}
-        <label className="flex min-h-[40px] items-center gap-2">
+        <label className="flex min-h-[44px] items-center gap-2">
           <span className="text-sm font-medium text-text-secondary">Estado:</span>
           <select
             value={filters.status}
@@ -414,10 +460,12 @@ function ShiftListInner({
           <button
             type="button"
             onClick={clearFilters}
-            className="min-h-[40px] rounded-lg px-3 py-2 text-sm text-muted hover:bg-subtle-bg hover:text-text-secondary"
+            className="min-h-[44px] min-w-[44px] rounded-lg px-3 py-2 text-sm text-muted hover:bg-subtle-bg hover:text-text-secondary"
           >
             Limpiar
           </button>
+        )}
+          </div>
         )}
       </div>
 

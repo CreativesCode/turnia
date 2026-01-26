@@ -112,7 +112,7 @@ export function ShiftDetailModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      className="fixed inset-0 z-50 flex items-end justify-center p-0 md:items-center md:justify-center md:p-4"
       role="dialog"
       aria-modal="true"
       aria-labelledby="shift-detail-title"
@@ -123,7 +123,11 @@ export function ShiftDetailModal({
         className="absolute inset-0 bg-black/50"
         aria-label="Cerrar"
       />
-      <div className="relative w-full max-w-sm rounded-xl border border-border bg-background p-6 shadow-lg">
+      <div className="relative w-full max-w-none max-h-[85vh] overflow-y-auto rounded-t-2xl border border-b-0 border-border bg-background p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] shadow-lg md:max-w-sm md:max-h-[90vh] md:rounded-xl md:border-b md:pb-6">
+        {/* Asa para arrastrar en móvil (bottom sheet) */}
+        <div className="-mt-1 mb-2 flex justify-center md:hidden">
+          <span className="h-1 w-12 shrink-0 rounded-full bg-muted" aria-hidden />
+        </div>
         <h2 id="shift-detail-title" className="text-lg font-semibold text-text-primary">
           Detalle del turno
         </h2>

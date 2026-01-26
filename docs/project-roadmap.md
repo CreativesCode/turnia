@@ -834,15 +834,21 @@ Cada organización define sus propios **tipos de turno** (las categorías en las
 
 ### 📱 **Módulo 10: Optimización para Mobile**
 
-#### **10.1 UI/UX Mobile**
-- [ ] Adaptar calendario para pantallas pequeñas
-  - [ ] Vista compacta
-  - [ ] Gestos de swipe
-  - [ ] Bottom sheet para detalles
+#### **10.1 UI/UX Mobile** — PARCIAL
+- [x] Adaptar calendario para pantallas pequeñas
+  - [x] Vista compacta (toolbar reducida en móvil: Mes + Lista; dayMaxEvents 2)
+  - [x] Bottom sheet para detalles (`ShiftDetailModal`: en móvil anclado abajo, asa, max-h 85vh, safe-area)
+  - [ ] Gestos de swipe (FullCalendar; delegado a la librería)
 
-- [ ] Navbar móvil (bottom navigation)
-- [ ] Optimizar formularios para touch
-- [ ] Mejorar accesibilidad
+- [x] Navbar móvil (bottom navigation)
+  - [x] `DashboardNav`: en móvil barra superior compacta (Turnia, NotificationBell, menú) + bottom nav fija (Inicio, Solicitudes, Disponibilidad, Notificaciones, Más)
+  - [x] Sheet «Más»: Lista de turnos (manager), Admin (org_admin), Cerrar sesión; `pb-[env(safe-area-inset-bottom)]`
+  - [x] Enlaces según rol (useScheduleOrg): Inicio→/manager o /staff, Solicitudes, Disponibilidad
+
+- [x] Optimizar formularios para touch
+  - [x] Botones y controles interactivos: `min-h-[44px]` / `min-w-[44px]` (ShiftCalendarFilters, ShiftList, ManagerAvailabilityFilters)
+
+- [ ] Mejorar accesibilidad (ARIA, teclado, contraste; base con aria-labels en nav y modales)
 
 #### **10.2 Funcionalidades Móviles**
 - [ ] Quick actions (shortcuts)
@@ -1123,6 +1129,13 @@ Cada organización define sus propios **tipos de turno** (las categorías en las
 - [x] Availability_events: ya en 20250205000000 (insert/update/delete propio usuario)
 - [x] Migración `20250207000000_refine_rls_policies.sql`
 
+#### Módulo 10.1 — UI/UX Mobile (parcial) ✅
+- [x] Hook `useIsMobile(breakpoint)`
+- [x] `ShiftDetailModal`: bottom sheet en móvil (anclado abajo, asa, max-h 85vh, safe-area)
+- [x] `ShiftCalendar`: toolbar Mes+Lista y dayMaxEvents 2 en móvil
+- [x] `DashboardNav`: top compacto + bottom nav (Inicio, Solicitudes, Disponibilidad, Notificaciones, Más); sheet «Más» (Lista turnos, Admin, Cerrar sesión); `pb-24` en main móvil
+- [x] Controles táctiles min 44px: ShiftCalendarFilters, ShiftList, ManagerAvailabilityFilters
+
 ---
 
 ## 🎯 SIGUIENTE PASO INMEDIATO
@@ -1159,5 +1172,7 @@ Cada organización define sus propios **tipos de turno** (las categorías en las
 **Módulo 9.1 (Refinar Políticas RLS)** — Hecho: migración `20250207000000_refine_rls_policies.sql`. Helper `user_can_manage_shifts(oid)`. Shifts: INSERT/UPDATE manager o admin; DELETE solo org_admin o superadmin. Shift_requests: UPDATE manager (approve/reject), UPDATE target (swap accept/decline). Memberships: INSERT/UPDATE/DELETE org_admin en su org (sin asignar superadmin). Availability_events ya estaba (20250205000000).
 
 **Módulo 9.2 (Validaciones en Edge Functions)** — Hecho: `_shared/auth.ts` con getAuthUser, checkCanManageShifts, checkCanApproveRequests, checkCanManageOrg, checkCanDeleteShifts, logFailedAttempt, checkRateLimit. EFs privilegiadas: 401/403/429 con logFailedAttempt; checkRateLimit (no-op); delete-shift usa checkCanDeleteShifts (solo org_admin/superadmin). Opción «sugerir reemplazo» en Give Away: `suggested_replacement_user_id` en shift_requests, GiveAwayRequestModal, create-request, RequestDetailModal.
+
+**Módulo 10.1 (UI/UX Mobile — parcial)** — Hecho: `useIsMobile`; `ShiftDetailModal` como bottom sheet en móvil (asa, max-h 85vh, safe-area); `ShiftCalendar` toolbar reducida (Mes + Lista) y dayMaxEvents 2 en móvil; `DashboardNav` con bottom navigation (Inicio, Solicitudes, Disponibilidad, Notificaciones, Más), sheet «Más» (Lista turnos, Admin, Cerrar sesión), enlaces por rol; `main` con `pb-24` en móvil; controles táctiles min 44px (ShiftCalendarFilters, ShiftList, ManagerAvailabilityFilters). Pendiente: gestos swipe en calendario, accesibilidad ampliada.
 
 *Opcional: reordenar tipos (`sort_order`), iterar color si ya existe en la org; notificaciones email (5.3), push (5.1).*

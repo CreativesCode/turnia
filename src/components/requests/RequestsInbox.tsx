@@ -10,6 +10,21 @@ import { useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { RequestDetailModal, type RequestDetailRow } from '@/components/requests/RequestDetailModal';
 
+function ChevronDown() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0" aria-hidden>
+      <path d="M6 9l6 6 6-6" />
+    </svg>
+  );
+}
+function ChevronUp() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0" aria-hidden>
+      <path d="M18 15l-6-6-6 6" />
+    </svg>
+  );
+}
+
 const REQUEST_TYPE_LABEL: Record<string, string> = {
   give_away: 'Dar de baja',
   swap: 'Intercambiar',
@@ -54,6 +69,7 @@ export function RequestsInbox({ orgId, canApprove, refreshKey = 0 }: Props) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filters, setFilters] = useState<Filters>({ requestType: '', status: 'submitted,accepted' });
+  const [filtersVisible, setFiltersVisible] = useState(false);
   const [detail, setDetail] = useState<RequestDetailRow | null>(null);
   const searchParams = useSearchParams();
   const openRequestId = searchParams?.get('request') ?? null;
@@ -140,36 +156,63 @@ export function RequestsInbox({ orgId, canApprove, refreshKey = 0 }: Props) {
     );
   }
 
+  const hasActive = filters.requestType !== '' || filters.status !== 'submitted,accepted';
+  const activeCount = [filters.requestType !== '', filters.status !== 'submitted,accepted'].filter(Boolean).length;
+
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-4">
-        <label className="flex items-center gap-2 text-sm text-text-secondary">
-          Tipo
-          <select
-            value={filters.requestType}
-            onChange={(e) => setFilters((f) => ({ ...f, requestType: e.target.value }))}
-            className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-text-primary focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+      <div className="rounded-lg border border-border bg-background">
+        <button
+          type="button"
+          onClick={() => setFiltersVisible((v) => !v)}
+          className="flex min-h-[44px] w-full items-center justify-between px-3 py-2 text-left text-sm font-medium text-text-secondary hover:bg-subtle-bg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-inset"
+          aria-expanded={filtersVisible}
+          aria-controls="requests-inbox-filters-panel"
+        >
+          <span className="flex items-center gap-2">
+            {filtersVisible ? 'Ocultar filtros' : 'Filtros'}
+            {!filtersVisible && hasActive && (
+              <span className="rounded-full bg-primary-100 px-1.5 py-0.5 text-xs font-semibold text-primary-700">
+                {activeCount}
+              </span>
+            )}
+          </span>
+          {filtersVisible ? <ChevronUp /> : <ChevronDown />}
+        </button>
+        {filtersVisible && (
+          <div
+            id="requests-inbox-filters-panel"
+            className="flex flex-wrap items-center gap-4 border-t border-border p-3"
           >
-            <option value="">Todos</option>
-            <option value="give_away">{REQUEST_TYPE_LABEL.give_away}</option>
-            <option value="swap">{REQUEST_TYPE_LABEL.swap}</option>
-            <option value="take_open">{REQUEST_TYPE_LABEL.take_open}</option>
-          </select>
-        </label>
-        <label className="flex items-center gap-2 text-sm text-text-secondary">
-          Estado
-          <select
-            value={filters.status}
-            onChange={(e) => setFilters((f) => ({ ...f, status: e.target.value }))}
-            className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-text-primary focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-          >
-            <option value="submitted,accepted">Pendientes (enviada, aceptada)</option>
-            <option value="approved">Aprobadas</option>
-            <option value="rejected">Rechazadas</option>
-            <option value="cancelled">Canceladas</option>
-            <option value="">Todos</option>
-          </select>
-        </label>
+            <label className="flex min-h-[44px] items-center gap-2 text-sm text-text-secondary">
+              Tipo
+              <select
+                value={filters.requestType}
+                onChange={(e) => setFilters((f) => ({ ...f, requestType: e.target.value }))}
+                className="min-h-[44px] rounded-lg border border-border bg-background px-3 py-2 text-sm text-text-primary focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+              >
+                <option value="">Todos</option>
+                <option value="give_away">{REQUEST_TYPE_LABEL.give_away}</option>
+                <option value="swap">{REQUEST_TYPE_LABEL.swap}</option>
+                <option value="take_open">{REQUEST_TYPE_LABEL.take_open}</option>
+              </select>
+            </label>
+            <label className="flex min-h-[44px] items-center gap-2 text-sm text-text-secondary">
+              Estado
+              <select
+                value={filters.status}
+                onChange={(e) => setFilters((f) => ({ ...f, status: e.target.value }))}
+                className="min-h-[44px] rounded-lg border border-border bg-background px-3 py-2 text-sm text-text-primary focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+              >
+                <option value="submitted,accepted">Pendientes (enviada, aceptada)</option>
+                <option value="approved">Aprobadas</option>
+                <option value="rejected">Rechazadas</option>
+                <option value="cancelled">Canceladas</option>
+                <option value="">Todos</option>
+              </select>
+            </label>
+          </div>
+        )}
       </div>
 
       {error && <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</p>}

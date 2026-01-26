@@ -10,6 +10,7 @@
 import { useCallback, useEffect, useMemo, useState, memo } from 'react';
 import dynamic from 'next/dynamic';
 import { createClient } from '@/lib/supabase/client';
+import { useIsMobile } from '@/hooks/useIsMobile';
 
 import type { EventClickArg, DatesSetArg } from '@fullcalendar/core';
 import type { ShiftCalendarFiltersState } from './ShiftCalendarFilters';
@@ -95,6 +96,7 @@ function ShiftCalendarInner({
   onEventClick,
   onDateClick,
 }: Props) {
+  const isMobile = useIsMobile('768px');
   const [events, setEvents] = useState<ShiftWithType[]>([]);
   const [profilesMap, setProfilesMap] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
@@ -232,12 +234,11 @@ function ShiftCalendarInner({
   );
 
   const headerToolbar = useMemo(
-    () => ({
-      left: 'prev,next today',
-      center: 'title',
-      right: 'dayGridMonth,timeGridWeek,timeGridDay,listWeek',
-    }),
-    []
+    () =>
+      isMobile
+        ? { left: 'prev,next today', center: 'title', right: 'dayGridMonth,listWeek' }
+        : { left: 'prev,next today', center: 'title', right: 'dayGridMonth,timeGridWeek,timeGridDay,listWeek' },
+    [isMobile]
   );
 
   const buttonText = useMemo(
@@ -292,7 +293,7 @@ function ShiftCalendarInner({
           slotMaxTime="24:00:00"
           height="auto"
           nowIndicator
-          dayMaxEvents={3}
+          dayMaxEvents={isMobile ? 2 : 3}
           moreLinkClick="popover"
           eventDisplay="block"
         />
