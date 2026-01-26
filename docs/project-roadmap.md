@@ -297,6 +297,7 @@ git commit -m "fix(requests): prevent duplicate request submissions"
 
 #### 7. **Edge Functions (Estructura Preparada)**
 - ✅ `approve-request` (completa: aprobar/rechazar, aplicar cambios en turnos, audit_log; reject integrado con action=reject)
+- ✅ `create-request` (take_open/give_away; auto-aprueba según org_settings: allow_self_assign_open_shifts, require_approval_for_give_aways)
 - ✅ `send-notification` (esqueleto)
 - ✅ `export-schedule` (completa: CSV, Excel; auth; perfiles, ubicación; /dashboard/admin/exports)
 
@@ -658,7 +659,7 @@ Cada organización define sus propios **tipos de turno** (las categorías en las
 
 - [x] Component `AcceptSwapButton.tsx` (para User B; Aceptar/Rechazar)
 - [x] Component `PendingSwapsForYou.tsx` en `/dashboard/staff/my-requests`
-- [x] Edge Function `respond-to-swap` (accept/decline; audit_log)
+- [x] Edge Function `respond-to-swap` (accept/decline; audit_log; si require_approval_for_swaps=false, auto-aplica swap al aceptar)
 - [x] Deploy con `--no-verify-jwt`; `supabase/config.toml` con `[functions.respond-to-swap] verify_jwt = false`
 - [x] Notificación a User B cuando se crea la solicitud (Módulo 5)
 - [x] Notificación a ambos cuando se aprueba/rechaza (Módulo 5)
@@ -827,7 +828,7 @@ Cada organización define sus propios **tipos de turno** (las categorías en las
 
 - [x] Component `OrgSettingsForm.tsx`
   - [x] allow_self_assign_open_shifts, require_approval_for_swaps, require_approval_for_give_aways, min_rest_hours
-  - [ ] Uso de allow_self_assign_open_shifts y require_approval_* en flujos (opcional; los valores se guardan para uso futuro)
+  - [x] Uso en flujos: allow_self_assign_open_shifts → take_open auto-aprobado (EF create-request); require_approval_for_give_aways → give_away auto-aprobado (create-request); require_approval_for_swaps → al aceptar contraparte, swap auto-aplicado (respond-to-swap)
 
 ---
 
@@ -1067,7 +1068,8 @@ Cada organización define sus propios **tipos de turno** (las categorías en las
 - [x] /dashboard/manager/shifts; enlace en layout y en Calendario
 
 #### Módulo 4.1 — Crear solicitudes
-- [x] GiveAwayRequestModal, TakeOpenRequestModal, SwapRequestModal (comentario; evita duplicados pending)
+- [x] GiveAwayRequestModal, TakeOpenRequestModal (vía EF create-request; auto-aprueba según org_settings), SwapRequestModal (comentario; evita duplicados pending)
+- [x] Edge Function create-request (take_open, give_away; auto-aprueba si allow_self_assign_open_shifts / !require_approval_for_give_aways)
 - [x] RLS shift_requests_insert_member, user_can_create_requests
 - [x] /dashboard/staff/my-requests (MyRequestsList: estados, cancelar si draft/submitted/accepted)
 - [x] useScheduleOrg: canCreateRequests, canApproveRequests
@@ -1082,9 +1084,9 @@ Cada organización define sus propios **tipos de turno** (las categorías en las
 - [x] Rechazo (action=reject): rejected, comentario en audit_log
 
 #### Módulo 4.4 — Workflow Swap
-- [x] Flujo: submitted → User B acepta (accepted) o rechaza (cancelled) → Manager aprueba (approved) o rechaza (rejected)
+- [x] Flujo: submitted → User B acepta (accepted) o rechaza (cancelled) → Manager aprueba (approved) o rechaza (rejected); si require_approval_for_swaps=false, swap se aplica al aceptar
 - [x] AcceptSwapButton, PendingSwapsForYou en /dashboard/staff/my-requests
-- [x] Edge Function respond-to-swap (accept/decline; audit_log); verify_jwt=false
+- [x] Edge Function respond-to-swap (accept/decline; audit_log; auto-aplica swap si require_approval_for_swaps=false); verify_jwt=false
 
 #### Módulo 5.4 — In-App Notifications
 - [x] Tabla notifications, RLS, trigger notify_on_shift_request_insert (swap→target; submitted→managers)
@@ -1123,7 +1125,7 @@ Cada organización define sus propios **tipos de turno** (las categorías en las
 
 **Módulo 4.2 y 4.3 (Bandeja y aprobación)** — Hecho: `RequestsInbox`, `RequestDetailModal`, página `/dashboard/manager/requests`; Edge Function `approve-request` (aprobar/rechazar, aplicar cambios en turnos, audit_log).
 
-**Módulo 4.4 (Workflow de Swap)** — Hecho: `AcceptSwapButton`, `PendingSwapsForYou`, Edge Function `respond-to-swap`; flujo submitted → accepted/cancelled (User B) → approved (manager). Deploy con `--no-verify-jwt`.
+**Módulo 4.4 (Workflow de Swap)** — Hecho: `AcceptSwapButton`, `PendingSwapsForYou`, Edge Function `respond-to-swap`; flujo submitted → accepted/cancelled (User B) → approved (manager o auto si require_approval_for_swaps=false). Deploy con `--no-verify-jwt`.
 
 **Módulo 5.4 (In-App Notifications)** — Hecho: tabla `notifications`, trigger al crear solicitud (swap→User B, todas→managers), `NotificationBell`, `NotificationsList`, `/dashboard/notifications`; notificaciones en `approve-request` y `respond-to-swap`; marcar como leída, enlace a entidad.
 

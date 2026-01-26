@@ -48,7 +48,7 @@ Deno.serve(async (req) => {
 
     const { data: sr, error: fetchErr } = await supabase
       .from('shift_requests')
-      .select('id, org_id, request_type, status, target_user_id, requester_id')
+      .select('id, org_id, request_type, status, shift_id, target_shift_id, target_user_id, requester_id')
       .eq('id', requestId)
       .single();
 
@@ -80,11 +80,40 @@ Deno.serve(async (req) => {
       );
     }
 
-    const newStatus = response === 'accept' ? 'accepted' : 'cancelled';
+    let newStatus = response === 'accept' ? 'accepted' : 'cancelled';
+    let autoApproved = false;
+
+    if (response === 'accept') {
+      const { data: os } = await supabase
+        .from('org_settings')
+        .select('require_approval_for_swaps')
+        .eq('org_id', sr.org_id)
+        .maybeSingle();
+      const requireApproval = (os as { require_approval_for_swaps?: boolean } | null)?.require_approval_for_swaps ?? true;
+
+      if (!requireApproval && sr.shift_id && sr.target_shift_id && sr.target_user_id) {
+        const shiftId = sr.shift_id as string;
+        const targetShiftId = sr.target_shift_id as string;
+        const { data: shiftRow } = await supabase.from('shifts').select('id, assigned_user_id').eq('id', shiftId).single();
+        const { data: targetRow } = await supabase.from('shifts').select('id, assigned_user_id').eq('id', targetShiftId).single();
+        const userA = (shiftRow as { assigned_user_id: string | null } | null)?.assigned_user_id ?? (sr.requester_id as string);
+        const userB = (targetRow as { assigned_user_id: string | null } | null)?.assigned_user_id ?? (sr.target_user_id as string);
+        await supabase.from('shifts').update({ assigned_user_id: userB, updated_at: new Date().toISOString() }).eq('id', shiftId);
+        await supabase.from('shifts').update({ assigned_user_id: userA, updated_at: new Date().toISOString() }).eq('id', targetShiftId);
+        newStatus = 'approved';
+        autoApproved = true;
+      }
+    }
+
+    const updatePayload: { status: string; updated_at: string; approver_id?: null } = {
+      status: newStatus,
+      updated_at: new Date().toISOString(),
+    };
+    if (autoApproved) updatePayload.approver_id = null;
 
     const { error: updateErr } = await supabase
       .from('shift_requests')
-      .update({ status: newStatus, updated_at: new Date().toISOString() })
+      .update(updatePayload)
       .eq('id', requestId);
 
     if (updateErr) {
@@ -94,54 +123,63 @@ Deno.serve(async (req) => {
       );
     }
 
+    const auditAction = response === 'accept'
+      ? (autoApproved ? 'request_approved' : 'swap_accepted_by_target')
+      : 'swap_declined_by_target';
     await supabase.from('audit_log').insert({
       org_id: sr.org_id,
       actor_id: user.id,
       entity: 'shift_request',
       entity_id: requestId,
-      action: response === 'accept' ? 'swap_accepted_by_target' : 'swap_declined_by_target',
-      after_snapshot: { status: newStatus },
-      comment: response === 'decline' ? 'Rechazado por la contraparte' : null,
+      action: auditAction,
+      after_snapshot: { status: newStatus, ...(autoApproved ? { auto: true } : {}) },
+      comment: response === 'decline' ? 'Rechazado por la contraparte' : (autoApproved ? 'Aprobación automática al aceptar (configuración de la organización)' : null),
     });
 
-    // Notificar al solicitante (User A): in-app y push
     const requesterId = (sr as { requester_id?: string }).requester_id;
-    if (requesterId) {
-      const title = response === 'accept' ? 'Intercambio aceptado' : 'Intercambio rechazado';
-      const message = response === 'accept'
-        ? 'La contraparte ha aceptado tu solicitud de intercambio. Espera la aprobación del responsable.'
-        : 'La contraparte ha rechazado tu solicitud de intercambio.';
+    const targetId = (sr as { target_user_id?: string }).target_user_id;
+
+    let title = response === 'accept' ? 'Intercambio aceptado' : 'Intercambio rechazado';
+    let message = response === 'accept'
+      ? (autoApproved ? 'El intercambio se ha aplicado. La organización no requiere aprobación del responsable.' : 'La contraparte ha aceptado tu solicitud de intercambio. Espera la aprobación del responsable.')
+      : 'La contraparte ha rechazado tu solicitud de intercambio.';
+
+    const toNotify: { user_id: string; title: string; message: string }[] = [];
+    if (requesterId) toNotify.push({ user_id: requesterId, title, message });
+    if (autoApproved && targetId) {
+      toNotify.push({
+        user_id: targetId,
+        title: 'Intercambio aprobado',
+        message: 'El intercambio de turnos se ha aplicado automáticamente.',
+      });
+    }
+
+    for (const n of toNotify) {
       await supabase.from('notifications').insert({
-        user_id: requesterId,
-        title,
-        message,
+        user_id: n.user_id,
+        title: n.title,
+        message: n.message,
         type: 'request',
         entity_type: 'shift_request',
         entity_id: requestId,
       });
-      // Push: invocar send-notification (best-effort)
-      const baseUrl = Deno.env.get('SUPABASE_URL') ?? '';
-      if (baseUrl) {
-        try {
-          await fetch(`${baseUrl}/functions/v1/send-notification`, {
+    }
+
+    const baseUrl = Deno.env.get('SUPABASE_URL') ?? '';
+    if (baseUrl) {
+      await Promise.allSettled(
+        toNotify.map((n) =>
+          fetch(`${baseUrl}/functions/v1/send-notification`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              userId: requesterId,
-              type: 'request',
-              title,
-              body: message,
-              email: false,
-            }),
-          });
-        } catch (_) {
-          /* ignore; in-app ya enviada */
-        }
-      }
+            body: JSON.stringify({ userId: n.user_id, type: 'request', title: n.title, body: n.message, email: false }),
+          })
+        )
+      );
     }
 
     return new Response(
-      JSON.stringify({ ok: true, status: newStatus }),
+      JSON.stringify({ ok: true, status: newStatus, autoApproved }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (e) {

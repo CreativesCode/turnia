@@ -64,5 +64,8 @@ verify_jwt = false
 [functions.export-schedule]
 verify_jwt = false
 
+[functions.create-request]
+verify_jwt = false
+
 [storage]
 enabled = true

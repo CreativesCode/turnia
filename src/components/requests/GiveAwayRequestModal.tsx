@@ -58,17 +58,17 @@ export function GiveAwayRequestModal({
       setLoading(true);
       setError(null);
       const supabase = createClient();
-      const { error: err } = await supabase.from('shift_requests').insert({
-        org_id: shift.org_id,
-        request_type: 'give_away',
-        status: 'submitted',
-        shift_id: shift.id,
-        requester_id: currentUserId,
-        comment: comment.trim() || null,
+      const { data, error: err } = await supabase.functions.invoke('create-request', {
+        body: { requestType: 'give_away', shiftId: shift.id, comment: comment.trim() || undefined },
       });
       setLoading(false);
       if (err) {
         setError(err.message);
+        return;
+      }
+      const body = data as { error?: string } | undefined;
+      if (body?.error) {
+        setError(body.error);
         return;
       }
       onSuccess();
@@ -87,7 +87,7 @@ export function GiveAwayRequestModal({
           Dar de baja este turno
         </h2>
         <p className="mt-1 text-sm text-muted">
-          Envía una solicitud para que te quiten este turno. Un responsable la revisará.
+          Si la organización lo permite, se dará de baja al instante. Si no, un responsable lo revisará.
         </p>
         {pendingExists && (
           <p className="mt-3 text-sm text-amber-600">
