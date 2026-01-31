@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "eslint .",
     "export": "next build",
     "cap:sync": "npm run build && npx cap sync",
     "cap:ios": "npx cap open ios",

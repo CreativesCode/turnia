@@ -1,6 +1,8 @@
 @import "tailwindcss";
 
 :root {
+  color-scheme: light;
+
   /* Primary Colors - Teal Palette */
   --primary-50: #F0FDFA;
   --primary-100: #CCFBF1;
@@ -25,6 +27,21 @@
   /* Main semantic colors */
   --foreground: var(--text-primary);
   --primary: var(--primary-500);
+}
+
+.dark {
+  color-scheme: dark;
+
+  /* Neutral Colors (Dark) */
+  --background: #0B1220;
+  --subtle-bg: #0F172A;
+  --border: #1E293B;
+  --text-primary: #E2E8F0;
+  --text-secondary: #CBD5E1;
+  --muted: #94A3B8;
+
+  /* Main semantic colors */
+  --foreground: var(--text-primary);
 }
 
 @theme inline {
@@ -58,8 +75,7 @@
   --font-mono: var(--font-geist-mono);
 }
 
-/* Tema claro fijo: usamos la paleta de docs/colors.md. Dark mode se puede añadir después. */
-/* @media (prefers-color-scheme: dark) { ... } desactivado para mantener Background #FFF, etc. */
+/* Tema claro/oscuro vía variables CSS. Preferencia: localStorage key "turnia-theme". */
 
 body {
   background: var(--background);

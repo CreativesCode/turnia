@@ -866,28 +866,6 @@ Cada organización define sus propios **tipos de turno** (las categorías en las
 
 ---
 
-### 🧪 **Módulo 11: Testing y QA**
-
-#### **11.1 Tests Unitarios**
-- [ ] Tests para funciones de permisos (`rbac.ts`)
-- [ ] Tests para validaciones de turnos
-- [ ] Tests para helpers y utilidades
-
-#### **11.2 Tests de Integración**
-- [ ] Tests para Edge Functions
-- [ ] Tests para flujo de invitaciones
-- [ ] Tests para flujo de solicitudes
-- [ ] Tests para aprobaciones
-
-#### **11.3 Tests E2E**
-- [ ] Test: Crear organización y primer admin
-- [ ] Test: Invitar usuario y aceptar invitación
-- [ ] Test: Crear turnos y asignar
-- [ ] Test: Solicitar swap y aprobar
-- [ ] Test: Exportar horario
-
----
-
 ### 🎨 **Módulo 12: UI/UX Polish**
 
 #### **12.1 Diseño Consistente**
@@ -904,40 +882,15 @@ Cada organización define sus propios **tipos de turno** (las categorías en las
 - [ ] Feedback visual en acciones (success, error)
 
 #### **12.3 Dark Mode**
-- [ ] Toggle de dark mode
-- [ ] Persistir preferencia
-- [ ] Colores consistentes en dark mode
+- [x] Toggle de dark mode
+- [x] Persistir preferencia
+- [x] Colores consistentes en dark mode
 
 #### **12.4 Accesibilidad**
 - [ ] ARIA labels
 - [ ] Navegación por teclado
 - [ ] Contraste suficiente
 - [ ] Screen reader support
-
----
-
-### 🚀 **Módulo 13: Deploy y DevOps**
-
-#### **13.1 CI/CD**
-- [ ] GitHub Actions para:
-  - [ ] Linting
-  - [ ] Type checking
-  - [ ] Tests
-  - [ ] Build
-
-#### **13.2 Environments**
-- [ ] Development (local)
-- [ ] Staging (Vercel/Supabase staging)
-- [ ] Production (Vercel/Supabase prod)
-
-#### **13.3 Monitoreo**
-- [ ] Error tracking (Sentry o similar)
-- [ ] Analytics (usage, performance)
-- [ ] Logs centralizados
-
-#### **13.4 Backups**
-- [ ] Backup automático de base de datos
-- [ ] Plan de disaster recovery
 
 ---
 

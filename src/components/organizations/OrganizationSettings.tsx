@@ -223,7 +223,7 @@ Eliminar la organización borrará todos los miembros, turnos e invitaciones
         <button
           type="button"
           onClick={() => setConfirmDelete(true)}
-          className="mt-3 rounded-lg border border-red-300 bg-white px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-50"
+          className="mt-3 rounded-lg border border-red-300 bg-background px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-500/10"
         >
           Eliminar organización
         </button>

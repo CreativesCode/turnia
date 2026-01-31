@@ -12,6 +12,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { NotificationBell } from '@/components/notifications/NotificationBell';
 import { LogoutButton } from '@/components/auth/LogoutButton';
+import { ThemeSelect, ThemeToggleButton } from '@/components/theme/theme';
 import { useScheduleOrg } from '@/hooks/useScheduleOrg';
 import { useIsMobile } from '@/hooks/useIsMobile';
 
@@ -134,6 +135,7 @@ export function DashboardNav() {
               Turnia
             </Link>
             <div className="flex items-center gap-1">
+              <ThemeToggleButton ariaLabel="Cambiar tema" />
               <NotificationBell />
               <button
                 type="button"
@@ -179,6 +181,12 @@ export function DashboardNav() {
                 <span className="h-1 w-12 rounded-full bg-muted" aria-hidden />
               </div>
               <div className="grid gap-0.5 p-4">
+                <div className="rounded-lg border border-border bg-subtle-bg px-4 py-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-sm font-medium text-text-primary">Tema</span>
+                    <ThemeSelect className="min-h-[44px] w-[140px] rounded-lg border border-border bg-background px-3 py-2 text-sm text-text-primary focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500" />
+                  </div>
+                </div>
                 {canManageShifts && link('/dashboard/manager/shifts', 'Lista de turnos')}
                 {canManageOrg && (
                   <>
@@ -196,7 +204,7 @@ export function DashboardNav() {
                 <button
                   type="button"
                   onClick={handleLogout}
-                  className="rounded-lg px-4 py-3 text-left text-sm font-medium text-red-600 hover:bg-red-50"
+                  className="rounded-lg px-4 py-3 text-left text-sm font-medium text-red-600 hover:bg-red-500/10"
                 >
                   Cerrar sesión
                 </button>
@@ -231,6 +239,7 @@ export function DashboardNav() {
         <Link href="/dashboard/viewer" className="text-text-secondary hover:text-primary-600">Viewer</Link>
         <Link href="/dashboard/notifications" className="text-text-secondary hover:text-primary-600">Notificaciones</Link>
         <span className="ml-auto flex items-center gap-2">
+          <ThemeToggleButton ariaLabel="Cambiar tema" />
           <NotificationBell />
           <LogoutButton />
         </span>
