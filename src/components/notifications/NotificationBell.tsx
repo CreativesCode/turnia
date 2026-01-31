@@ -83,6 +83,9 @@ export function NotificationBell() {
       if (n.entity_type === 'shift_request' && n.entity_id) {
         return canApproveRequests ? `/dashboard/manager/requests?request=${n.entity_id}` : `/dashboard/staff/my-requests?request=${n.entity_id}`;
       }
+      if (n.entity_type === 'shift' && n.entity_id) {
+        return `/dashboard/manager?shift=${n.entity_id}`;
+      }
       return '/dashboard';
     },
     [canApproveRequests]

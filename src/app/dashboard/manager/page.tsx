@@ -6,7 +6,7 @@
  * @see project-roadmap.md Módulo 3
  */
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
@@ -21,10 +21,14 @@ import { EditShiftModal } from '@/components/shifts/EditShiftModal';
 import { ShiftDetailModal } from '@/components/shifts/ShiftDetailModal';
 import { useScheduleOrg } from '@/hooks/useScheduleOrg';
 import type { ShiftWithType } from '@/components/calendar/ShiftCalendar';
+import { QuickActions } from '@/components/mobile/QuickActions';
+import { MyUpcomingShiftsWidget } from '@/components/mobile/MyUpcomingShiftsWidget';
+import { OnCallNowWidget } from '@/components/mobile/OnCallNowWidget';
 
 export default function ManagerPage() {
   const searchParams = useSearchParams();
   const { orgId, userId, canManageShifts, canCreateRequests, isLoading, error } = useScheduleOrg();
+  const [myName, setMyName] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const [filters, setFilters] = useState<ShiftCalendarFiltersState>(defaultFilters);
   const [detailShift, setDetailShift] = useState<ShiftWithType | null>(null);
@@ -32,6 +36,20 @@ export default function ManagerPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [createInitialDate, setCreateInitialDate] = useState<Date | undefined>();
   const [editShift, setEditShift] = useState<ShiftWithType | null>(null);
+
+  useEffect(() => {
+    if (!userId) return;
+    const supabase = createClient();
+    const t = window.setTimeout(() => {
+      void supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', userId)
+        .single()
+        .then(({ data }) => setMyName((data as { full_name?: string | null } | null)?.full_name ?? null));
+    }, 0);
+    return () => window.clearTimeout(t);
+  }, [userId]);
 
   // Abrir detalle de turno desde ?shift=id (p. ej. desde notificaciones)
   useEffect(() => {
@@ -112,6 +130,36 @@ export default function ManagerPage() {
     );
   }
 
+  const scrollToId = useCallback((id: string) => {
+    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, []);
+
+  const actions = useMemo(() => {
+    return [
+      {
+        id: 'new-shift',
+        title: 'Nuevo turno',
+        description: 'Crear turno rápidamente.',
+        onClick: () => {
+          setCreateInitialDate(undefined);
+          setCreateOpen(true);
+        },
+      },
+      {
+        id: 'my-upcoming',
+        title: 'Mis próximos turnos',
+        description: 'Ver y abrir detalle.',
+        onClick: () => scrollToId('my-upcoming-shifts'),
+      },
+      {
+        id: 'on-call',
+        title: 'On-call now',
+        description: 'Quién está de turno ahora.',
+        onClick: () => scrollToId('on-call-now'),
+      },
+    ];
+  }, [scrollToId]);
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-4">
@@ -137,6 +185,26 @@ export default function ManagerPage() {
           )}
         </div>
       </div>
+
+      <QuickActions items={actions} />
+
+      <MyUpcomingShiftsWidget
+        orgId={orgId}
+        userId={userId}
+        title="Mis próximos turnos (14 días)"
+        onSelectShift={(s) => {
+          setDetailShift(s);
+          setDetailAssignedName((myName?.trim() || 'Yo') as string);
+        }}
+      />
+
+      <OnCallNowWidget
+        orgId={orgId}
+        onSelectShift={(s, name) => {
+          setDetailShift(s);
+          setDetailAssignedName(name);
+        }}
+      />
 
       <ShiftCalendarFilters orgId={orgId} value={filters} onChange={setFilters} className="mb-3" />
 

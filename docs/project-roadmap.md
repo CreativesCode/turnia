@@ -851,13 +851,16 @@ Cada organización define sus propios **tipos de turno** (las categorías en las
 - [ ] Mejorar accesibilidad (ARIA, teclado, contraste; base con aria-labels en nav y modales)
 
 #### **10.2 Funcionalidades Móviles**
-- [ ] Quick actions (shortcuts)
-  - [ ] Ver mis próximos turnos
-  - [ ] Solicitar cambio rápido
-  - [ ] Ver quién está de turno ahora
+- [x] Quick actions (shortcuts)
+  - [x] Ver mis próximos turnos
+  - [x] Solicitar cambio rápido
+  - [x] Ver quién está de turno ahora
+  - Implementado en `/dashboard/staff` y `/dashboard/manager` con widgets y accesos rápidos.
 
-- [ ] Widget de "On-call Now" (quién está de guardia)
-- [ ] Deep links para notificaciones
+- [x] Widget de "On-call Now" (quién está de guardia)
+  - `OnCallNowWidget` con fallback offline (cache local).
+- [x] Deep links para notificaciones
+  - `entity_type=shift_request` → requests; `entity_type=shift` → `/dashboard/manager?shift=<id>` (campana + página).
 
 #### **10.3 Offline Support (Fase 2)**
 - [x] Cache de turnos próximos
