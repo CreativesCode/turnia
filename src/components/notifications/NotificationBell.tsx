@@ -31,6 +31,10 @@ export function NotificationBell() {
   const [list, setList] = useState<NotificationRow[]>([]);
   const [loading, setLoading] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const panelId = 'notification-bell-panel';
+  const titleId = 'notification-bell-title';
 
   const fetchCount = useCallback(async () => {
     const supabase = createClient();
@@ -70,6 +74,28 @@ export function NotificationBell() {
     return () => document.removeEventListener('mousedown', onMouseDown);
   }, []);
 
+  useEffect(() => {
+    if (!open) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        setOpen(false);
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [open]);
+
+  useEffect(() => {
+    if (open) {
+      // Permite a teclado/screen readers entrar al panel.
+      panelRef.current?.focus();
+    } else {
+      // Devolver foco al trigger al cerrar.
+      buttonRef.current?.focus();
+    }
+  }, [open]);
+
   const markAsRead = useCallback(
     async (id: string) => {
       const supabase = createClient();
@@ -96,12 +122,15 @@ export function NotificationBell() {
   return (
     <div className="relative" ref={containerRef}>
       <Button
+        ref={buttonRef}
         variant="ghost"
         size="icon"
         onClick={() => setOpen((o) => !o)}
         className="relative text-text-secondary hover:text-text-primary"
         aria-label={unreadCount > 0 ? `${unreadCount} notificaciones sin leer` : 'Notificaciones'}
         aria-expanded={open}
+        aria-controls={open ? panelId : undefined}
+        aria-haspopup="dialog"
       >
         <BellIcon className="h-5 w-5" />
         {unreadCount > 0 && (
@@ -111,9 +140,19 @@ export function NotificationBell() {
         )}
       </Button>
       {open && (
-        <div className="absolute right-0 top-full z-50 mt-1 w-[320px] overflow-hidden rounded-xl border border-border bg-background shadow-lg">
+        <div
+          id={panelId}
+          ref={panelRef}
+          tabIndex={-1}
+          role="dialog"
+          aria-modal="false"
+          aria-labelledby={titleId}
+          className="absolute right-0 top-full z-50 mt-1 w-[320px] overflow-hidden rounded-xl border border-border bg-background shadow-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+        >
           <div className="border-b border-border px-3 py-2">
-            <span className="font-medium text-text-primary">Notificaciones</span>
+            <span id={titleId} className="font-medium text-text-primary">
+              Notificaciones
+            </span>
           </div>
           {loading ? (
             <div className="space-y-2 px-3 py-4">
