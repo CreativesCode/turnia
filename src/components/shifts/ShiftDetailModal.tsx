@@ -11,6 +11,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { formatShiftTypeSchedule } from '@/lib/utils';
 import { ConfirmModal } from '@/components/ui/ConfirmModal';
+import { Button } from '@/components/ui/Button';
+import { useToast } from '@/components/ui/toast/ToastProvider';
 import { GiveAwayRequestModal } from '@/components/requests/GiveAwayRequestModal';
 import { TakeOpenRequestModal } from '@/components/requests/TakeOpenRequestModal';
 import { SwapRequestModal } from '@/components/requests/SwapRequestModal';
@@ -43,6 +45,7 @@ export function ShiftDetailModal({
   canCreateRequests,
   currentUserId,
 }: Props) {
+  const { toast } = useToast();
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -62,6 +65,7 @@ export function ShiftDetailModal({
     const { data: refreshData, error: refreshErr } = await supabase.auth.refreshSession();
     if (refreshErr || !refreshData?.session?.access_token) {
       setDeleteError('Sesión expirada. Recarga la página e inicia sesión de nuevo.');
+      toast({ variant: 'error', title: 'Sesión expirada', message: 'Recarga la página e inicia sesión de nuevo.' });
       setDeleting(false);
       setConfirmDelete(false);
       return;
@@ -73,12 +77,15 @@ export function ShiftDetailModal({
     setDeleting(false);
     setConfirmDelete(false);
     if (fnErr) {
-      setDeleteError(String((fnErr as Error)?.message || 'Error al eliminar.'));
+      const msg = String((fnErr as Error)?.message || 'Error al eliminar.');
+      setDeleteError(msg);
+      toast({ variant: 'error', title: 'No se pudo eliminar', message: msg });
       return;
     }
     onDeleted();
     onClose();
-  }, [shift, onDeleted, onClose]);
+    toast({ variant: 'success', title: 'Turno eliminado', message: 'El turno fue eliminado.' });
+  }, [shift, onDeleted, onClose, toast]);
 
   const onEscape = useCallback(
     (e: KeyboardEvent) => {
@@ -167,78 +174,71 @@ export function ShiftDetailModal({
         <div className="mt-6 flex flex-wrap justify-end gap-3">
           {canManageShifts && (
             <>
-              <button
+              <Button
                 type="button"
-                onClick={() => { setDeleteError(null); setConfirmDelete(true); }}
-                className="min-h-[44px] min-w-[44px] rounded-lg px-4 py-2.5 text-sm font-medium text-red-600 hover:bg-red-50"
+                variant="ghost"
+                onClick={() => {
+                  setDeleteError(null);
+                  setConfirmDelete(true);
+                }}
+                className="text-red-600 hover:bg-red-50"
               >
                 Eliminar
-              </button>
-              <button
-                type="button"
-                onClick={onEdit}
-                className="min-h-[44px] min-w-[44px] rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-700"
-              >
+              </Button>
+              <Button type="button" onClick={onEdit}>
                 Editar
-              </button>
+              </Button>
             </>
           )}
           {showRequestActions && isMine && (
             <>
-              <button
-                type="button"
-                onClick={() => setRequestModal('give_away')}
-                className="min-h-[44px] min-w-[44px] rounded-lg border border-border px-4 py-2.5 text-sm font-medium text-text-secondary hover:bg-subtle-bg"
-              >
+              <Button type="button" variant="secondary" onClick={() => setRequestModal('give_away')}>
                 Dar de baja
-              </button>
-              <button
-                type="button"
-                onClick={() => setRequestModal('swap')}
-                className="min-h-[44px] min-w-[44px] rounded-lg border border-border px-4 py-2.5 text-sm font-medium text-text-secondary hover:bg-subtle-bg"
-              >
+              </Button>
+              <Button type="button" variant="secondary" onClick={() => setRequestModal('swap')}>
                 Intercambiar
-              </button>
+              </Button>
             </>
           )}
           {showRequestActions && isOpen && (
-            <button
-              type="button"
-              onClick={() => setRequestModal('take_open')}
-              className="min-h-[44px] min-w-[44px] rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-700"
-            >
+            <Button type="button" onClick={() => setRequestModal('take_open')}>
               Tomar turno
-            </button>
+            </Button>
           )}
           {!canManageShifts && (
-            <button
-              type="button"
-              onClick={onClose}
-              className="min-h-[44px] rounded-lg border border-border px-4 py-2.5 text-sm font-medium text-text-secondary hover:bg-subtle-bg"
-            >
+            <Button type="button" variant="secondary" onClick={onClose}>
               Cerrar
-            </button>
+            </Button>
           )}
         </div>
       </div>
       <GiveAwayRequestModal
         open={requestModal === 'give_away'}
         onClose={() => setRequestModal(null)}
-        onSuccess={() => { onRequestCreated?.(); setRequestModal(null); }}
+        onSuccess={() => {
+          onRequestCreated?.();
+          setRequestModal(null);
+        }}
         shift={shift}
         currentUserId={currentUserId}
       />
       <TakeOpenRequestModal
         open={requestModal === 'take_open'}
         onClose={() => setRequestModal(null)}
-        onSuccess={() => { onRequestCreated?.(); setRequestModal(null); }}
+        onSuccess={() => {
+          onRequestCreated?.();
+          setRequestModal(null);
+        }}
         shift={shift}
         currentUserId={currentUserId}
       />
       <SwapRequestModal
         open={requestModal === 'swap'}
         onClose={() => setRequestModal(null)}
-        onSuccess={() => { onRequestCreated?.(); setRequestModal(null); }}
+        onSuccess={() => {
+          onRequestCreated?.();
+          setRequestModal(null);
+        }}
         shift={shift}
         currentUserId={currentUserId}
       />

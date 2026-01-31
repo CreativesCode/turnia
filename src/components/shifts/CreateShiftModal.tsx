@@ -9,6 +9,10 @@
 import { createClient } from '@/lib/supabase/client';
 import { formatShiftTypeSchedule } from '@/lib/utils';
 import { useCallback, useEffect, useState } from 'react';
+import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
+import { Select } from '@/components/ui/Select';
+import { useToast } from '@/components/ui/toast/ToastProvider';
 
 type ShiftTypeOption = {
   id: string;
@@ -80,6 +84,7 @@ export function CreateShiftModal({
   orgId,
   initialDate,
 }: Props) {
+  const { toast } = useToast();
   const [shiftTypes, setShiftTypes] = useState<ShiftTypeOption[]>([]);
   const [members, setMembers] = useState<MemberOption[]>([]);
   const [date, setDate] = useState('');
@@ -162,10 +167,12 @@ export function CreateShiftModal({
       setError(null);
       if (!shiftTypeId) {
         setError('Selecciona un tipo de turno.');
+        toast({ variant: 'error', title: 'Falta información', message: 'Selecciona un tipo de turno.' });
         return;
       }
       if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
         setError('Selecciona una fecha.');
+        toast({ variant: 'error', title: 'Falta información', message: 'Selecciona una fecha.' });
         return;
       }
       const st = shiftTypes.find((t) => t.id === shiftTypeId);
@@ -192,6 +199,7 @@ export function CreateShiftModal({
           const row = Array.isArray(rpc) ? rpc[0] : rpc;
           if (row?.has_conflict && row?.message) {
             setError(row.message);
+            toast({ variant: 'error', title: 'Conflicto detectado', message: row.message });
             return;
           }
         }
@@ -204,6 +212,7 @@ export function CreateShiftModal({
       const { data: refreshData, error: refreshErr } = await supabase.auth.refreshSession();
       if (refreshErr || !refreshData?.session?.access_token) {
         setError('Sesión expirada. Recarga la página e inicia sesión de nuevo.');
+        toast({ variant: 'error', title: 'Sesión expirada', message: 'Recarga la página e inicia sesión de nuevo.' });
         setLoading(false);
         return;
       }
@@ -222,13 +231,16 @@ export function CreateShiftModal({
       setLoading(false);
       const json = (data ?? {}) as { ok?: boolean; error?: string };
       if (fnErr || !json.ok) {
-        setError(String(json.error || (fnErr as Error)?.message || 'Error al crear el turno.'));
+        const msg = String(json.error || (fnErr as Error)?.message || 'Error al crear el turno.');
+        setError(msg);
+        toast({ variant: 'error', title: 'No se pudo crear', message: msg });
         return;
       }
       onSuccess();
       onClose();
+      toast({ variant: 'success', title: 'Turno creado', message: 'El turno se creó correctamente.' });
     },
-    [shiftTypeId, date, shiftTypes, assignedUserId, location, status, orgId, onSuccess, onClose]
+    [shiftTypeId, date, shiftTypes, assignedUserId, location, status, orgId, onSuccess, onClose, toast]
   );
 
   if (!open) return null;
@@ -253,21 +265,21 @@ export function CreateShiftModal({
         <form onSubmit={submit} className="mt-4 flex flex-col gap-4">
           <label className="block text-sm font-medium text-text-secondary">
             Fecha
-            <input
+            <Input
               type="date"
               value={date}
               onChange={(e) => setDate(e.target.value)}
               required
-              className="mt-1.5 block w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-text-primary focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+              className="mt-1.5"
             />
           </label>
           <label className="block text-sm font-medium text-text-secondary">
             Tipo de turno
-            <select
+            <Select
               value={shiftTypeId}
               onChange={(e) => setShiftTypeId(e.target.value)}
               required
-              className="mt-1.5 block w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-text-primary focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+              className="mt-1.5"
             >
               <option value="">— Selecciona —</option>
               {shiftTypes.map((t) => (
@@ -275,7 +287,7 @@ export function CreateShiftModal({
                   {t.name} ({t.letter})
                 </option>
               ))}
-            </select>
+            </Select>
             {shiftTypeId && (() => {
               const t = shiftTypes.find((x) => x.id === shiftTypeId);
               const s = formatShiftTypeSchedule(t?.start_time ?? null, t?.end_time ?? null);
@@ -288,10 +300,10 @@ export function CreateShiftModal({
           </label>
           <label className="block text-sm font-medium text-text-secondary">
             Asignar a
-            <select
+            <Select
               value={assignedUserId}
               onChange={(e) => setAssignedUserId(e.target.value)}
-              className="mt-1.5 block w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-text-primary focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+              className="mt-1.5"
             >
               <option value="">Sin asignar</option>
               {members.map((m) => (
@@ -299,16 +311,16 @@ export function CreateShiftModal({
                   {m.full_name?.trim() || m.user_id}
                 </option>
               ))}
-            </select>
+            </Select>
           </label>
           <label className="block text-sm font-medium text-text-secondary">
             Ubicación
-            <input
+            <Input
               type="text"
               value={location}
               onChange={(e) => setLocation(e.target.value)}
               placeholder="Opcional"
-              className="mt-1.5 block w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-text-primary placeholder:text-muted focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+              className="mt-1.5"
             />
           </label>
           <label className="flex items-center gap-2">
@@ -322,21 +334,12 @@ export function CreateShiftModal({
           </label>
           {error && <p className="text-sm text-red-600">{error}</p>}
           <div className="flex flex-wrap justify-end gap-3">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={loading}
-              className="min-h-[44px] min-w-[44px] rounded-lg border border-border px-4 py-2.5 text-sm font-medium text-text-secondary hover:bg-subtle-bg disabled:opacity-50"
-            >
+            <Button variant="secondary" onClick={onClose} disabled={loading}>
               Cancelar
-            </button>
-            <button
-              type="submit"
-              disabled={loading}
-              className="min-h-[44px] min-w-[44px] rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50"
-            >
-              {loading ? '…' : 'Crear'}
-            </button>
+            </Button>
+            <Button type="submit" loading={loading}>
+              Crear
+            </Button>
           </div>
         </form>
       </div>

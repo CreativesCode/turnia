@@ -8,6 +8,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { ConfirmModal } from '@/components/ui/ConfirmModal';
+import { Button } from '@/components/ui/Button';
+import { Textarea } from '@/components/ui/Textarea';
+import { useToast } from '@/components/ui/toast/ToastProvider';
 
 const REQUEST_TYPE_LABEL: Record<string, string> = {
   give_away: 'Dar de baja',
@@ -70,6 +73,7 @@ function getTypeLetter(ot: { name: string; letter: string } | { name: string; le
 }
 
 export function RequestDetailModal({ open, onClose, onResolved, request, names }: Props) {
+  const { toast } = useToast();
   const [action, setAction] = useState<'approve' | 'reject' | null>(null);
   const [managerComment, setManagerComment] = useState('');
   const [loading, setLoading] = useState(false);
@@ -85,6 +89,7 @@ export function RequestDetailModal({ open, onClose, onResolved, request, names }
     const { data: refreshData, error: refreshErr } = await supabase.auth.refreshSession();
     if (refreshErr || !refreshData?.session?.access_token) {
       setError('Sesión expirada. Recarga la página e inicia sesión de nuevo.');
+      toast({ variant: 'error', title: 'Sesión expirada', message: 'Recarga la página e inicia sesión de nuevo.' });
       setLoading(false);
       setAction(null);
       return;
@@ -102,12 +107,19 @@ export function RequestDetailModal({ open, onClose, onResolved, request, names }
     setManagerComment('');
     const json = (data ?? {}) as { ok?: boolean; error?: string };
     if (fnErr || !json.ok) {
-      setError(String(json.error || (fnErr as Error)?.message || 'Error al procesar.'));
+      const msg = String(json.error || (fnErr as Error)?.message || 'Error al procesar.');
+      setError(msg);
+      toast({ variant: 'error', title: 'No se pudo procesar', message: msg });
       return;
     }
     onResolved();
     onClose();
-  }, [request, action, managerComment, onResolved, onClose]);
+    toast({
+      variant: 'success',
+      title: action === 'approve' ? 'Solicitud aprobada' : 'Solicitud rechazada',
+      message: 'La solicitud fue procesada correctamente.',
+    });
+  }, [request, action, managerComment, onResolved, onClose, toast]);
 
   const handleClose = useCallback(() => {
     setAction(null);
@@ -206,52 +218,49 @@ export function RequestDetailModal({ open, onClose, onResolved, request, names }
             <div className="mt-6 space-y-3">
               <label className="block text-sm font-medium text-text-secondary">
                 Comentario (opcional; se guarda al rechazar)
-                <textarea
+                <Textarea
                   value={managerComment}
                   onChange={(e) => setManagerComment(e.target.value)}
                   placeholder="Ej. Motivo del rechazo o nota para el solicitante"
                   rows={2}
-                  className="mt-1.5 block w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-text-primary focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                  className="mt-1.5 min-h-[80px]"
                 />
               </label>
               <div className="flex flex-wrap gap-3">
-                <button
+                <Button
                   type="button"
                   onClick={() => setAction('approve')}
                   disabled={loading}
-                  className="min-h-[44px] min-w-[44px] rounded-lg bg-green-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50"
+                  className="bg-green-600 text-white hover:bg-green-700"
                 >
-                  {loading && action === 'approve' ? '…' : 'Aprobar'}
-                </button>
-                <button
+                  Aprobar
+                </Button>
+                <Button
                   type="button"
                   onClick={() => setAction('reject')}
                   disabled={loading}
-                  className="min-h-[44px] min-w-[44px] rounded-lg border border-red-200 px-4 py-2.5 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-50"
+                  variant="secondary"
+                  className="border-red-200 text-red-600 hover:bg-red-50"
                 >
-                  {loading && action === 'reject' ? '…' : 'Rechazar'}
-                </button>
-                <button
+                  Rechazar
+                </Button>
+                <Button
                   type="button"
                   onClick={handleClose}
                   disabled={loading}
-                  className="min-h-[44px] min-w-[44px] rounded-lg border border-border px-4 py-2.5 text-sm font-medium text-text-secondary hover:bg-subtle-bg disabled:opacity-50"
+                  variant="secondary"
                 >
                   Cerrar
-                </button>
+                </Button>
               </div>
             </div>
           )}
 
           {!canAct && (
             <div className="mt-6">
-              <button
-                type="button"
-                onClick={handleClose}
-                className="min-h-[44px] min-w-[44px] rounded-lg border border-border px-4 py-2.5 text-sm font-medium text-text-secondary hover:bg-subtle-bg"
-              >
+              <Button type="button" variant="secondary" onClick={handleClose}>
                 Cerrar
-              </button>
+              </Button>
             </div>
           )}
         </div>

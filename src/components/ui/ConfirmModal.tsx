@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect } from 'react';
 
+import { Button } from '@/components/ui/Button';
+
 type Props = {
   open: boolean;
   onClose: () => void;
@@ -69,26 +71,12 @@ export function ConfirmModal({
         </h2>
         <p className="mt-2 text-sm text-text-secondary">{message}</p>
         <div className="mt-6 flex flex-wrap justify-end gap-3">
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={loading}
-            className="min-h-[44px] min-w-[44px] rounded-lg border border-border px-4 py-2.5 text-sm font-medium text-text-secondary hover:bg-subtle-bg disabled:opacity-50"
-          >
+          <Button variant="secondary" onClick={onClose} disabled={loading}>
             {cancelLabel}
-          </button>
-          <button
-            type="button"
-            onClick={onConfirm}
-            disabled={loading}
-            className={
-              isDanger
-                ? 'min-h-[44px] min-w-[44px] rounded-lg bg-red-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50'
-                : 'min-h-[44px] min-w-[44px] rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50'
-            }
-          >
-            {loading ? '…' : confirmLabel}
-          </button>
+          </Button>
+          <Button variant={isDanger ? 'danger' : 'primary'} onClick={onConfirm} loading={loading}>
+            {confirmLabel}
+          </Button>
         </div>
       </div>
     </div>

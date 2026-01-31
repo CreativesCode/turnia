@@ -8,6 +8,10 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { Button } from '@/components/ui/Button';
+import { Select } from '@/components/ui/Select';
+import { Textarea } from '@/components/ui/Textarea';
+import { useToast } from '@/components/ui/toast/ToastProvider';
 
 type Shift = { id: string; org_id: string; start_at: string };
 
@@ -35,6 +39,7 @@ export function SwapRequestModal({
   shift,
   currentUserId,
 }: Props) {
+  const { toast } = useToast();
   const [targetId, setTargetId] = useState<string>('');
   const [comment, setComment] = useState('');
   const [loading, setLoading] = useState(false);
@@ -68,6 +73,7 @@ export function SwapRequestModal({
 
     if (e1) {
       setError(e1.message);
+      toast({ variant: 'error', title: 'No se pudieron cargar turnos', message: e1.message });
       setTargets([]);
       setLoadTargets(false);
       return;
@@ -143,12 +149,14 @@ export function SwapRequestModal({
       setLoading(false);
       if (err) {
         setError(err.message);
+        toast({ variant: 'error', title: 'No se pudo enviar', message: err.message });
         return;
       }
       onSuccess();
       onClose();
+      toast({ variant: 'success', title: 'Solicitud enviada', message: 'Tu solicitud fue enviada correctamente.' });
     },
-    [shift, currentUserId, targetId, targets, comment, loading, pendingExists, onSuccess, onClose]
+    [shift, currentUserId, targetId, targets, comment, loading, pendingExists, onSuccess, onClose, toast]
   );
 
   if (!open) return null;
@@ -160,7 +168,7 @@ export function SwapRequestModal({
   };
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="swap-title">
+    <div className="fixed inset-0 z-60 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="swap-title">
       <button type="button" onClick={onClose} className="absolute inset-0 bg-black/50" aria-label="Cerrar" />
       <div className="relative max-h-[90vh] w-full max-w-md overflow-y-auto rounded-xl border border-border bg-background p-6 shadow-lg">
         <h2 id="swap-title" className="text-lg font-semibold text-text-primary">
@@ -184,12 +192,11 @@ export function SwapRequestModal({
           ) : targets.length === 0 ? (
             <p className="text-sm text-muted">No hay turnos de otros compañeros en las fechas cercanas.</p>
           ) : (
-            <select
+            <Select
               value={targetId}
               onChange={(e) => setTargetId(e.target.value)}
               required
               disabled={pendingExists}
-              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-text-primary focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
             >
               <option value="">Seleccionar…</option>
               {targets.map((t) => {
@@ -201,17 +208,17 @@ export function SwapRequestModal({
                   </option>
                 );
               })}
-            </select>
+            </Select>
           )}
 
           <label className="block text-sm font-medium text-text-primary">
             Comentario <span className="text-muted">(opcional)</span>
           </label>
-          <textarea
+          <Textarea
             value={comment}
             onChange={(e) => setComment(e.target.value)}
             rows={2}
-            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-text-primary placeholder:text-muted focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+            className="min-h-[80px]"
             placeholder="Motivo del intercambio..."
             disabled={pendingExists}
           />
@@ -219,20 +226,12 @@ export function SwapRequestModal({
           {error && <p className="text-sm text-red-600">{error}</p>}
 
           <div className="flex justify-end gap-3">
-            <button
-              type="button"
-              onClick={onClose}
-              className="min-h-[44px] rounded-lg border border-border px-4 py-2.5 text-sm font-medium text-text-secondary hover:bg-subtle-bg"
-            >
+            <Button type="button" variant="secondary" onClick={onClose}>
               Cancelar
-            </button>
-            <button
-              type="submit"
-              disabled={loading || pendingExists || targets.length === 0}
-              className="min-h-[44px] rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50"
-            >
-              {loading ? 'Enviando…' : 'Enviar solicitud'}
-            </button>
+            </Button>
+            <Button type="submit" loading={loading} disabled={pendingExists || targets.length === 0}>
+              Enviar solicitud
+            </Button>
           </div>
         </form>
       </div>

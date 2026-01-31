@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useScheduleOrg } from '@/hooks/useScheduleOrg';
@@ -9,6 +8,8 @@ import { MyUpcomingShiftsWidget } from '@/components/mobile/MyUpcomingShiftsWidg
 import { OnCallNowWidget } from '@/components/mobile/OnCallNowWidget';
 import { ShiftDetailModal } from '@/components/shifts/ShiftDetailModal';
 import type { ShiftWithType } from '@/components/calendar/ShiftCalendar';
+import { LinkButton } from '@/components/ui/LinkButton';
+import { Skeleton } from '@/components/ui/Skeleton';
 
 export default function StaffPage() {
   const { orgId, userId, canManageShifts, canCreateRequests, isLoading, error } = useScheduleOrg();
@@ -65,7 +66,15 @@ export default function StaffPage() {
   if (isLoading) {
     return (
       <div className="rounded-xl border border-border bg-background p-6">
-        <p className="text-sm text-muted">Cargando…</p>
+        <div className="space-y-3">
+          <Skeleton className="h-6 w-40" />
+          <Skeleton className="h-4 w-80" />
+          <div className="flex flex-wrap gap-3 pt-2">
+            <Skeleton className="h-11 w-40 rounded-lg" />
+            <Skeleton className="h-11 w-40 rounded-lg" />
+            <Skeleton className="h-11 w-40 rounded-lg" />
+          </div>
+        </div>
       </div>
     );
   }
@@ -86,24 +95,15 @@ export default function StaffPage() {
       </div>
 
       <div className="flex flex-wrap gap-3">
-        <Link
-          href="/dashboard/staff/my-requests"
-          className="min-h-[44px] rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-700"
-        >
+        <LinkButton href="/dashboard/staff/my-requests" variant="primary">
           Mis solicitudes
-        </Link>
-        <Link
-          href="/dashboard/staff/availability"
-          className="min-h-[44px] rounded-lg border border-border px-4 py-2.5 text-sm font-medium text-text-secondary hover:bg-subtle-bg"
-        >
+        </LinkButton>
+        <LinkButton href="/dashboard/staff/availability" variant="secondary">
           Mi disponibilidad
-        </Link>
-        <Link
-          href="/dashboard/manager"
-          className="min-h-[44px] rounded-lg border border-border px-4 py-2.5 text-sm font-medium text-text-secondary hover:bg-subtle-bg"
-        >
+        </LinkButton>
+        <LinkButton href="/dashboard/manager" variant="secondary">
           Ver calendario
-        </Link>
+        </LinkButton>
       </div>
 
       <QuickActions items={actions} />

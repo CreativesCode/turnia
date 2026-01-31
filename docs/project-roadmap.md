@@ -876,16 +876,24 @@ Cada organización define sus propios **tipos de turno** (las categorías en las
 
 #### **12.1 Diseño Consistente**
 - [ ] Sistema de diseño completo (components library)
-- [ ] Buttons con estados (hover, active, disabled)
-- [ ] Inputs consistentes
+- [x] Buttons con estados (hover, focus, disabled, loading)
+  - `src/components/ui/Button.tsx`, `src/components/ui/LinkButton.tsx`
+- [x] Inputs consistentes
+  - `src/components/ui/Input.tsx`, `src/components/ui/Select.tsx`, `src/components/ui/Textarea.tsx`
 - [ ] Modales y dialogs
-- [ ] Toasts y feedback visual
-- [ ] Loading states y skeletons
+  - *(Opcional)* extraer un `Modal` base para reducir duplicación (overlay/panel/escape).
+- [x] Toasts y feedback visual
+  - `src/components/ui/toast/ToastProvider.tsx` (montado globalmente vía `src/components/providers/AppProviders.tsx` + `src/app/layout.tsx`)
+- [x] Loading states y skeletons
+  - `src/components/ui/Skeleton.tsx`, `src/components/ui/Spinner.tsx`
+  - Aplicado en páginas y widgets: `src/app/dashboard/{manager,staff}/page.tsx`, `src/components/notifications/NotificationBell.tsx`,
+    `src/components/mobile/{MyUpcomingShiftsWidget,OnCallNowWidget}.tsx`
 
 #### **12.2 Animaciones y Transiciones**
 - [ ] Transiciones suaves entre vistas
 - [ ] Animaciones de carga
-- [ ] Feedback visual en acciones (success, error)
+- [x] Feedback visual en acciones (success, error)
+  - Toasts en flujos clave: `CreateShiftModal`, `EditShiftModal`, `ShiftDetailModal`, `MyRequestsList`, `RequestsInbox`, `RequestDetailModal`
 
 #### **12.3 Dark Mode**
 - [x] Toggle de dark mode

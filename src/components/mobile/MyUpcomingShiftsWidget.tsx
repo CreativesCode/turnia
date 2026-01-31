@@ -1,6 +1,8 @@
 'use client';
 
 import type { ShiftWithType } from '@/components/calendar/ShiftCalendar';
+import { Button } from '@/components/ui/Button';
+import { Skeleton } from '@/components/ui/Skeleton';
 import { createClient } from '@/lib/supabase/client';
 import { getCacheEntry, setCache } from '@/lib/cache';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
@@ -137,14 +139,16 @@ export function MyUpcomingShiftsWidget({
     <section className="rounded-xl border border-border bg-background p-4" id="my-upcoming-shifts">
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-sm font-semibold text-text-primary">{title}</h2>
-        <button
-          type="button"
+        <Button
+          variant="secondary"
+          size="sm"
           onClick={load}
-          className="min-h-[44px] rounded-lg border border-border px-3 py-2 text-sm font-medium text-text-secondary hover:bg-subtle-bg disabled:opacity-50"
-          disabled={loading || !orgId || !userId}
+          loading={loading}
+          disabled={!orgId || !userId}
+          aria-label={loading ? 'Actualizando' : 'Actualizar'}
         >
-          {loading ? 'Actualizando…' : 'Actualizar'}
-        </button>
+          Actualizar
+        </Button>
       </div>
 
       {notice && (
@@ -163,7 +167,22 @@ export function MyUpcomingShiftsWidget({
       )}
 
       {loading && rows.length === 0 ? (
-        <p className="mt-3 text-sm text-muted">Cargando…</p>
+        <div className="mt-3 space-y-2">
+          <div className="flex items-center gap-3 rounded-lg border border-border px-4 py-3">
+            <Skeleton className="h-8 w-8 rounded-full" />
+            <div className="min-w-0 flex-1 space-y-2">
+              <Skeleton className="h-4 w-40" />
+              <Skeleton className="h-3 w-56" />
+            </div>
+          </div>
+          <div className="flex items-center gap-3 rounded-lg border border-border px-4 py-3">
+            <Skeleton className="h-8 w-8 rounded-full" />
+            <div className="min-w-0 flex-1 space-y-2">
+              <Skeleton className="h-4 w-44" />
+              <Skeleton className="h-3 w-52" />
+            </div>
+          </div>
+        </div>
       ) : items.length === 0 ? (
         <p className="mt-3 text-sm text-muted">No tienes turnos en los próximos 14 días.</p>
       ) : (

@@ -1,6 +1,9 @@
 'use client';
 
 import { IconAutogenSlug } from '@/components/ui/IconAutogenSlug';
+import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
+import { useToast } from '@/components/ui/toast/ToastProvider';
 import { createClient } from '@/lib/supabase/client';
 import { generateSlug } from '@/lib/utils';
 import { useCallback, useEffect, useState } from 'react';
@@ -16,6 +19,7 @@ type Props = {
  * Compatible con SPA + Capacitor.
  */
 export function CreateOrganizationModal({ open, onClose, onCreated }: Props) {
+  const { toast } = useToast();
   const [name, setName] = useState('');
   const [slug, setSlug] = useState('');
   const [loading, setLoading] = useState(false);
@@ -55,12 +59,14 @@ export function CreateOrganizationModal({ open, onClose, onCreated }: Props) {
       setLoading(false);
       if (err) {
         setError(err.message);
+        toast({ variant: 'error', title: 'No se pudo crear', message: err.message });
         return;
       }
       onCreated();
       onClose();
+      toast({ variant: 'success', title: 'Organización creada', message: 'La organización se creó correctamente.' });
     },
-    [name, slug, onCreated, onClose]
+    [name, slug, onCreated, onClose, toast]
   );
 
   if (!open) return null;
@@ -85,53 +91,44 @@ export function CreateOrganizationModal({ open, onClose, onCreated }: Props) {
         <form onSubmit={submit} className="mt-4 flex flex-col gap-4">
           <label className="block text-sm font-medium text-text-secondary">
             Nombre
-            <input
-              type="text"
+            <Input
               value={name}
               onChange={(e) => setName(e.target.value)}
               required
               placeholder="Mi Organización"
-              className="mt-1.5 block w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-text-primary placeholder:text-muted focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+              className="mt-1.5"
             />
           </label>
           <label className="block text-sm font-medium text-text-secondary">
             Slug <span className="font-normal text-muted">(opcional, único)</span>
             <div className="mt-1.5 flex gap-2">
-              <input
-                type="text"
+              <Input
                 value={slug}
                 onChange={(e) => setSlug(e.target.value)}
                 placeholder="mi-org"
-                className="min-w-0 flex-1 rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-text-primary placeholder:text-muted focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                className="min-w-0 flex-1"
               />
-              <button
+              <Button
                 type="button"
+                variant="secondary"
+                size="icon"
                 onClick={() => setSlug(generateSlug(name) || slug)}
                 title="Autogenerar desde el nombre"
                 aria-label="Autogenerar slug desde el nombre"
-                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-border bg-subtle-bg text-muted hover:border-primary-300 hover:bg-primary-50 hover:text-primary-600"
+                className="h-11 w-11 bg-subtle-bg text-muted hover:border-primary-300 hover:bg-primary-50 hover:text-primary-600"
               >
                 <IconAutogenSlug />
-              </button>
+              </Button>
             </div>
           </label>
           {error && <p className="text-sm text-red-600">{error}</p>}
           <div className="flex flex-wrap justify-end gap-3">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={loading}
-              className="min-h-[44px] min-w-[44px] rounded-lg border border-border px-4 py-2.5 text-sm font-medium text-text-secondary hover:bg-subtle-bg disabled:opacity-50"
-            >
+            <Button variant="secondary" onClick={onClose} disabled={loading}>
               Cancelar
-            </button>
-            <button
-              type="submit"
-              disabled={loading}
-              className="min-h-[44px] min-w-[44px] rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50"
-            >
-              {loading ? 'Creando…' : 'Crear'}
-            </button>
+            </Button>
+            <Button type="submit" loading={loading}>
+              Crear
+            </Button>
           </div>
         </form>
       </div>

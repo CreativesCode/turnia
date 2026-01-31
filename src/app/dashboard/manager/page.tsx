@@ -7,7 +7,6 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { ShiftCalendar } from '@/components/calendar/ShiftCalendar';
@@ -24,6 +23,9 @@ import type { ShiftWithType } from '@/components/calendar/ShiftCalendar';
 import { QuickActions } from '@/components/mobile/QuickActions';
 import { MyUpcomingShiftsWidget } from '@/components/mobile/MyUpcomingShiftsWidget';
 import { OnCallNowWidget } from '@/components/mobile/OnCallNowWidget';
+import { Button } from '@/components/ui/Button';
+import { LinkButton } from '@/components/ui/LinkButton';
+import { Skeleton } from '@/components/ui/Skeleton';
 
 export default function ManagerPage() {
   const searchParams = useSearchParams();
@@ -103,33 +105,6 @@ export default function ManagerPage() {
     }
   }, [detailShift]);
 
-  if (isLoading) {
-    return (
-      <div className="rounded-xl border border-border bg-background p-6">
-        <p className="text-sm text-muted">Cargando…</p>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="rounded-xl border border-border bg-background p-6">
-        <p className="text-sm text-red-600">{error}</p>
-      </div>
-    );
-  }
-
-  if (!orgId) {
-    return (
-      <div className="rounded-xl border border-border bg-background p-6">
-        <h1 className="text-xl font-semibold text-text-primary">Calendario de turnos</h1>
-        <p className="mt-2 text-sm text-muted">
-          No tienes una organización asignada. Contacta a un administrador para unirte a una.
-        </p>
-      </div>
-    );
-  }
-
   const scrollToId = useCallback((id: string) => {
     document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }, []);
@@ -160,28 +135,57 @@ export default function ManagerPage() {
     ];
   }, [scrollToId]);
 
+  if (isLoading) {
+    return (
+      <div className="rounded-xl border border-border bg-background p-6">
+        <div className="space-y-3">
+          <Skeleton className="h-6 w-56" />
+          <Skeleton className="h-4 w-72" />
+          <div className="flex gap-3 pt-2">
+            <Skeleton className="h-11 w-32 rounded-lg" />
+            <Skeleton className="h-11 w-32 rounded-lg" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="rounded-xl border border-border bg-background p-6">
+        <p className="text-sm text-red-600">{error}</p>
+      </div>
+    );
+  }
+
+  if (!orgId) {
+    return (
+      <div className="rounded-xl border border-border bg-background p-6">
+        <h1 className="text-xl font-semibold text-text-primary">Calendario de turnos</h1>
+        <p className="mt-2 text-sm text-muted">
+          No tienes una organización asignada. Contacta a un administrador para unirte a una.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <h1 className="text-xl font-semibold text-text-primary">Calendario de turnos</h1>
         <div className="flex flex-wrap items-center gap-3">
-          <Link
-            href="/dashboard/manager/shifts"
-            className="min-h-[44px] rounded-lg border border-border px-4 py-2.5 text-sm font-medium text-text-secondary hover:bg-subtle-bg"
-          >
+          <LinkButton href="/dashboard/manager/shifts" variant="secondary">
             Lista de turnos
-          </Link>
+          </LinkButton>
           {canManageShifts && (
-          <button
-            type="button"
-            onClick={() => {
-              setCreateInitialDate(undefined);
-              setCreateOpen(true);
-            }}
-            className="min-h-[44px] rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-700"
-          >
-            Nuevo turno
-          </button>
+            <Button
+              onClick={() => {
+                setCreateInitialDate(undefined);
+                setCreateOpen(true);
+              }}
+            >
+              Nuevo turno
+            </Button>
           )}
         </div>
       </div>

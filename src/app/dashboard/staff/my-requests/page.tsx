@@ -11,14 +11,18 @@ import { useScheduleOrg } from '@/hooks/useScheduleOrg';
 import { MyRequestsList } from '@/components/requests/MyRequestsList';
 import { PendingSwapsForYou } from '@/components/requests/PendingSwapsForYou';
 import { useCallback, useState } from 'react';
+import { Button } from '@/components/ui/Button';
+import { useToast } from '@/components/ui/toast/ToastProvider';
 
 export default function StaffMyRequestsPage() {
   const { orgId, userId, isLoading, error } = useScheduleOrg();
   const [refreshKey, setRefreshKey] = useState(0);
+  const { toast } = useToast();
 
   const onRefresh = useCallback(() => {
     setRefreshKey((k) => k + 1);
-  }, []);
+    toast({ variant: 'info', title: 'Actualizando', message: 'Actualizando solicitudes…' });
+  }, [toast]);
 
   const onResolved = useCallback(() => {
     setRefreshKey((k) => k + 1);
@@ -50,13 +54,9 @@ export default function StaffMyRequestsPage() {
         >
           ← Staff
         </Link>
-        <button
-          type="button"
-          onClick={onRefresh}
-          className="ml-auto min-h-[44px] rounded-lg border border-border px-4 py-2.5 text-sm font-medium text-text-secondary hover:bg-subtle-bg"
-        >
+        <Button type="button" variant="secondary" onClick={onRefresh} className="ml-auto">
           Actualizar
-        </button>
+        </Button>
       </div>
       <p className="text-sm text-muted">
         Dar de baja, intercambiar o tomar turnos abiertos. Puedes cancelar solicitudes pendientes.

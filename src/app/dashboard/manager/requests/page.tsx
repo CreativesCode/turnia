@@ -9,14 +9,18 @@ import Link from 'next/link';
 import { useScheduleOrg } from '@/hooks/useScheduleOrg';
 import { RequestsInbox } from '@/components/requests/RequestsInbox';
 import { useCallback, useState } from 'react';
+import { Button } from '@/components/ui/Button';
+import { useToast } from '@/components/ui/toast/ToastProvider';
 
 export default function ManagerRequestsPage() {
   const { orgId, canApproveRequests, isLoading, error } = useScheduleOrg();
   const [refreshKey, setRefreshKey] = useState(0);
+  const { toast } = useToast();
 
   const onRefresh = useCallback(() => {
     setRefreshKey((k) => k + 1);
-  }, []);
+    toast({ variant: 'info', title: 'Actualizando', message: 'Actualizando solicitudes…' });
+  }, [toast]);
 
   if (isLoading) {
     return (
@@ -41,13 +45,9 @@ export default function ManagerRequestsPage() {
         <Link href="/dashboard/manager" className="text-sm text-primary-600 hover:text-primary-700">
           ← Calendario
         </Link>
-        <button
-          type="button"
-          onClick={onRefresh}
-          className="ml-auto min-h-[44px] rounded-lg border border-border px-4 py-2.5 text-sm font-medium text-text-secondary hover:bg-subtle-bg"
-        >
+        <Button type="button" variant="secondary" onClick={onRefresh} className="ml-auto">
           Actualizar
-        </button>
+        </Button>
       </div>
       <p className="text-sm text-muted">
         Revisa las solicitudes de dar de baja, intercambio y tomar turnos abiertos. Aprobar o rechazar según corresponda.

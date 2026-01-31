@@ -8,6 +8,10 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { Button } from '@/components/ui/Button';
+import { Select } from '@/components/ui/Select';
+import { Textarea } from '@/components/ui/Textarea';
+import { useToast } from '@/components/ui/toast/ToastProvider';
 
 type Shift = { id: string; org_id: string };
 
@@ -28,6 +32,7 @@ export function GiveAwayRequestModal({
   shift,
   currentUserId,
 }: Props) {
+  const { toast } = useToast();
   const [comment, setComment] = useState('');
   const [suggestedReplacementUserId, setSuggestedReplacementUserId] = useState('');
   const [members, setMembers] = useState<MemberOption[]>([]);
@@ -108,23 +113,26 @@ export function GiveAwayRequestModal({
       setLoading(false);
       if (err) {
         setError(err.message);
+        toast({ variant: 'error', title: 'No se pudo enviar', message: err.message });
         return;
       }
       const res = data as { error?: string } | undefined;
       if (res?.error) {
         setError(res.error);
+        toast({ variant: 'error', title: 'No se pudo enviar', message: res.error });
         return;
       }
       onSuccess();
       onClose();
+      toast({ variant: 'success', title: 'Solicitud enviada', message: 'Tu solicitud fue enviada correctamente.' });
     },
-    [shift, currentUserId, comment, suggestedReplacementUserId, loading, pendingExists, onSuccess, onClose]
+    [shift, currentUserId, comment, suggestedReplacementUserId, loading, pendingExists, onSuccess, onClose, toast]
   );
 
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="giveaway-title">
+    <div className="fixed inset-0 z-60 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="giveaway-title">
       <button type="button" onClick={onClose} className="absolute inset-0 bg-black/50" aria-label="Cerrar" />
       <div className="relative w-full max-w-sm rounded-xl border border-border bg-background p-6 shadow-lg">
         <h2 id="giveaway-title" className="text-lg font-semibold text-text-primary">
@@ -144,11 +152,11 @@ export function GiveAwayRequestModal({
               <label htmlFor="giveaway-suggest" className="block text-sm font-medium text-text-primary">
                 Sugerir reemplazo <span className="text-muted">(opcional)</span>
               </label>
-              <select
+              <Select
                 id="giveaway-suggest"
                 value={suggestedReplacementUserId}
                 onChange={(e) => setSuggestedReplacementUserId(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-text-primary focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                className="mt-1"
                 disabled={pendingExists}
               >
                 <option value="">No sugerir a nadie</option>
@@ -157,36 +165,28 @@ export function GiveAwayRequestModal({
                     {m.full_name?.trim() || m.user_id.slice(0, 8)}
                   </option>
                 ))}
-              </select>
+              </Select>
             </div>
           )}
           <label className="block text-sm font-medium text-text-primary">
             Comentario <span className="text-muted">(opcional)</span>
           </label>
-          <textarea
+          <Textarea
             value={comment}
             onChange={(e) => setComment(e.target.value)}
             rows={3}
-            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-text-primary placeholder:text-muted focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+            className="min-h-[90px]"
             placeholder="Motivo o notas adicionales..."
             disabled={pendingExists}
           />
           {error && <p className="text-sm text-red-600">{error}</p>}
           <div className="flex justify-end gap-3">
-            <button
-              type="button"
-              onClick={onClose}
-              className="min-h-[44px] rounded-lg border border-border px-4 py-2.5 text-sm font-medium text-text-secondary hover:bg-subtle-bg"
-            >
+            <Button type="button" variant="secondary" onClick={onClose}>
               Cancelar
-            </button>
-            <button
-              type="submit"
-              disabled={loading || pendingExists}
-              className="min-h-[44px] rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50"
-            >
-              {loading ? 'Enviando…' : 'Enviar solicitud'}
-            </button>
+            </Button>
+            <Button type="submit" loading={loading} disabled={pendingExists}>
+              Enviar solicitud
+            </Button>
           </div>
         </form>
       </div>

@@ -8,6 +8,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { ConfirmModal } from '@/components/ui/ConfirmModal';
+import { Button } from '@/components/ui/Button';
+import { useToast } from '@/components/ui/toast/ToastProvider';
 
 const REQUEST_TYPE_LABEL: Record<string, string> = {
   give_away: 'Dar de baja',
@@ -63,6 +65,7 @@ function getTypeLetter(ot: ShiftEmbed['organization_shift_types']): string {
 }
 
 export function MyRequestsList({ orgId, userId, refreshKey = 0 }: Props) {
+  const { toast } = useToast();
   const [rows, setRows] = useState<Row[]>([]);
   const [names, setNames] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
@@ -138,10 +141,12 @@ export function MyRequestsList({ orgId, userId, refreshKey = 0 }: Props) {
     setCancelId(null);
     if (err) {
       setError(err.message);
+      toast({ variant: 'error', title: 'No se pudo cancelar', message: err.message });
       return;
     }
+    toast({ variant: 'success', title: 'Solicitud cancelada', message: 'La solicitud fue cancelada.' });
     load();
-  }, [cancelId, load]);
+  }, [cancelId, load, toast]);
 
   const canCancel = (s: string) => ['draft', 'submitted', 'accepted'].includes(s);
 
@@ -231,13 +236,14 @@ export function MyRequestsList({ orgId, userId, refreshKey = 0 }: Props) {
                       </td>
                       <td className="px-4 py-3 text-right">
                         {canCancel(r.status) && (
-                          <button
+                          <Button
                             type="button"
+                            variant="secondary"
                             onClick={() => setCancelId(r.id)}
-                            className="min-h-[44px] min-w-[44px] rounded-lg border border-red-200 px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50"
+                            className="border-red-200 px-3 text-red-600 hover:bg-red-50"
                           >
                             Cancelar solicitud
-                          </button>
+                          </Button>
                         )}
                       </td>
                     </tr>

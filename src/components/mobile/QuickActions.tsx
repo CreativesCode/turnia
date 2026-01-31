@@ -1,6 +1,7 @@
 'use client';
 
-import Link from 'next/link';
+import { Button } from '@/components/ui/Button';
+import { LinkButton } from '@/components/ui/LinkButton';
 
 export type QuickAction = {
   id: string;
@@ -19,6 +20,9 @@ export function QuickActions({
 }) {
   if (items.length === 0) return null;
 
+  const cardClass =
+    'w-full min-h-[64px] justify-start rounded-lg border border-border bg-subtle-bg px-4 py-3 text-left hover:border-primary-200 hover:bg-primary-50/40 dark:hover:bg-primary-950/20';
+
   return (
     <section className="rounded-xl border border-border bg-background p-4">
       <div className="flex items-center justify-between gap-3">
@@ -35,25 +39,16 @@ export function QuickActions({
 
           if (a.href) {
             return (
-              <Link
-                key={a.id}
-                href={a.href}
-                className="min-h-[64px] rounded-lg border border-border bg-subtle-bg px-4 py-3 text-left hover:border-primary-200 hover:bg-primary-50/40"
-              >
+              <LinkButton key={a.id} href={a.href} variant="secondary" className={cardClass}>
                 {content}
-              </Link>
+              </LinkButton>
             );
           }
 
           return (
-            <button
-              key={a.id}
-              type="button"
-              onClick={a.onClick}
-              className="min-h-[64px] rounded-lg border border-border bg-subtle-bg px-4 py-3 text-left hover:border-primary-200 hover:bg-primary-50/40"
-            >
+            <Button key={a.id} type="button" variant="secondary" onClick={a.onClick} className={cardClass}>
               {content}
-            </button>
+            </Button>
           );
         })}
       </div>

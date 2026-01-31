@@ -11,6 +11,10 @@ import { formatShiftTypeSchedule } from '@/lib/utils';
 import { useCallback, useEffect, useState } from 'react';
 import { ConfirmModal } from '@/components/ui/ConfirmModal';
 import type { ShiftWithType } from '@/components/calendar/ShiftCalendar';
+import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
+import { Select } from '@/components/ui/Select';
+import { useToast } from '@/components/ui/toast/ToastProvider';
 
 type ShiftTypeOption = { id: string; name: string; letter: string; start_time: string | null; end_time: string | null };
 type MemberOption = { user_id: string; full_name: string | null };
@@ -66,6 +70,7 @@ export function EditShiftModal({
   orgId,
   shift,
 }: Props) {
+  const { toast } = useToast();
   const [shiftTypes, setShiftTypes] = useState<ShiftTypeOption[]>([]);
   const [members, setMembers] = useState<MemberOption[]>([]);
   const [date, setDate] = useState('');
@@ -143,10 +148,12 @@ export function EditShiftModal({
       setError(null);
       if (!shiftTypeId) {
         setError('Selecciona un tipo de turno.');
+        toast({ variant: 'error', title: 'Falta información', message: 'Selecciona un tipo de turno.' });
         return;
       }
       if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
         setError('Selecciona una fecha.');
+        toast({ variant: 'error', title: 'Falta información', message: 'Selecciona una fecha.' });
         return;
       }
       const st = shiftTypes.find((t) => t.id === shiftTypeId);
@@ -173,6 +180,7 @@ export function EditShiftModal({
           const row = Array.isArray(rpc) ? rpc[0] : rpc;
           if (row?.has_conflict && row?.message) {
             setError(row.message);
+            toast({ variant: 'error', title: 'Conflicto detectado', message: row.message });
             return;
           }
         }
@@ -185,6 +193,7 @@ export function EditShiftModal({
       const { data: refreshData, error: refreshErr } = await supabase.auth.refreshSession();
       if (refreshErr || !refreshData?.session?.access_token) {
         setError('Sesión expirada. Recarga la página e inicia sesión de nuevo.');
+        toast({ variant: 'error', title: 'Sesión expirada', message: 'Recarga la página e inicia sesión de nuevo.' });
         setLoading(false);
         return;
       }
@@ -203,13 +212,16 @@ export function EditShiftModal({
       setLoading(false);
       const json = (data ?? {}) as { ok?: boolean; error?: string };
       if (fnErr || !json.ok) {
-        setError(String(json.error || (fnErr as Error)?.message || 'Error al guardar.'));
+        const msg = String(json.error || (fnErr as Error)?.message || 'Error al guardar.');
+        setError(msg);
+        toast({ variant: 'error', title: 'No se pudo guardar', message: msg });
         return;
       }
       onSuccess();
       onClose();
+      toast({ variant: 'success', title: 'Turno actualizado', message: 'Los cambios se guardaron.' });
     },
-    [shift, shiftTypeId, date, shiftTypes, assignedUserId, location, status, onSuccess, onClose]
+    [shift, shiftTypeId, date, shiftTypes, assignedUserId, location, status, onSuccess, onClose, toast]
   );
 
   const doDelete = useCallback(async () => {
@@ -222,6 +234,7 @@ export function EditShiftModal({
     const { data: refreshData, error: refreshErr } = await supabase.auth.refreshSession();
     if (refreshErr || !refreshData?.session?.access_token) {
       setError('Sesión expirada. Recarga la página e inicia sesión de nuevo.');
+      toast({ variant: 'error', title: 'Sesión expirada', message: 'Recarga la página e inicia sesión de nuevo.' });
       setDeleting(false);
       setConfirmDelete(false);
       return;
@@ -233,12 +246,15 @@ export function EditShiftModal({
     setDeleting(false);
     setConfirmDelete(false);
     if (fnErr) {
-      setError(String((fnErr as Error)?.message || 'Error al eliminar.'));
+      const msg = String((fnErr as Error)?.message || 'Error al eliminar.');
+      setError(msg);
+      toast({ variant: 'error', title: 'No se pudo eliminar', message: msg });
       return;
     }
     onDeleted();
     onClose();
-  }, [shift, onDeleted, onClose]);
+    toast({ variant: 'success', title: 'Turno eliminado', message: 'El turno fue eliminado.' });
+  }, [shift, onDeleted, onClose, toast]);
 
   if (!open) return null;
 
@@ -263,28 +279,28 @@ export function EditShiftModal({
           <form onSubmit={submit} className="mt-4 flex flex-col gap-4">
             <label className="block text-sm font-medium text-text-secondary">
               Fecha
-              <input
+              <Input
                 type="date"
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
                 required
-                className="mt-1.5 block w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-text-primary focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                className="mt-1.5"
               />
             </label>
             <label className="block text-sm font-medium text-text-secondary">
               Tipo de turno
-              <select
+              <Select
                 value={shiftTypeId}
                 onChange={(e) => setShiftTypeId(e.target.value)}
                 required
-                className="mt-1.5 block w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-text-primary focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                className="mt-1.5"
               >
                 {shiftTypes.map((t) => (
                   <option key={t.id} value={t.id}>
                     {t.name} ({t.letter})
                   </option>
                 ))}
-              </select>
+              </Select>
               {shiftTypeId && (() => {
                 const t = shiftTypes.find((x) => x.id === shiftTypeId);
                 const s = formatShiftTypeSchedule(t?.start_time ?? null, t?.end_time ?? null);
@@ -297,10 +313,10 @@ export function EditShiftModal({
             </label>
             <label className="block text-sm font-medium text-text-secondary">
               Asignar a
-              <select
+              <Select
                 value={assignedUserId}
                 onChange={(e) => setAssignedUserId(e.target.value)}
-                className="mt-1.5 block w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-text-primary focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                className="mt-1.5"
               >
                 <option value="">Sin asignar</option>
                 {members.map((m) => (
@@ -308,16 +324,16 @@ export function EditShiftModal({
                     {m.full_name?.trim() || m.user_id}
                   </option>
                 ))}
-              </select>
+              </Select>
             </label>
             <label className="block text-sm font-medium text-text-secondary">
               Ubicación
-              <input
+              <Input
                 type="text"
                 value={location}
                 onChange={(e) => setLocation(e.target.value)}
                 placeholder="Opcional"
-                className="mt-1.5 block w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-text-primary placeholder:text-muted focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                className="mt-1.5"
               />
             </label>
             <label className="flex items-center gap-2">
@@ -332,31 +348,23 @@ export function EditShiftModal({
             {error && <p className="text-sm text-red-600">{error}</p>}
             <div className="flex flex-wrap justify-between gap-3">
               <div>
-                <button
+                <Button
                   type="button"
+                  variant="ghost"
                   onClick={() => setConfirmDelete(true)}
                   disabled={loading}
-                  className="min-h-[44px] rounded-lg px-2 py-2.5 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-50"
+                  className="px-2 text-red-600 hover:bg-red-50"
                 >
                   Eliminar turno
-                </button>
+                </Button>
               </div>
               <div className="flex gap-3">
-                <button
-                  type="button"
-                  onClick={onClose}
-                  disabled={loading}
-                  className="min-h-[44px] min-w-[44px] rounded-lg border border-border px-4 py-2.5 text-sm font-medium text-text-secondary hover:bg-subtle-bg disabled:opacity-50"
-                >
+                <Button variant="secondary" onClick={onClose} disabled={loading}>
                   Cancelar
-                </button>
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="min-h-[44px] min-w-[44px] rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50"
-                >
-                  {loading ? '…' : 'Guardar'}
-                </button>
+                </Button>
+                <Button type="submit" loading={loading}>
+                  Guardar
+                </Button>
               </div>
             </div>
           </form>

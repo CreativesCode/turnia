@@ -10,6 +10,8 @@ import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { useScheduleOrg } from '@/hooks/useScheduleOrg';
 import { NotificationsList, type NotificationRow } from './NotificationsList';
+import { Button } from '@/components/ui/Button';
+import { Skeleton } from '@/components/ui/Skeleton';
 
 const LIMIT = 10;
 
@@ -93,10 +95,11 @@ export function NotificationBell() {
 
   return (
     <div className="relative" ref={containerRef}>
-      <button
-        type="button"
+      <Button
+        variant="ghost"
+        size="icon"
         onClick={() => setOpen((o) => !o)}
-        className="relative flex h-9 w-9 items-center justify-center rounded-lg text-text-secondary hover:bg-subtle-bg hover:text-text-primary"
+        className="relative text-text-secondary hover:text-text-primary"
         aria-label={unreadCount > 0 ? `${unreadCount} notificaciones sin leer` : 'Notificaciones'}
         aria-expanded={open}
       >
@@ -106,14 +109,18 @@ export function NotificationBell() {
             {unreadCount > 99 ? '99+' : unreadCount}
           </span>
         )}
-      </button>
+      </Button>
       {open && (
         <div className="absolute right-0 top-full z-50 mt-1 w-[320px] overflow-hidden rounded-xl border border-border bg-background shadow-lg">
           <div className="border-b border-border px-3 py-2">
             <span className="font-medium text-text-primary">Notificaciones</span>
           </div>
           {loading ? (
-            <p className="px-3 py-4 text-sm text-muted">Cargando…</p>
+            <div className="space-y-2 px-3 py-4">
+              <Skeleton className="h-4 w-56" />
+              <Skeleton className="h-4 w-72" />
+              <Skeleton className="h-4 w-64" />
+            </div>
           ) : (
             <NotificationsList items={list} onMarkAsRead={markAsRead} getHref={getHref} compact emptyMessage="No hay notificaciones." />
           )}

@@ -9,6 +9,9 @@ import { useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { RequestDetailModal, type RequestDetailRow } from '@/components/requests/RequestDetailModal';
+import { Button } from '@/components/ui/Button';
+import { Select } from '@/components/ui/Select';
+import { useToast } from '@/components/ui/toast/ToastProvider';
 
 function ChevronDown() {
   return (
@@ -64,6 +67,7 @@ function getTypeLetter(ot: { name: string; letter: string } | { name: string; le
 }
 
 export function RequestsInbox({ orgId, canApprove, refreshKey = 0 }: Props) {
+  const { toast } = useToast();
   const [rows, setRows] = useState<RequestDetailRow[]>([]);
   const [names, setNames] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
@@ -104,6 +108,7 @@ export function RequestsInbox({ orgId, canApprove, refreshKey = 0 }: Props) {
 
     if (err) {
       setError(err.message);
+      toast({ variant: 'error', title: 'No se pudieron cargar solicitudes', message: err.message });
       setRows([]);
       setLoading(false);
       return;
@@ -134,7 +139,7 @@ export function RequestsInbox({ orgId, canApprove, refreshKey = 0 }: Props) {
       setNames({});
     }
     setLoading(false);
-  }, [orgId, filters.requestType, filters.status]);
+  }, [orgId, filters.requestType, filters.status, toast]);
 
   useEffect(() => {
     load();
@@ -186,30 +191,28 @@ export function RequestsInbox({ orgId, canApprove, refreshKey = 0 }: Props) {
           >
             <label className="flex min-h-[44px] items-center gap-2 text-sm text-text-secondary">
               Tipo
-              <select
+              <Select
                 value={filters.requestType}
                 onChange={(e) => setFilters((f) => ({ ...f, requestType: e.target.value }))}
-                className="min-h-[44px] rounded-lg border border-border bg-background px-3 py-2 text-sm text-text-primary focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
               >
                 <option value="">Todos</option>
                 <option value="give_away">{REQUEST_TYPE_LABEL.give_away}</option>
                 <option value="swap">{REQUEST_TYPE_LABEL.swap}</option>
                 <option value="take_open">{REQUEST_TYPE_LABEL.take_open}</option>
-              </select>
+              </Select>
             </label>
             <label className="flex min-h-[44px] items-center gap-2 text-sm text-text-secondary">
               Estado
-              <select
+              <Select
                 value={filters.status}
                 onChange={(e) => setFilters((f) => ({ ...f, status: e.target.value }))}
-                className="min-h-[44px] rounded-lg border border-border bg-background px-3 py-2 text-sm text-text-primary focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
               >
                 <option value="submitted,accepted">Pendientes (enviada, aceptada)</option>
                 <option value="approved">Aprobadas</option>
                 <option value="rejected">Rechazadas</option>
                 <option value="cancelled">Canceladas</option>
                 <option value="">Todos</option>
-              </select>
+              </Select>
             </label>
           </div>
         )}
@@ -277,14 +280,10 @@ export function RequestsInbox({ orgId, canApprove, refreshKey = 0 }: Props) {
                         {new Date(r.created_at).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
                       </td>
                       <td className="px-4 py-3 text-right">
-                          <button
-                            type="button"
-                            onClick={() => setDetail(r)}
-                            className="min-h-[44px] min-w-[44px] rounded-lg border border-border px-3 py-2 text-sm font-medium text-text-secondary hover:bg-subtle-bg"
-                          >
-                            {canAct ? 'Ver / Aprobar' : 'Ver'}
-                          </button>
-                        </td>
+                        <Button type="button" variant="secondary" size="sm" onClick={() => setDetail(r)}>
+                          {canAct ? 'Ver / Aprobar' : 'Ver'}
+                        </Button>
+                      </td>
                     </tr>
                   );
                 })}
