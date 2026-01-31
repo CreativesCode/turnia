@@ -849,9 +849,9 @@ Cada organización define sus propios **tipos de turno** (las categorías en las
   - [x] Botones y controles interactivos: `min-h-[44px]` / `min-w-[44px]` (ShiftCalendarFilters, ShiftList, ManagerAvailabilityFilters)
 
 - [ ] Mejorar accesibilidad (ARIA, teclado, contraste; base con aria-labels en nav y modales).
-  - Parcial: hint SR + button hints en calendario.
-  - Parcial: menú «Más» (`DashboardNav`) con `Escape`, ARIA (`aria-controls`/`aria-labelledby`), foco al abrir/cerrar y focus-trap simple (Tab no escapa detrás del overlay) + botón “Cerrar menú”.
-  - Parcial: `NotificationBell` (popover) con `Escape`, foco al abrir/cerrar y `aria-controls`/`aria-haspopup`.
+  - [ ] Calendario: hint SR + button hints (pendiente de revisión general de ARIA/contraste).
+  - [ ] Menú «Más» (`DashboardNav`): `Escape`, ARIA (`aria-controls`/`aria-labelledby`), foco al abrir/cerrar y focus-trap simple (Tab no escapa detrás del overlay) + botón “Cerrar menú”.
+  - [x] `NotificationBell` (popover): `Escape`, devolver foco al cerrar, focus-trap con Tab/Shift+Tab, botón “Cerrar notificaciones”, ARIA (`aria-controls`/`aria-haspopup`).
 
 #### **10.2 Funcionalidades Móviles**
 - [x] Quick actions (shortcuts)
@@ -1143,6 +1143,6 @@ Cada organización define sus propios **tipos de turno** (las categorías en las
 
 **Módulo 9.2 (Validaciones en Edge Functions)** — Hecho: `_shared/auth.ts` con getAuthUser, checkCanManageShifts, checkCanApproveRequests, checkCanManageOrg, checkCanDeleteShifts, logFailedAttempt, checkRateLimit. EFs privilegiadas: 401/403/429 con logFailedAttempt; checkRateLimit (no-op); delete-shift usa checkCanDeleteShifts (solo org_admin/superadmin). Opción «sugerir reemplazo» en Give Away: `suggested_replacement_user_id` en shift_requests, GiveAwayRequestModal, create-request, RequestDetailModal.
 
-**Módulo 10.1 (UI/UX Mobile — parcial)** — Hecho: `useIsMobile`; `ShiftDetailModal` como bottom sheet en móvil (asa, max-h 85vh, safe-area); `ShiftCalendar` toolbar reducida (Mes + Lista) y dayMaxEvents 2 en móvil; `DashboardNav` con bottom navigation (Inicio, Solicitudes, Disponibilidad, Notificaciones, Más), sheet «Más» (Lista turnos, Admin, Cerrar sesión), enlaces por rol; `main` con `pb-24` en móvil; controles táctiles min 44px (ShiftCalendarFilters, ShiftList, ManagerAvailabilityFilters). Pendiente: gestos swipe en calendario, accesibilidad ampliada.
+**Módulo 10.1 (UI/UX Mobile — parcial)** — Hecho: `useIsMobile`; `ShiftDetailModal` como bottom sheet en móvil (asa, max-h 85vh, safe-area); `ShiftCalendar` toolbar reducida (Mes + Lista) y dayMaxEvents 2 en móvil; `DashboardNav` con bottom navigation (Inicio, Solicitudes, Disponibilidad, Notificaciones, Más), sheet «Más» (Lista turnos, Admin, Cerrar sesión), enlaces por rol; `main` con `pb-24` en móvil; controles táctiles min 44px (ShiftCalendarFilters, ShiftList, ManagerAvailabilityFilters); `NotificationBell` con mejoras de accesibilidad (focus-trap, foco, Escape). Pendiente: accesibilidad ampliada (DashboardNav menú «Más» + calendario).
 
 *Opcional: reordenar tipos (`sort_order`), iterar color si ya existe en la org; notificaciones email (5.3), push (5.1).*

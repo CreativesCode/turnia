@@ -15,6 +15,15 @@ import { Skeleton } from '@/components/ui/Skeleton';
 
 const LIMIT = 10;
 
+function getFocusableElements(container: HTMLElement): HTMLElement[] {
+  const nodes = Array.from(
+    container.querySelectorAll<HTMLElement>(
+      'a[href],button:not([disabled]),select:not([disabled]),textarea:not([disabled]),input:not([disabled]),[tabindex]:not([tabindex="-1"])'
+    )
+  );
+  return nodes.filter((el) => !el.hasAttribute('aria-hidden'));
+}
+
 function BellIcon({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -33,8 +42,11 @@ export function NotificationBell() {
   const containerRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
   const panelId = 'notification-bell-panel';
   const titleId = 'notification-bell-title';
+
+  const close = useCallback(() => setOpen(false), []);
 
   const fetchCount = useCallback(async () => {
     const supabase = createClient();
@@ -68,28 +80,59 @@ export function NotificationBell() {
 
   useEffect(() => {
     const onMouseDown = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) setOpen(false);
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) close();
     };
     document.addEventListener('mousedown', onMouseDown);
     return () => document.removeEventListener('mousedown', onMouseDown);
-  }, []);
+  }, [close]);
 
   useEffect(() => {
     if (!open) return;
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.preventDefault();
-        setOpen(false);
+        close();
+        return;
+      }
+
+      if (e.key !== 'Tab') return;
+      const panel = panelRef.current;
+      if (!panel) return;
+
+      const focusables = getFocusableElements(panel);
+      if (focusables.length === 0) {
+        e.preventDefault();
+        panel.focus();
+        return;
+      }
+
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      const active = document.activeElement as HTMLElement | null;
+
+      if (e.shiftKey) {
+        if (!active || active === first || !panel.contains(active)) {
+          e.preventDefault();
+          last.focus();
+        }
+      } else {
+        if (!active || !panel.contains(active) || active === last) {
+          e.preventDefault();
+          first.focus();
+        }
       }
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [open]);
+  }, [open, close]);
 
   useEffect(() => {
     if (open) {
       // Permite a teclado/screen readers entrar al panel.
-      panelRef.current?.focus();
+      const t = window.setTimeout(() => {
+        closeButtonRef.current?.focus?.();
+      }, 0);
+      return () => window.clearTimeout(t);
     } else {
       // Devolver foco al trigger al cerrar.
       buttonRef.current?.focus();
@@ -149,10 +192,22 @@ export function NotificationBell() {
           aria-labelledby={titleId}
           className="absolute right-0 top-full z-50 mt-1 w-[320px] overflow-hidden rounded-xl border border-border bg-background shadow-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
         >
-          <div className="border-b border-border px-3 py-2">
+          <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-2">
             <span id={titleId} className="font-medium text-text-primary">
               Notificaciones
             </span>
+            <button
+              ref={closeButtonRef}
+              type="button"
+              onClick={close}
+              className="flex min-h-[36px] min-w-[36px] items-center justify-center rounded-lg text-muted hover:bg-subtle-bg hover:text-text-primary focus:outline-none focus:ring-2 focus:ring-primary-500"
+              aria-label="Cerrar notificaciones"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
           </div>
           {loading ? (
             <div className="space-y-2 px-3 py-4">
@@ -166,7 +221,7 @@ export function NotificationBell() {
           <div className="border-t border-border px-3 py-2">
             <Link
               href="/dashboard/notifications"
-              onClick={() => setOpen(false)}
+              onClick={close}
               className="block text-center text-sm font-medium text-primary-600 hover:text-primary-700"
             >
               Ver todas
