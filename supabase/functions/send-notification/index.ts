@@ -114,13 +114,42 @@ Deno.serve(async (req) => {
       }
     }
 
-    // ——— Email (fallback): TODO integrar Resend/SendGrid cuando email=true ———
-    if (email) {
-      // TODO: enviar correo; registrar intento
+    // ——— Email (fallback): Resend (si email=true) ———
+    // Nota: por ahora solo se envía email si el caller lo solicita explícitamente.
+    // En una iteración futura se puede respetar preferencia del usuario (toggle) y/o fallback automático.
+    let emailSent = false;
+    if (email && pushOk === 0) {
+      const resendKey = Deno.env.get('RESEND_API_KEY');
+      if (resendKey) {
+        const { data: prof } = await supabase.from('profiles').select('email, full_name').eq('id', userId).maybeSingle();
+        const to = (prof?.email ?? '').trim().toLowerCase();
+        if (to) {
+          const appUrl = (Deno.env.get('APP_URL') || 'http://localhost:3000').replace(/\/$/, '');
+          const fromAddress = Deno.env.get('RESEND_FROM') || 'Turnia <onboarding@resend.dev>';
+          const name = prof?.full_name?.trim() || 'Hola';
+          const html = `<!DOCTYPE html><html><head><meta charset="utf-8"></head><body style="font-family:system-ui,-apple-system,sans-serif;line-height:1.5;max-width:520px;margin:0 auto;padding:24px;color:#111;"><p style="margin:0 0 12px;color:#334155;">${name},</p><h2 style="margin:0 0 12px;font-size:18px;">${escapeHtml(title)}</h2><p style="margin:0 0 16px;color:#0f172a;white-space:pre-wrap;">${escapeHtml(bodyStr || '')}</p><p style="margin:16px 0 0;"><a href="${appUrl}/dashboard/notifications" style="display:inline-block;background:#2563eb;color:#fff;text-decoration:none;padding:10px 16px;border-radius:8px;font-weight:600;">Abrir Turnia</a></p><p style="margin-top:18px;color:#64748b;font-size:12px;">Si no esperabas este correo, puedes ignorarlo.</p></body></html>`;
+
+          const res = await fetch('https://api.resend.com/emails', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${resendKey}`,
+            },
+            body: JSON.stringify({
+              from: fromAddress,
+              to: [to],
+              subject: title,
+              html,
+            }),
+          });
+          const resJson = (await res.json()) as { id?: string; message?: string };
+          emailSent = !!(res.ok && resJson?.id);
+        }
+      }
     }
 
     return new Response(
-      JSON.stringify({ ok: true, message: 'Notification queued', pushSent: pushOk }),
+      JSON.stringify({ ok: true, message: 'Notification queued', pushSent: pushOk, emailSent }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (e) {
@@ -130,3 +159,12 @@ Deno.serve(async (req) => {
     );
   }
 });
+
+function escapeHtml(input: string): string {
+  return input
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}

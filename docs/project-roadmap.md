@@ -481,12 +481,12 @@ Cada organización define sus propios **tipos de turno** (las categorías en las
   - [x] `ShiftTypesList`: listar tipos (badge circular con color + letra en negrita; texto blanco/negro según `isColorLight`; nombre, horario formateado, acciones)
   - [x] `ShiftTypeFormModal`: crear/editar — nombre, letra (validar único en la org), color (input + `type="color"` + botón “Auto”), horario (opcional; checkbox “Turno 24h”; inicio/fin; si fin < inicio, cruza medianoche)
   - [x] Editar y eliminar tipo (eliminar falla con mensaje si hay turnos que lo usan)
-  - [ ] Reordenar (opcional, vía `sort_order`)
+  - [x] Reordenar (opcional, vía `sort_order`)
 
 - [x] **Color y contraste**
   - [x] `generateColorFromName(name)` en `utils.ts` (hash → HSL → hex). Botón “Auto” en el formulario.
   - [x] `isColorLight(hex)`: luminancia para elegir texto blanco o negro en el badge. Badge circular con letra en **bold**.
-  - [ ] Iterar `hue + 37` si el hex ya existe en la org para garantizar distinción (opcional).
+  - [x] Iterar `hue + 37` si el hex ya existe en la org para garantizar distinción (opcional).
 
 - [x] **Integración (parcial)**
   - [x] `CreateShiftModal` / `EditShiftModal`: selector de tipo de turno desde `organization_shift_types` (Módulo 3).
@@ -682,7 +682,7 @@ Cada organización define sus propios **tipos de turno** (las categorías en las
 
 - [x] Edge Function `send-notification` (completar)
   - [x] Enviar push a dispositivos del usuario: lee `push_tokens` por `userId`; FCM (Android) si `FIREBASE_SERVICE_ACCOUNT_JSON`; APNs (iOS) pendiente
-  - [ ] Fallback a email si falla (Resend/SendGrid)
+  - [x] Fallback a email si falla (Resend/SendGrid)
   - [ ] Registrar intentos de envío (opcional)
 
 #### **5.2 Eventos de Notificación** — CONCLUIDO
@@ -848,9 +848,9 @@ Cada organización define sus propios **tipos de turno** (las categorías en las
 - [x] Optimizar formularios para touch
   - [x] Botones y controles interactivos: `min-h-[44px]` / `min-w-[44px]` (ShiftCalendarFilters, ShiftList, ManagerAvailabilityFilters)
 
-- [ ] Mejorar accesibilidad (ARIA, teclado, contraste; base con aria-labels en nav y modales).
-  - [ ] Calendario: hint SR + button hints (pendiente de revisión general de ARIA/contraste).
-  - [ ] Menú «Más» (`DashboardNav`): `Escape`, ARIA (`aria-controls`/`aria-labelledby`), foco al abrir/cerrar y focus-trap simple (Tab no escapa detrás del overlay) + botón “Cerrar menú”.
+- [x] Mejorar accesibilidad (ARIA, teclado, contraste; base con aria-labels en nav y modales).
+  - [x] Calendario: hint SR + button hints (pendiente de revisión general de ARIA/contraste).
+  - [x] Menú «Más» (`DashboardNav`): `Escape`, ARIA (`aria-controls`/`aria-labelledby`), foco al abrir/cerrar y focus-trap simple (Tab no escapa detrás del overlay) + botón “Cerrar menú”.
   - [x] `NotificationBell` (popover): `Escape`, devolver foco al cerrar, focus-trap con Tab/Shift+Tab, botón “Cerrar notificaciones”, ARIA (`aria-controls`/`aria-haspopup`).
 
 #### **10.2 Funcionalidades Móviles**
@@ -893,8 +893,8 @@ Cada organización define sus propios **tipos de turno** (las categorías en las
     `src/components/mobile/{MyUpcomingShiftsWidget,OnCallNowWidget}.tsx`
 
 #### **12.2 Animaciones y Transiciones**
-- [ ] Transiciones suaves entre vistas
-- [ ] Animaciones de carga
+- [x] Transiciones suaves entre vistas
+- [x] Animaciones de carga
 - [x] Feedback visual en acciones (success, error)
   - Toasts en flujos clave: `CreateShiftModal`, `EditShiftModal`, `ShiftDetailModal`, `MyRequestsList`, `RequestsInbox`, `RequestDetailModal`
 

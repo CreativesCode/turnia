@@ -215,7 +215,7 @@ export function DashboardNav() {
                 className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg text-muted hover:bg-subtle-bg hover:text-text-primary"
                 aria-label="Menú"
                 aria-haspopup="dialog"
-                aria-controls={moreOpen ? moreMenuId : undefined}
+                aria-controls={moreMenuId}
                 aria-expanded={moreOpen}
               >
                 <MenuIcon />
@@ -239,7 +239,7 @@ export function DashboardNav() {
               className="flex min-h-[44px] min-w-[44px] flex-1 flex-col items-center justify-center gap-0.5 py-2 text-[10px] font-medium transition-colors"
               aria-label="Más opciones"
               aria-haspopup="dialog"
-              aria-controls={moreOpen ? moreMenuId : undefined}
+              aria-controls={moreMenuId}
               aria-expanded={moreOpen}
             >
               <span className={`flex h-6 w-6 shrink-0 items-center justify-center ${moreOpen ? 'text-primary-600' : 'text-muted'}`}>

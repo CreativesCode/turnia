@@ -22,6 +22,7 @@ type Props = {
   orgId: string;
   editing: ShiftTypeRow | null;
   existingLetters: string[];
+  existingColors: string[];
 };
 
 export function ShiftTypeFormModal({
@@ -31,6 +32,7 @@ export function ShiftTypeFormModal({
   orgId,
   editing,
   existingLetters,
+  existingColors,
 }: Props) {
   const [name, setName] = useState('');
   const [letter, setLetter] = useState('');
@@ -79,9 +81,9 @@ export function ShiftTypeFormModal({
   }, [open, onEscape]);
 
   const generateColor = useCallback(() => {
-    const base = generateColorFromName(name.trim() || 'tipo');
+    const base = generateColorFromName(name.trim() || 'tipo', existingColors);
     setColor(base);
-  }, [name]);
+  }, [name, existingColors]);
 
   const submit = useCallback(
     async (e: React.FormEvent) => {

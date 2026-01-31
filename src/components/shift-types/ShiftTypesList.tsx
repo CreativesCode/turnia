@@ -22,6 +22,8 @@ export function ShiftTypesList({ orgId, refreshKey = 0, onRefresh }: Props) {
   const [confirmDelete, setConfirmDelete] = useState<ShiftTypeRow | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [reordering, setReordering] = useState(false);
+  const [reorderError, setReorderError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -72,6 +74,60 @@ export function ShiftTypesList({ orgId, refreshKey = 0, onRefresh }: Props) {
   }, [orgId, confirmDelete, onRefresh, load]);
 
   const existingLetters = rows.map((r) => r.letter);
+  const existingColors = rows.map((r) => r.color);
+
+  const move = useCallback(
+    async (index: number, dir: -1 | 1) => {
+      if (reordering) return;
+      const target = index + dir;
+      if (index < 0 || index >= rows.length) return;
+      if (target < 0 || target >= rows.length) return;
+
+      const a = rows[index];
+      const b = rows[target];
+
+      setReorderError(null);
+      setReordering(true);
+
+      // Optimistic UI swap
+      setRows((prev) => {
+        if (index < 0 || index >= prev.length) return prev;
+        const t = index + dir;
+        if (t < 0 || t >= prev.length) return prev;
+        const next = [...prev];
+        const ra = next[index];
+        const rb = next[t];
+        next[index] = { ...rb, sort_order: ra.sort_order };
+        next[t] = { ...ra, sort_order: rb.sort_order };
+        return next;
+      });
+
+      const supabase = createClient();
+      const { error: e1 } = await supabase
+        .from('organization_shift_types')
+        .update({ sort_order: b.sort_order })
+        .eq('id', a.id)
+        .eq('org_id', orgId);
+
+      const { error: e2 } = await supabase
+        .from('organization_shift_types')
+        .update({ sort_order: a.sort_order })
+        .eq('id', b.id)
+        .eq('org_id', orgId);
+
+      setReordering(false);
+
+      if (e1 || e2) {
+        setReorderError((e1 ?? e2)?.message ?? 'No se pudo reordenar.');
+        load();
+        return;
+      }
+
+      onRefresh?.();
+      load();
+    },
+    [rows, orgId, reordering, onRefresh, load]
+  );
 
   if (loading) {
     return (
@@ -96,6 +152,11 @@ export function ShiftTypesList({ orgId, refreshKey = 0, onRefresh }: Props) {
 
   return (
     <>
+      {reorderError && (
+        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+          {reorderError}
+        </div>
+      )}
       {deleteError && (
         <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
           {deleteError}
@@ -123,6 +184,7 @@ export function ShiftTypesList({ orgId, refreshKey = 0, onRefresh }: Props) {
           <table className="min-w-full text-sm">
             <thead>
               <tr className="border-b border-border bg-subtle-bg">
+                <th className="w-[90px] px-3 py-2.5 text-left font-medium text-text-primary">Orden</th>
                 <th className="px-3 py-2.5 text-left font-medium text-text-primary">Tipo</th>
                 <th className="px-3 py-2.5 text-left font-medium text-text-primary">Nombre</th>
                 <th className="px-3 py-2.5 text-left font-medium text-text-primary">Horario</th>
@@ -130,8 +192,32 @@ export function ShiftTypesList({ orgId, refreshKey = 0, onRefresh }: Props) {
               </tr>
             </thead>
             <tbody>
-              {rows.map((r) => (
+              {rows.map((r, idx) => (
                 <tr key={r.id} className="border-b border-border last:border-0">
+                  <td className="px-3 py-2.5">
+                    <span className="inline-flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => move(idx, -1)}
+                        disabled={reordering || idx === 0}
+                        className="min-h-[44px] min-w-[44px] rounded-lg px-2 py-1.5 text-sm text-text-secondary hover:bg-subtle-bg disabled:opacity-40"
+                        aria-label="Subir"
+                        title="Subir"
+                      >
+                        ↑
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => move(idx, 1)}
+                        disabled={reordering || idx === rows.length - 1}
+                        className="min-h-[44px] min-w-[44px] rounded-lg px-2 py-1.5 text-sm text-text-secondary hover:bg-subtle-bg disabled:opacity-40"
+                        aria-label="Bajar"
+                        title="Bajar"
+                      >
+                        ↓
+                      </button>
+                    </span>
+                  </td>
                   <td className="px-3 py-2.5">
                     <span
                       className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border text-xs font-bold"
@@ -183,6 +269,7 @@ export function ShiftTypesList({ orgId, refreshKey = 0, onRefresh }: Props) {
         orgId={orgId}
         editing={null}
         existingLetters={existingLetters}
+        existingColors={existingColors}
       />
 
       <ShiftTypeFormModal
@@ -195,6 +282,7 @@ export function ShiftTypesList({ orgId, refreshKey = 0, onRefresh }: Props) {
         orgId={orgId}
         editing={editing}
         existingLetters={existingLetters}
+        existingColors={existingColors}
       />
 
       <ConfirmModal

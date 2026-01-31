@@ -3,12 +3,36 @@
  * S=70%, L=45% para buena legibilidad. Para garantizar unicidad en la org, la app
  * puede iterar con hue+37 si el hex ya existe.
  */
-export function generateColorFromName(name: string): string {
+export function generateColorFromName(name: string, existingHexes?: Iterable<string>): string {
   let h = 0;
   const s = name.trim() || '0';
   for (let i = 0; i < s.length; i++) h = (h << 5) - h + s.charCodeAt(i);
-  const hue = Math.abs(h) % 360;
-  return hslToHex(hue, 0.7, 0.45);
+  let hue = Math.abs(h) % 360;
+  let hex = hslToHex(hue, 0.7, 0.45);
+
+  const used = new Set<string>();
+  if (existingHexes) {
+    for (const c of existingHexes) {
+      const normalized = normalizeHex6(c);
+      if (normalized) used.add(normalized);
+    }
+  }
+
+  // Si ya existe, iterar hue+37 para generar un color distinto (máx 30 intentos).
+  for (let i = 0; i < 30 && used.size > 0 && used.has(hex.toUpperCase()); i++) {
+    hue = (hue + 37) % 360;
+    hex = hslToHex(hue, 0.7, 0.45);
+  }
+
+  return hex;
+}
+
+function normalizeHex6(hex: string): string | null {
+  const h = hex.trim();
+  if (!h) return null;
+  const withHash = h.startsWith('#') ? h : `#${h}`;
+  if (!/^#[0-9A-Fa-f]{6}$/.test(withHash)) return null;
+  return withHash.toUpperCase();
 }
 
 function hslToHex(h: number, s: number, l: number): string {

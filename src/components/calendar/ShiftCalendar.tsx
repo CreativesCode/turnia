@@ -125,6 +125,7 @@ function ShiftCalendarInner({
   const isMobile = useIsMobile('768px');
   const { isOnline } = useOnlineStatus();
   const calendarRef = useRef<any>(null);
+  const calendarContainerRef = useRef<HTMLDivElement>(null);
   const touchStartRef = useRef<{ x: number; y: number; at: number } | null>(null);
   const lastSwipeAtRef = useRef(0);
   const [events, setEvents] = useState<ShiftWithType[]>([]);
@@ -134,6 +135,29 @@ function ShiftCalendarInner({
   const [notice, setNotice] = useState<string | null>(null);
   const [usingCache, setUsingCache] = useState(false);
   const [range, setRange] = useState<{ start: Date; end: Date } | null>(null);
+
+  const applyButtonHintsToDom = useCallback(() => {
+    const root = calendarContainerRef.current;
+    if (!root) return;
+
+    const hints: Record<string, string> = {
+      '.fc-prev-button': 'Período anterior',
+      '.fc-next-button': 'Período siguiente',
+      '.fc-today-button': 'Ir a hoy',
+      '.fc-dayGridMonth-button': 'Vista mensual',
+      '.fc-timeGridWeek-button': 'Vista semanal',
+      '.fc-timeGridDay-button': 'Vista diaria',
+      '.fc-listWeek-button': 'Vista lista',
+    };
+
+    for (const [selector, hint] of Object.entries(hints)) {
+      const el = root.querySelector<HTMLButtonElement>(selector);
+      if (!el) continue;
+      el.setAttribute('title', hint);
+      // FullCalendar ya genera aria-label, pero lo reforzamos para consistencia.
+      el.setAttribute('aria-label', hint);
+    }
+  }, []);
 
   const fetchShifts = useCallback(
     async (start: Date, end: Date) => {
@@ -258,9 +282,14 @@ function ShiftCalendarInner({
     [orgId, filters, isOnline]
   );
 
-  const handleDatesSet = useCallback((arg: DatesSetArg) => {
-    setRange({ start: arg.start, end: arg.end });
-  }, []);
+  const handleDatesSet = useCallback(
+    (arg: DatesSetArg) => {
+      setRange({ start: arg.start, end: arg.end });
+      // Asegurar hints/labels en botones tras el render del toolbar.
+      window.setTimeout(() => applyButtonHintsToDom(), 0);
+    },
+    [applyButtonHintsToDom]
+  );
 
   useEffect(() => {
     // Evitar setState sincrónico en el cuerpo del effect (eslint react-hooks/set-state-in-effect)
@@ -346,6 +375,11 @@ function ShiftCalendarInner({
     }),
     []
   );
+
+  useEffect(() => {
+    const t = window.setTimeout(() => applyButtonHintsToDom(), 0);
+    return () => window.clearTimeout(t);
+  }, [applyButtonHintsToDom, isMobile, canManageShifts]);
 
   const handleTouchStart = useCallback(
     (e: ReactTouchEvent<HTMLDivElement>) => {
@@ -449,6 +483,7 @@ function ShiftCalendarInner({
           role="region"
           aria-label="Calendario de turnos"
           aria-describedby={isMobile ? 'shift-calendar-swipe-hint' : undefined}
+          ref={calendarContainerRef}
         >
           <FullCalendar
             ref={calendarRef}
