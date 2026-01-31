@@ -848,8 +848,10 @@ Cada organización define sus propios **tipos de turno** (las categorías en las
 - [x] Optimizar formularios para touch
   - [x] Botones y controles interactivos: `min-h-[44px]` / `min-w-[44px]` (ShiftCalendarFilters, ShiftList, ManagerAvailabilityFilters)
 
-- [ ] Mejorar accesibilidad (ARIA, teclado, contraste; base con aria-labels en nav y modales). Parcial: hint SR + button hints en calendario; menú «Más» con `Escape` y ARIA (`aria-controls`/`aria-labelledby`).
-  - Parcial adicional: `NotificationBell` (popover) con `Escape`, foco al abrir/cerrar y `aria-controls`/`aria-haspopup`.
+- [ ] Mejorar accesibilidad (ARIA, teclado, contraste; base con aria-labels en nav y modales).
+  - Parcial: hint SR + button hints en calendario.
+  - Parcial: menú «Más» (`DashboardNav`) con `Escape`, ARIA (`aria-controls`/`aria-labelledby`), foco al abrir/cerrar y focus-trap simple (Tab no escapa detrás del overlay) + botón “Cerrar menú”.
+  - Parcial: `NotificationBell` (popover) con `Escape`, foco al abrir/cerrar y `aria-controls`/`aria-haspopup`.
 
 #### **10.2 Funcionalidades Móviles**
 - [x] Quick actions (shortcuts)

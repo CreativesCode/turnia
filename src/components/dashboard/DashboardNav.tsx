@@ -6,7 +6,7 @@
  * @see project-roadmap.md Módulo 10.1
  */
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
@@ -16,6 +16,15 @@ import { ThemeSelect, ThemeToggleButton } from '@/components/theme/theme';
 import { OfflinePill } from '@/components/offline/OfflinePill';
 import { useScheduleOrg } from '@/hooks/useScheduleOrg';
 import { useIsMobile } from '@/hooks/useIsMobile';
+
+function getFocusableElements(container: HTMLElement): HTMLElement[] {
+  const nodes = Array.from(
+    container.querySelectorAll<HTMLElement>(
+      'a[href],button:not([disabled]),select:not([disabled]),textarea:not([disabled]),input:not([disabled]),[tabindex]:not([tabindex="-1"])'
+    )
+  );
+  return nodes.filter((el) => !el.hasAttribute('aria-hidden'));
+}
 
 function NavIcon({
   icon,
@@ -95,12 +104,19 @@ export function DashboardNav() {
   const isMobile = useIsMobile('768px');
   const { canManageShifts, canManageOrg, isLoading } = useScheduleOrg();
   const [moreOpen, setMoreOpen] = useState(false);
+  const morePanelRef = useRef<HTMLDivElement>(null);
+  const lastFocusedElementRef = useRef<HTMLElement | null>(null);
+  const moreMenuId = 'dashboard-more-menu';
 
   const homeHref = isLoading ? '/dashboard' : canManageShifts ? '/dashboard/manager' : '/dashboard/staff';
   const requestsHref = canManageShifts ? '/dashboard/manager/requests' : '/dashboard/staff/my-requests';
   const availabilityHref = canManageShifts ? '/dashboard/manager/availability' : '/dashboard/staff/availability';
 
   const closeMore = useCallback(() => setMoreOpen(false), []);
+  const openMore = useCallback(() => {
+    lastFocusedElementRef.current = (typeof document !== 'undefined' ? (document.activeElement as HTMLElement | null) : null) ?? null;
+    setMoreOpen(true);
+  }, []);
 
   useEffect(() => {
     if (moreOpen) {
@@ -116,11 +132,56 @@ export function DashboardNav() {
   useEffect(() => {
     if (!moreOpen) return;
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') closeMore();
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        closeMore();
+        return;
+      }
+      if (e.key !== 'Tab') return;
+      const panel = morePanelRef.current;
+      if (!panel) return;
+
+      const focusables = getFocusableElements(panel);
+      if (focusables.length === 0) {
+        e.preventDefault();
+        panel.focus();
+        return;
+      }
+
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      const active = document.activeElement as HTMLElement | null;
+
+      if (e.shiftKey) {
+        if (!active || active === first || !panel.contains(active)) {
+          e.preventDefault();
+          last.focus();
+        }
+      } else {
+        if (!active || !panel.contains(active) || active === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [moreOpen, closeMore]);
+
+  useEffect(() => {
+    if (moreOpen) {
+      // Permite a teclado/screen readers entrar al panel.
+      const t = window.setTimeout(() => {
+        const panel = morePanelRef.current;
+        if (!panel) return;
+        const focusables = getFocusableElements(panel);
+        (focusables[0] ?? panel).focus();
+      }, 0);
+      return () => window.clearTimeout(t);
+    }
+    // Devolver foco al trigger al cerrar.
+    lastFocusedElementRef.current?.focus?.();
+  }, [moreOpen]);
 
   const handleLogout = useCallback(async () => {
     closeMore();
@@ -150,11 +211,11 @@ export function DashboardNav() {
               <NotificationBell />
               <button
                 type="button"
-                onClick={() => setMoreOpen(true)}
+                onClick={openMore}
                 className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg text-muted hover:bg-subtle-bg hover:text-text-primary"
                 aria-label="Menú"
                 aria-haspopup="dialog"
-                aria-controls="dashboard-more-menu"
+                aria-controls={moreOpen ? moreMenuId : undefined}
                 aria-expanded={moreOpen}
               >
                 <MenuIcon />
@@ -174,11 +235,11 @@ export function DashboardNav() {
             <NavIcon icon={<BellIcon />} label="Notificaciones" href="/dashboard/notifications" isActive={pathname === '/dashboard/notifications'} />
             <button
               type="button"
-              onClick={() => setMoreOpen(true)}
+              onClick={openMore}
               className="flex min-h-[44px] min-w-[44px] flex-1 flex-col items-center justify-center gap-0.5 py-2 text-[10px] font-medium transition-colors"
               aria-label="Más opciones"
               aria-haspopup="dialog"
-              aria-controls="dashboard-more-menu"
+              aria-controls={moreOpen ? moreMenuId : undefined}
               aria-expanded={moreOpen}
             >
               <span className={`flex h-6 w-6 shrink-0 items-center justify-center ${moreOpen ? 'text-primary-600' : 'text-muted'}`}>
@@ -191,19 +252,34 @@ export function DashboardNav() {
 
         {moreOpen && (
           <div
-            id="dashboard-more-menu"
+            id={moreMenuId}
             className="fixed inset-0 z-50 flex items-end justify-center md:hidden"
             role="dialog"
             aria-modal="true"
             aria-labelledby="dashboard-more-menu-title"
           >
-            <button type="button" onClick={closeMore} className="absolute inset-0 bg-black/50" aria-label="Cerrar" />
-            <div className="relative w-full max-h-[70vh] overflow-y-auto rounded-t-2xl border-t border-border bg-background pb-[env(safe-area-inset-bottom)]">
+            <div className="absolute inset-0 bg-black/50" onClick={closeMore} aria-hidden="true" />
+            <div
+              ref={morePanelRef}
+              tabIndex={-1}
+              className="relative w-full max-h-[70vh] overflow-y-auto rounded-t-2xl border-t border-border bg-background pb-[env(safe-area-inset-bottom)] focus:outline-none focus:ring-2 focus:ring-primary-500"
+            >
               <h2 id="dashboard-more-menu-title" className="sr-only">
                 Menú de navegación
               </h2>
               <div className="sticky top-0 flex justify-center border-b border-border bg-background py-3">
                 <span className="h-1 w-12 rounded-full bg-muted" aria-hidden />
+                <button
+                  type="button"
+                  onClick={closeMore}
+                  className="absolute right-3 top-1.5 flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg text-muted hover:bg-subtle-bg hover:text-text-primary"
+                  aria-label="Cerrar menú"
+                >
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                    <line x1="18" y1="6" x2="6" y2="18" />
+                    <line x1="6" y1="6" x2="18" y2="18" />
+                  </svg>
+                </button>
               </div>
               <div className="grid gap-0.5 p-4">
                 <div className="rounded-lg border border-border bg-subtle-bg px-4 py-3">
