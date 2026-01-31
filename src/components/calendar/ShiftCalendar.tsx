@@ -7,7 +7,7 @@
  * @see project-roadmap.md Módulo 3.1
  */
 
-import { useCallback, useEffect, useMemo, useState, memo } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, memo, type TouchEvent as ReactTouchEvent } from 'react';
 import dynamic from 'next/dynamic';
 import { createClient } from '@/lib/supabase/client';
 import { useIsMobile } from '@/hooks/useIsMobile';
@@ -25,7 +25,7 @@ import esLocale from '@fullcalendar/core/locales/es';
 const FullCalendar = dynamic(
   () => import('@fullcalendar/react').then((m) => m.default),
   { ssr: false }
-);
+) as any;
 
 type ShiftCalendarCache = {
   shifts: ShiftWithType[];
@@ -124,6 +124,9 @@ function ShiftCalendarInner({
 }: Props) {
   const isMobile = useIsMobile('768px');
   const { isOnline } = useOnlineStatus();
+  const calendarRef = useRef<any>(null);
+  const touchStartRef = useRef<{ x: number; y: number; at: number } | null>(null);
+  const lastSwipeAtRef = useRef(0);
   const [events, setEvents] = useState<ShiftWithType[]>([]);
   const [profilesMap, setProfilesMap] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
@@ -287,6 +290,8 @@ function ShiftCalendarInner({
 
   const handleEventClick = useCallback(
     (arg: EventClickArg) => {
+      // Evitar que un swipe abra el detalle por error (tap fantasma post-swipe).
+      if (Date.now() - lastSwipeAtRef.current < 350) return;
       arg.jsEvent.preventDefault();
       const { shift, assignedName } = arg.event.extendedProps as {
         shift: ShiftWithType;
@@ -299,6 +304,7 @@ function ShiftCalendarInner({
 
   const handleDateClick = useCallback(
     (arg: { date: Date }) => {
+      if (Date.now() - lastSwipeAtRef.current < 350) return;
       if (canManageShifts) onDateClick?.(arg.date);
     },
     [canManageShifts, onDateClick]
@@ -327,6 +333,71 @@ function ShiftCalendarInner({
     }),
     []
   );
+
+  const buttonHints = useMemo(
+    () => ({
+      today: 'Ir a hoy',
+      prev: 'Período anterior',
+      next: 'Período siguiente',
+      dayGridMonth: 'Vista mensual',
+      timeGridWeek: 'Vista semanal',
+      timeGridDay: 'Vista diaria',
+      listWeek: 'Vista lista',
+    }),
+    []
+  );
+
+  const handleTouchStart = useCallback(
+    (e: ReactTouchEvent<HTMLDivElement>) => {
+      if (!isMobile) return;
+      if (e.touches.length !== 1) return;
+      const t = e.touches[0];
+      touchStartRef.current = { x: t.clientX, y: t.clientY, at: Date.now() };
+    },
+    [isMobile]
+  );
+
+  const handleTouchEnd = useCallback(
+    (e: ReactTouchEvent<HTMLDivElement>) => {
+      if (!isMobile) return;
+
+      const start = touchStartRef.current;
+      touchStartRef.current = null;
+      if (!start) return;
+
+      const t = e.changedTouches?.[0];
+      if (!t) return;
+
+      const dx = t.clientX - start.x;
+      const dy = t.clientY - start.y;
+      const dt = Date.now() - start.at;
+
+      // Gestos "intencionales": rápidos, horizontales y con umbral suficiente.
+      // Evita interferir con scroll vertical y taps.
+      const absX = Math.abs(dx);
+      const absY = Math.abs(dy);
+      if (dt > 700) return;
+      if (absX < 60) return;
+      if (absX < absY * 1.2) return;
+
+      // Evitar conflicto con el gesto del sistema (back) en los bordes.
+      if (typeof window !== 'undefined') {
+        const edge = 20;
+        if (start.x < edge || start.x > window.innerWidth - edge) return;
+      }
+
+      const api = calendarRef.current?.getApi?.();
+      if (!api) return;
+      lastSwipeAtRef.current = Date.now();
+      if (dx < 0) api.next();
+      else api.prev();
+    },
+    [isMobile]
+  );
+
+  const handleTouchCancel = useCallback(() => {
+    touchStartRef.current = null;
+  }, []);
 
   if (error) {
     return (
@@ -365,12 +436,27 @@ function ShiftCalendarInner({
             <span className="text-sm text-muted">Cargando…</span>
           </div>
         )}
-        <div className="min-h-[400px] overflow-hidden rounded-xl border border-border bg-background">
+        {isMobile && (
+          <p id="shift-calendar-swipe-hint" className="sr-only">
+            Podés deslizar hacia la izquierda o derecha para cambiar el período del calendario.
+          </p>
+        )}
+        <div
+          className="min-h-[400px] overflow-hidden rounded-xl border border-border bg-background"
+          onTouchStart={handleTouchStart}
+          onTouchEnd={handleTouchEnd}
+          onTouchCancel={handleTouchCancel}
+          role="region"
+          aria-label="Calendario de turnos"
+          aria-describedby={isMobile ? 'shift-calendar-swipe-hint' : undefined}
+        >
           <FullCalendar
+            ref={calendarRef}
             plugins={plugins}
             initialView="dayGridMonth"
             headerToolbar={headerToolbar}
             buttonText={buttonText}
+            buttonHints={buttonHints as any}
             locale={esLocale}
             events={fcEvents}
             eventContent={renderEventContent}

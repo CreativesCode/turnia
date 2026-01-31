@@ -113,6 +113,15 @@ export function DashboardNav() {
     };
   }, [moreOpen]);
 
+  useEffect(() => {
+    if (!moreOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') closeMore();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [moreOpen, closeMore]);
+
   const handleLogout = useCallback(async () => {
     closeMore();
     const supabase = createClient();
@@ -144,6 +153,9 @@ export function DashboardNav() {
                 onClick={() => setMoreOpen(true)}
                 className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg text-muted hover:bg-subtle-bg hover:text-text-primary"
                 aria-label="Menú"
+                aria-haspopup="dialog"
+                aria-controls="dashboard-more-menu"
+                aria-expanded={moreOpen}
               >
                 <MenuIcon />
               </button>
@@ -165,6 +177,8 @@ export function DashboardNav() {
               onClick={() => setMoreOpen(true)}
               className="flex min-h-[44px] min-w-[44px] flex-1 flex-col items-center justify-center gap-0.5 py-2 text-[10px] font-medium transition-colors"
               aria-label="Más opciones"
+              aria-haspopup="dialog"
+              aria-controls="dashboard-more-menu"
               aria-expanded={moreOpen}
             >
               <span className={`flex h-6 w-6 shrink-0 items-center justify-center ${moreOpen ? 'text-primary-600' : 'text-muted'}`}>
@@ -176,9 +190,18 @@ export function DashboardNav() {
         </nav>
 
         {moreOpen && (
-          <div className="fixed inset-0 z-50 flex items-end justify-center md:hidden" role="dialog" aria-modal="true" aria-label="Menú de navegación">
+          <div
+            id="dashboard-more-menu"
+            className="fixed inset-0 z-50 flex items-end justify-center md:hidden"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="dashboard-more-menu-title"
+          >
             <button type="button" onClick={closeMore} className="absolute inset-0 bg-black/50" aria-label="Cerrar" />
             <div className="relative w-full max-h-[70vh] overflow-y-auto rounded-t-2xl border-t border-border bg-background pb-[env(safe-area-inset-bottom)]">
+              <h2 id="dashboard-more-menu-title" className="sr-only">
+                Menú de navegación
+              </h2>
               <div className="sticky top-0 flex justify-center border-b border-border bg-background py-3">
                 <span className="h-1 w-12 rounded-full bg-muted" aria-hidden />
               </div>

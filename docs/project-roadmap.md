@@ -838,7 +838,7 @@ Cada organización define sus propios **tipos de turno** (las categorías en las
 - [x] Adaptar calendario para pantallas pequeñas
   - [x] Vista compacta (toolbar reducida en móvil: Mes + Lista; dayMaxEvents 2)
   - [x] Bottom sheet para detalles (`ShiftDetailModal`: en móvil anclado abajo, asa, max-h 85vh, safe-area)
-  - [ ] Gestos de swipe (FullCalendar; delegado a la librería)
+  - [x] Gestos de swipe (móvil): swipe horizontal izquierda/derecha → período siguiente/anterior (wrapper touch + `calendarApi.next()/prev()`)
 
 - [x] Navbar móvil (bottom navigation)
   - [x] `DashboardNav`: en móvil barra superior compacta (Turnia, NotificationBell, menú) + bottom nav fija (Inicio, Solicitudes, Disponibilidad, Notificaciones, Más)
@@ -848,7 +848,7 @@ Cada organización define sus propios **tipos de turno** (las categorías en las
 - [x] Optimizar formularios para touch
   - [x] Botones y controles interactivos: `min-h-[44px]` / `min-w-[44px]` (ShiftCalendarFilters, ShiftList, ManagerAvailabilityFilters)
 
-- [ ] Mejorar accesibilidad (ARIA, teclado, contraste; base con aria-labels en nav y modales)
+- [ ] Mejorar accesibilidad (ARIA, teclado, contraste; base con aria-labels en nav y modales). Parcial: hint SR + button hints en calendario; menú «Más» con `Escape` y ARIA (`aria-controls`/`aria-labelledby`).
 
 #### **10.2 Funcionalidades Móviles**
 - [x] Quick actions (shortcuts)
