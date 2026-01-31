@@ -11,6 +11,8 @@ import { useCallback, useEffect, useMemo, useState, memo } from 'react';
 import dynamic from 'next/dynamic';
 import { createClient } from '@/lib/supabase/client';
 import { useIsMobile } from '@/hooks/useIsMobile';
+import { useOnlineStatus } from '@/hooks/useOnlineStatus';
+import { getCacheEntry, setCache } from '@/lib/cache';
 
 import type { EventClickArg, DatesSetArg } from '@fullcalendar/core';
 import type { ShiftCalendarFiltersState } from './ShiftCalendarFilters';
@@ -24,6 +26,30 @@ const FullCalendar = dynamic(
   () => import('@fullcalendar/react').then((m) => m.default),
   { ssr: false }
 );
+
+type ShiftCalendarCache = {
+  shifts: ShiftWithType[];
+  profilesMap: Record<string, string>;
+};
+
+function ymd(d: Date): string {
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+function filtersKey(filters?: ShiftCalendarFiltersState): string {
+  if (!filters) return 'filters:none';
+  const types = (filters.shiftTypeIds ?? []).slice().sort().join(',');
+  const user = filters.userId ?? '';
+  const status = filters.status ?? 'all';
+  return `filters:types=${types}|user=${user}|status=${status}`;
+}
+
+function calendarCacheKey(orgId: string, start: Date, end: Date, filters?: ShiftCalendarFiltersState) {
+  return `turnia:cache:calendarShifts:${orgId}:${ymd(start)}:${ymd(end)}:${filtersKey(filters)}`;
+}
 
 // Tipos
 export type ShiftWithType = {
@@ -97,10 +123,13 @@ function ShiftCalendarInner({
   onDateClick,
 }: Props) {
   const isMobile = useIsMobile('768px');
+  const { isOnline } = useOnlineStatus();
   const [events, setEvents] = useState<ShiftWithType[]>([]);
   const [profilesMap, setProfilesMap] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [usingCache, setUsingCache] = useState(false);
   const [range, setRange] = useState<{ start: Date; end: Date } | null>(null);
 
   const fetchShifts = useCallback(
@@ -108,6 +137,33 @@ function ShiftCalendarInner({
       if (!orgId) return;
       setLoading(true);
       setError(null);
+      setNotice(null);
+      setUsingCache(false);
+
+      const key = calendarCacheKey(orgId, start, end, filters);
+      const cached = getCacheEntry<ShiftCalendarCache>(key, {
+        maxAgeMs: 1000 * 60 * 60 * 24 * 45, // 45 días
+      });
+
+      // Offline-first (fase 2): si no hay conexión, usar cache si existe.
+      if (!isOnline) {
+        if (cached) {
+          setEvents(cached.data.shifts);
+          setProfilesMap(cached.data.profilesMap);
+          setUsingCache(true);
+          setNotice(
+            `Sin conexión. Mostrando datos guardados (${new Date(cached.savedAt).toLocaleString('es-ES')}).`
+          );
+          setLoading(false);
+          return;
+        }
+        setEvents([]);
+        setProfilesMap({});
+        setError('Sin conexión y sin datos guardados para este rango.');
+        setLoading(false);
+        return;
+      }
+
       const supabase = createClient();
       const startStr = start.toISOString();
       const endStr = end.toISOString();
@@ -140,8 +196,19 @@ function ShiftCalendarInner({
       const { data: shiftsData, error: shiftsErr } = await query;
 
       if (shiftsErr) {
+        if (cached) {
+          setEvents(cached.data.shifts);
+          setProfilesMap(cached.data.profilesMap);
+          setUsingCache(true);
+          setNotice(
+            `No se pudo actualizar. Mostrando datos guardados (${new Date(cached.savedAt).toLocaleString('es-ES')}).`
+          );
+          setLoading(false);
+          return;
+        }
         setError(shiftsErr.message);
         setEvents([]);
+        setProfilesMap({});
         setLoading(false);
         return;
       }
@@ -165,6 +232,7 @@ function ShiftCalendarInner({
       setEvents(list);
 
       const userIds = [...new Set(list.map((s) => s.assigned_user_id).filter(Boolean))] as string[];
+      let nextProfilesMap: Record<string, string> = {};
       if (userIds.length > 0) {
         const { data: profiles } = await supabase
           .from('profiles')
@@ -174,13 +242,17 @@ function ShiftCalendarInner({
         for (const p of profiles ?? []) {
           map[p.id] = p.full_name ?? '';
         }
+        nextProfilesMap = map;
         setProfilesMap(map);
       } else {
+        nextProfilesMap = {};
         setProfilesMap({});
       }
+
+      setCache(key, { shifts: list, profilesMap: nextProfilesMap });
       setLoading(false);
     },
-    [orgId, filters]
+    [orgId, filters, isOnline]
   );
 
   const handleDatesSet = useCallback((arg: DatesSetArg) => {
@@ -188,8 +260,12 @@ function ShiftCalendarInner({
   }, []);
 
   useEffect(() => {
-    if (range && orgId) fetchShifts(range.start, range.end);
-  }, [orgId, refreshKey, range, fetchShifts]);
+    // Evitar setState sincrónico en el cuerpo del effect (eslint react-hooks/set-state-in-effect)
+    const t = window.setTimeout(() => {
+      if (range && orgId) void fetchShifts(range.start, range.end);
+    }, 0);
+    return () => window.clearTimeout(t);
+  }, [orgId, refreshKey, range, fetchShifts, isOnline]);
 
   const fcEvents = useMemo(() => {
     return events.map((s) => {
@@ -268,35 +344,51 @@ function ShiftCalendarInner({
   }
 
   return (
-    <div className="relative">
-      {loading && (
-        <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl border border-border bg-background/80">
-          <span className="text-sm text-muted">Cargando…</span>
+    <div className="space-y-3">
+      {notice && (
+        <div
+          className={`rounded-lg border p-3 text-sm ${
+            usingCache
+              ? 'border-amber-200 bg-amber-50 text-amber-800'
+              : 'border-border bg-background text-text-secondary'
+          }`}
+          role="status"
+          aria-live="polite"
+        >
+          {notice}
         </div>
       )}
-      <div className="min-h-[400px] overflow-hidden rounded-xl border border-border bg-background">
-        <FullCalendar
-          plugins={plugins}
-          initialView="dayGridMonth"
-          headerToolbar={headerToolbar}
-          buttonText={buttonText}
-          locale={esLocale}
-          events={fcEvents}
-          eventContent={renderEventContent}
-          eventOrder="start"
-          datesSet={handleDatesSet}
-          eventClick={handleEventClick}
-          dateClick={canManageShifts ? handleDateClick : undefined}
-          selectable={false}
-          selectMirror={false}
-          slotMinTime="00:00:00"
-          slotMaxTime="24:00:00"
-          height="auto"
-          nowIndicator
-          dayMaxEvents={isMobile ? 2 : 3}
-          moreLinkClick="popover"
-          eventDisplay="block"
-        />
+
+      <div className="relative">
+        {loading && (
+          <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl border border-border bg-background/80">
+            <span className="text-sm text-muted">Cargando…</span>
+          </div>
+        )}
+        <div className="min-h-[400px] overflow-hidden rounded-xl border border-border bg-background">
+          <FullCalendar
+            plugins={plugins}
+            initialView="dayGridMonth"
+            headerToolbar={headerToolbar}
+            buttonText={buttonText}
+            locale={esLocale}
+            events={fcEvents}
+            eventContent={renderEventContent}
+            eventOrder="start"
+            datesSet={handleDatesSet}
+            eventClick={handleEventClick}
+            dateClick={canManageShifts ? handleDateClick : undefined}
+            selectable={false}
+            selectMirror={false}
+            slotMinTime="00:00:00"
+            slotMaxTime="24:00:00"
+            height="auto"
+            nowIndicator
+            dayMaxEvents={isMobile ? 2 : 3}
+            moreLinkClick="popover"
+            eventDisplay="block"
+          />
+        </div>
       </div>
     </div>
   );

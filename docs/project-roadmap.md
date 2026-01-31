@@ -860,9 +860,12 @@ Cada organización define sus propios **tipos de turno** (las categorías en las
 - [ ] Deep links para notificaciones
 
 #### **10.3 Offline Support (Fase 2)**
-- [ ] Cache de turnos próximos
-- [ ] Sincronización al reconectar
-- [ ] Indicador de estado offline
+- [x] Cache de turnos próximos
+- [x] Sincronización al reconectar
+- [x] Indicador de estado offline
+  - Implementado con fallback a cache en `ShiftCalendar`/`ShiftList` + estado online/offline global.
+  - Archivos: `src/hooks/useOnlineStatus.ts`, `src/lib/cache.ts`, `src/components/offline/OfflinePill.tsx`,
+    `src/components/calendar/ShiftCalendar.tsx`, `src/components/shifts/ShiftList.tsx`, `src/components/dashboard/DashboardNav.tsx`
 
 ---
 

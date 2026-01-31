@@ -11,6 +11,27 @@ import { createClient } from '@/lib/supabase/client';
 import { isColorLight } from '@/lib/utils';
 import { ConfirmModal } from '@/components/ui/ConfirmModal';
 import type { ShiftWithType } from '@/components/calendar/ShiftCalendar';
+import { useOnlineStatus } from '@/hooks/useOnlineStatus';
+import { getCacheEntry, setCache } from '@/lib/cache';
+
+type ShiftListCache = {
+  rows: ShiftWithType[];
+  profilesMap: Record<string, string>;
+  totalCount: number;
+};
+
+function listFiltersKey(f: ShiftListFilters): string {
+  const types = (f.shiftTypeIds ?? []).slice().sort().join(',');
+  const user = f.userId ?? '';
+  const status = f.status ?? 'all';
+  const df = f.dateFrom ?? '';
+  const dt = f.dateTo ?? '';
+  return `types=${types}|user=${user}|status=${status}|from=${df}|to=${dt}`;
+}
+
+function shiftListCacheKey(orgId: string, filters: ShiftListFilters, sortDir: 'asc' | 'desc', page: number) {
+  return `turnia:cache:shiftList:${orgId}:page=${page}:sort=${sortDir}:${listFiltersKey(filters)}`;
+}
 
 function ChevronDown() {
   return (
@@ -87,12 +108,15 @@ function ShiftListInner({
   selectedIds = [],
   onSelectionChange,
 }: Props) {
+  const { isOnline } = useOnlineStatus();
   const [rows, setRows] = useState<ShiftWithType[]>([]);
   const [profilesMap, setProfilesMap] = useState<Record<string, string>>({});
   const [shiftTypes, setShiftTypes] = useState<ShiftTypeOption[]>([]);
   const [members, setMembers] = useState<MemberOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [usingCache, setUsingCache] = useState(false);
   const [filters, setFilters] = useState<ShiftListFilters>(defaultListFilters);
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   const [page, setPage] = useState(1);
@@ -148,6 +172,34 @@ function ShiftListInner({
     }
     setLoading(true);
     setError(null);
+    setNotice(null);
+    setUsingCache(false);
+
+    const key = shiftListCacheKey(orgId, filters, sortDir, page);
+    const cached = getCacheEntry<ShiftListCache>(key, {
+      maxAgeMs: 1000 * 60 * 60 * 24 * 30, // 30 días
+    });
+
+    if (!isOnline) {
+      if (cached) {
+        setRows(cached.data.rows);
+        setProfilesMap(cached.data.profilesMap);
+        setTotalCount(cached.data.totalCount);
+        setUsingCache(true);
+        setNotice(
+          `Sin conexión. Mostrando datos guardados (${new Date(cached.savedAt).toLocaleString('es-ES')}).`
+        );
+        setLoading(false);
+        return;
+      }
+      setRows([]);
+      setProfilesMap({});
+      setTotalCount(0);
+      setError('Sin conexión y sin datos guardados para estos filtros.');
+      setLoading(false);
+      return;
+    }
+
     const supabase = createClient();
 
     const from = (page - 1) * PAGE_SIZE;
@@ -185,8 +237,20 @@ function ShiftListInner({
     const { data, error: err, count } = await q;
 
     if (err) {
+      if (cached) {
+        setRows(cached.data.rows);
+        setProfilesMap(cached.data.profilesMap);
+        setTotalCount(cached.data.totalCount);
+        setUsingCache(true);
+        setNotice(
+          `No se pudo actualizar. Mostrando datos guardados (${new Date(cached.savedAt).toLocaleString('es-ES')}).`
+        );
+        setLoading(false);
+        return;
+      }
       setError(err.message);
       setRows([]);
+      setProfilesMap({});
       setTotalCount(0);
       setLoading(false);
       return;
@@ -201,22 +265,31 @@ function ShiftListInner({
     setTotalCount(count ?? 0);
 
     const userIds = [...new Set(list.map((s) => s.assigned_user_id).filter(Boolean))] as string[];
+    let nextProfilesMap: Record<string, string> = {};
     if (userIds.length > 0) {
       const { data: profs } = await supabase.from('profiles').select('id, full_name').in('id', userIds);
       const map: Record<string, string> = {};
       (profs ?? []).forEach((p: { id: string; full_name: string | null }) => {
         map[p.id] = p.full_name?.trim() ?? '';
       });
+      nextProfilesMap = map;
       setProfilesMap(map);
     } else {
+      nextProfilesMap = {};
       setProfilesMap({});
     }
+
+    setCache(key, { rows: list, profilesMap: nextProfilesMap, totalCount: count ?? 0 });
     setLoading(false);
-  }, [orgId, filters, sortDir, page, refreshKey]);
+  }, [orgId, filters, sortDir, page, isOnline]);
 
   useEffect(() => {
-    load();
-  }, [load]);
+    // Evitar setState sincrónico en el cuerpo del effect (eslint react-hooks/set-state-in-effect)
+    const t = window.setTimeout(() => {
+      void load();
+    }, 0);
+    return () => window.clearTimeout(t);
+  }, [load, refreshKey]);
 
   const toggleSort = useCallback(() => {
     setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
@@ -475,6 +548,18 @@ function ShiftListInner({
           <button type="button" onClick={load} className="ml-2 text-primary-600 hover:underline">
             Reintentar
           </button>
+        </div>
+      )}
+
+      {notice && (
+        <div
+          className={`rounded-lg border p-3 text-sm ${
+            usingCache ? 'border-amber-200 bg-amber-50 text-amber-800' : 'border-border bg-background text-text-secondary'
+          }`}
+          role="status"
+          aria-live="polite"
+        >
+          {notice}
         </div>
       )}
 

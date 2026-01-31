@@ -13,6 +13,7 @@ import { createClient } from '@/lib/supabase/client';
 import { NotificationBell } from '@/components/notifications/NotificationBell';
 import { LogoutButton } from '@/components/auth/LogoutButton';
 import { ThemeSelect, ThemeToggleButton } from '@/components/theme/theme';
+import { OfflinePill } from '@/components/offline/OfflinePill';
 import { useScheduleOrg } from '@/hooks/useScheduleOrg';
 import { useIsMobile } from '@/hooks/useIsMobile';
 
@@ -135,6 +136,7 @@ export function DashboardNav() {
               Turnia
             </Link>
             <div className="flex items-center gap-1">
+              <OfflinePill variant="dot" />
               <ThemeToggleButton ariaLabel="Cambiar tema" />
               <NotificationBell />
               <button
@@ -239,6 +241,7 @@ export function DashboardNav() {
         <Link href="/dashboard/viewer" className="text-text-secondary hover:text-primary-600">Viewer</Link>
         <Link href="/dashboard/notifications" className="text-text-secondary hover:text-primary-600">Notificaciones</Link>
         <span className="ml-auto flex items-center gap-2">
+          <OfflinePill />
           <ThemeToggleButton ariaLabel="Cambiar tema" />
           <NotificationBell />
           <LogoutButton />
