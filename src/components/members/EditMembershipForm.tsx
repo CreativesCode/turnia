@@ -1,9 +1,10 @@
 'use client';
 
 import { createClient } from '@/lib/supabase/client';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { ROLE_LABELS, ROLES_EDITABLE } from './role-labels';
 import type { MemberForDetails } from './MemberDetails';
+import { Dialog } from '@/components/ui/Dialog';
 
 type Props = {
   member: MemberForDetails;
@@ -27,17 +28,6 @@ export function EditMembershipForm({ member, orgId, onSuccess, onClose }: Props)
   const [role, setRole] = useState(member.role);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const onEscape = useCallback(
-    (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    },
-    [onClose]
-  );
-  useEffect(() => {
-    document.addEventListener('keydown', onEscape);
-    return () => document.removeEventListener('keydown', onEscape);
-  }, [onEscape]);
 
   const submit = useCallback(
     async (e: React.FormEvent) => {
@@ -67,25 +57,14 @@ export function EditMembershipForm({ member, orgId, onSuccess, onClose }: Props)
   );
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="edit-membership-title"
+    <Dialog
+      open
+      onClose={onClose}
+      closeOnEscape={!saving}
+      title="Editar rol"
+      panelClassName="max-w-sm"
     >
-      <button
-        type="button"
-        onClick={onClose}
-        className="absolute inset-0 bg-black/50"
-        aria-label="Cerrar"
-      />
-      <form
-        onSubmit={submit}
-        className="relative w-full max-w-sm rounded-xl border border-border bg-background p-6 shadow-lg"
-      >
-        <h2 id="edit-membership-title" className="text-lg font-semibold text-text-primary">
-          Editar rol
-        </h2>
+      <form onSubmit={submit}>
         <p className="mt-1 text-sm text-text-secondary">
           {member.full_name?.trim() || member.email || 'Usuario'}
         </p>
@@ -125,6 +104,6 @@ export function EditMembershipForm({ member, orgId, onSuccess, onClose }: Props)
           </button>
         </div>
       </form>
-    </div>
+    </Dialog>
   );
 }

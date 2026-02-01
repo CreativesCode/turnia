@@ -291,6 +291,27 @@ function ShiftCalendarInner({
     [applyButtonHintsToDom]
   );
 
+  const handleEventDidMount = useCallback(
+    (info: any) => {
+      try {
+        const title = info?.event?.title as string | undefined;
+        const el = info?.el as HTMLElement | undefined;
+        if (el && title) el.setAttribute('aria-label', title);
+        if (!el) return;
+        // Asegurar activación por teclado (Enter/Espacio) sin acumular listeners.
+        (el as HTMLElement).onkeydown = (e: KeyboardEvent) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            (el as HTMLElement).click?.();
+          }
+        };
+      } catch {
+        // ignore
+      }
+    },
+    []
+  );
+
   useEffect(() => {
     // Evitar setState sincrónico en el cuerpo del effect (eslint react-hooks/set-state-in-effect)
     const t = window.setTimeout(() => {
@@ -466,7 +487,11 @@ function ShiftCalendarInner({
 
       <div className="relative">
         {loading && (
-          <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl border border-border bg-background/80">
+          <div
+            className="absolute inset-0 z-10 flex items-center justify-center rounded-xl border border-border bg-background/80"
+            role="status"
+            aria-live="polite"
+          >
             <span className="text-sm text-muted">Cargando…</span>
           </div>
         )}
@@ -483,6 +508,7 @@ function ShiftCalendarInner({
           role="region"
           aria-label="Calendario de turnos"
           aria-describedby={isMobile ? 'shift-calendar-swipe-hint' : undefined}
+          aria-busy={loading || undefined}
           ref={calendarContainerRef}
         >
           <FullCalendar
@@ -498,6 +524,7 @@ function ShiftCalendarInner({
             eventOrder="start"
             datesSet={handleDatesSet}
             eventClick={handleEventClick}
+            eventDidMount={handleEventDidMount}
             dateClick={canManageShifts ? handleDateClick : undefined}
             selectable={false}
             selectMirror={false}

@@ -10,6 +10,7 @@ import { createClient } from '@/lib/supabase/client';
 import { formatShiftTypeSchedule } from '@/lib/utils';
 import { useCallback, useEffect, useState } from 'react';
 import { Button } from '@/components/ui/Button';
+import { Dialog } from '@/components/ui/Dialog';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { useToast } from '@/components/ui/toast/ToastProvider';
@@ -148,19 +149,6 @@ export function CreateShiftModal({
     }
   }, [open, shiftTypes, shiftTypeId]);
 
-  const onEscape = useCallback(
-    (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && open && !loading) onClose();
-    },
-    [open, loading, onClose]
-  );
-
-  useEffect(() => {
-    if (!open) return;
-    document.addEventListener('keydown', onEscape);
-    return () => document.removeEventListener('keydown', onEscape);
-  }, [open, onEscape]);
-
   const submit = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault();
@@ -246,23 +234,14 @@ export function CreateShiftModal({
   if (!open) return null;
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="create-shift-title"
+    <Dialog
+      open={open}
+      onClose={onClose}
+      closeOnEscape={!loading}
+      title="Nuevo turno"
+      panelClassName="max-h-[90vh] overflow-y-auto"
     >
-      <button
-        type="button"
-        onClick={onClose}
-        className="absolute inset-0 bg-black/50"
-        aria-label="Cerrar"
-      />
-      <div className="relative max-h-[90vh] w-full max-w-md overflow-y-auto rounded-xl border border-border bg-background p-6 shadow-lg">
-        <h2 id="create-shift-title" className="text-lg font-semibold text-text-primary">
-          Nuevo turno
-        </h2>
-        <form onSubmit={submit} className="mt-4 flex flex-col gap-4">
+      <form onSubmit={submit} className="flex flex-col gap-4">
           <label className="block text-sm font-medium text-text-secondary">
             Fecha
             <Input
@@ -342,7 +321,6 @@ export function CreateShiftModal({
             </Button>
           </div>
         </form>
-      </div>
-    </div>
+    </Dialog>
   );
 }

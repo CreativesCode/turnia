@@ -9,6 +9,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { Dialog } from '@/components/ui/Dialog';
 
 type Props = {
   open: boolean;
@@ -91,20 +92,17 @@ export function CopyShiftsModal({ open, onClose, onSuccess, orgId }: Props) {
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <button
-        type="button"
-        className="absolute inset-0 bg-black/40"
-        onClick={onClose}
-        aria-label="Cerrar"
-      />
-      <div className="relative z-10 w-full max-w-md rounded-xl border border-border bg-background p-6 shadow-xl">
-        <h2 className="text-lg font-semibold text-text-primary">Copiar período</h2>
-        <p className="mt-1 text-sm text-muted">
-          Copia los turnos del período origen al destino. El desplazamiento en días se aplica a cada turno.
-        </p>
+    <Dialog
+      open={open}
+      onClose={onClose}
+      closeOnEscape={!loading}
+      title="Copiar período"
+      description="Copia los turnos del período origen al destino. El desplazamiento en días se aplica a cada turno."
+      panelClassName="shadow-xl"
+      overlayClassName="bg-black/40"
+    >
 
-        <div className="mt-4 space-y-4">
+        <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-text-primary">Inicio período origen</label>
             <input
@@ -164,7 +162,6 @@ export function CopyShiftsModal({ open, onClose, onSuccess, orgId }: Props) {
             {loading ? 'Copiando…' : 'Copiar'}
           </button>
         </div>
-      </div>
-    </div>
+    </Dialog>
   );
 }

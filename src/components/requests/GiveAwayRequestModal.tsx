@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/Button';
 import { Select } from '@/components/ui/Select';
 import { Textarea } from '@/components/ui/Textarea';
 import { useToast } from '@/components/ui/toast/ToastProvider';
+import { Dialog } from '@/components/ui/Dialog';
 
 type Shift = { id: string; org_id: string };
 
@@ -132,21 +133,21 @@ export function GiveAwayRequestModal({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-60 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="giveaway-title">
-      <button type="button" onClick={onClose} className="absolute inset-0 bg-black/50" aria-label="Cerrar" />
-      <div className="relative w-full max-w-sm rounded-xl border border-border bg-background p-6 shadow-lg">
-        <h2 id="giveaway-title" className="text-lg font-semibold text-text-primary">
-          Dar de baja este turno
-        </h2>
-        <p className="mt-1 text-sm text-muted">
-          Si la organización lo permite, se dará de baja al instante. Si no, un responsable lo revisará.
-        </p>
+    <Dialog
+      open={open}
+      onClose={onClose}
+      zIndex={60}
+      closeOnEscape={!loading}
+      title="Dar de baja este turno"
+      description="Si la organización lo permite, se dará de baja al instante. Si no, un responsable lo revisará."
+      panelClassName="max-w-sm"
+    >
         {pendingExists && (
           <p className="mt-3 text-sm text-amber-600">
             Ya tienes una solicitud pendiente para este turno.
           </p>
         )}
-        <form onSubmit={handleSubmit} className="mt-4 space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4">
           {members.length > 0 && (
             <div>
               <label htmlFor="giveaway-suggest" className="block text-sm font-medium text-text-primary">
@@ -189,7 +190,6 @@ export function GiveAwayRequestModal({
             </Button>
           </div>
         </form>
-      </div>
-    </div>
+    </Dialog>
   );
 }

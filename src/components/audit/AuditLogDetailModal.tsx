@@ -5,8 +5,8 @@
  * @see project-roadmap.md Módulo 8.1
  */
 
-import { useCallback, useEffect } from 'react';
 import Link from 'next/link';
+import { Dialog } from '@/components/ui/Dialog';
 
 export type AuditLogRow = {
   id: string;
@@ -50,19 +50,6 @@ export function AuditLogDetailModal({
   entityLabel,
   actionLabel,
 }: Props) {
-  const onEscape = useCallback(
-    (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && open) onClose();
-    },
-    [open, onClose]
-  );
-
-  useEffect(() => {
-    if (!open) return;
-    document.addEventListener('keydown', onEscape);
-    return () => document.removeEventListener('keydown', onEscape);
-  }, [open, onEscape]);
-
   if (!open) return null;
 
   const hasBefore = entry?.before_snapshot && Object.keys(entry.before_snapshot).length > 0;
@@ -76,25 +63,14 @@ export function AuditLogDetailModal({
         : null;
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="audit-detail-title"
+    <Dialog
+      open={open}
+      onClose={onClose}
+      title="Detalle del evento"
+      panelClassName="max-h-[90vh] max-w-xl overflow-y-auto"
     >
-      <button
-        type="button"
-        onClick={onClose}
-        className="absolute inset-0 bg-black/50"
-        aria-label="Cerrar"
-      />
-      <div className="relative max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-xl border border-border bg-background p-6 shadow-lg">
-        <h2 id="audit-detail-title" className="text-lg font-semibold text-text-primary">
-          Detalle del evento
-        </h2>
-
-        {entry && (
-          <div className="mt-4 space-y-4 text-sm">
+      {entry ? (
+        <div className="space-y-4 text-sm">
             <div className="grid gap-2 sm:grid-cols-2">
               <div>
                 <span className="text-text-secondary">Fecha: </span>
@@ -147,19 +123,8 @@ export function AuditLogDetailModal({
             {!hasBefore && !hasAfter && !hasComment && (
               <p className="text-text-secondary">No hay datos adicionales (snapshots vacíos).</p>
             )}
-          </div>
-        )}
-
-        <div className="mt-6 flex justify-end">
-          <button
-            type="button"
-            onClick={onClose}
-            className="min-h-[44px] min-w-[44px] rounded-lg border border-border px-4 py-2.5 text-sm font-medium text-text-primary hover:bg-subtle-bg"
-          >
-            Cerrar
-          </button>
         </div>
-      </div>
-    </div>
+      ) : null}
+    </Dialog>
   );
 }

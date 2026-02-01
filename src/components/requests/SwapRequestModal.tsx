@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/Button';
 import { Select } from '@/components/ui/Select';
 import { Textarea } from '@/components/ui/Textarea';
 import { useToast } from '@/components/ui/toast/ToastProvider';
+import { Dialog } from '@/components/ui/Dialog';
 
 type Shift = { id: string; org_id: string; start_at: string };
 
@@ -168,25 +169,25 @@ export function SwapRequestModal({
   };
 
   return (
-    <div className="fixed inset-0 z-60 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="swap-title">
-      <button type="button" onClick={onClose} className="absolute inset-0 bg-black/50" aria-label="Cerrar" />
-      <div className="relative max-h-[90vh] w-full max-w-md overflow-y-auto rounded-xl border border-border bg-background p-6 shadow-lg">
-        <h2 id="swap-title" className="text-lg font-semibold text-text-primary">
-          Intercambiar este turno
-        </h2>
-        <p className="mt-1 text-sm text-muted">
-          Elige el turno con el que quieres intercambiar. La otra persona y un responsable deberán aceptar.
-        </p>
+    <Dialog
+      open={open}
+      onClose={onClose}
+      zIndex={60}
+      closeOnEscape={!loading}
+      title="Intercambiar este turno"
+      description="Elige el turno con el que quieres intercambiar. La otra persona y un responsable deberán aceptar."
+      panelClassName="max-h-[90vh] overflow-y-auto"
+    >
         {pendingExists && (
           <p className="mt-3 text-sm text-amber-600">
             Ya tienes una solicitud de intercambio pendiente para este turno.
           </p>
         )}
 
-        <form onSubmit={handleSubmit} className="mt-4 space-y-4">
-          <label className="block text-sm font-medium text-text-primary">
-            Turno con el que intercambiar <span className="text-red-500">*</span>
-          </label>
+        <form onSubmit={handleSubmit} className="space-y-4">
+            <label className="block text-sm font-medium text-text-primary">
+              Turno con el que intercambiar <span className="text-red-500">*</span>
+            </label>
           {loadTargets ? (
             <p className="text-sm text-muted">Cargando turnos…</p>
           ) : targets.length === 0 ? (
@@ -234,7 +235,6 @@ export function SwapRequestModal({
             </Button>
           </div>
         </form>
-      </div>
-    </div>
+    </Dialog>
   );
 }

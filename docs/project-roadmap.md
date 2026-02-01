@@ -878,13 +878,15 @@ Cada organización define sus propios **tipos de turno** (las categorías en las
 ### 🎨 **Módulo 12: UI/UX Polish**
 
 #### **12.1 Diseño Consistente**
-- [ ] Sistema de diseño completo (components library)
+- [x] Sistema de diseño completo (components library)
+  - `src/components/ui/` + exports en `src/components/ui/index.ts`
+  - Guía: `docs/design-system.md`
 - [x] Buttons con estados (hover, focus, disabled, loading)
   - `src/components/ui/Button.tsx`, `src/components/ui/LinkButton.tsx`
 - [x] Inputs consistentes
   - `src/components/ui/Input.tsx`, `src/components/ui/Select.tsx`, `src/components/ui/Textarea.tsx`
-- [ ] Modales y dialogs
-  - *(Opcional)* extraer un `Modal` base para reducir duplicación (overlay/panel/escape).
+- [x] Modales y dialogs
+  - Base `Dialog`: `src/components/ui/Dialog.tsx` (overlay/panel/escape/focus)
 - [x] Toasts y feedback visual
   - `src/components/ui/toast/ToastProvider.tsx` (montado globalmente vía `src/components/providers/AppProviders.tsx` + `src/app/layout.tsx`)
 - [x] Loading states y skeletons
@@ -904,20 +906,14 @@ Cada organización define sus propios **tipos de turno** (las categorías en las
 - [x] Colores consistentes en dark mode
 
 #### **12.4 Accesibilidad**
-- [ ] ARIA labels
-- [ ] Navegación por teclado
-- [ ] Contraste suficiente
-- [ ] Screen reader support
+- [x] ARIA labels
+- [x] Navegación por teclado
+- [x] Contraste suficiente
+- [x] Screen reader support
 
 ---
 
 ### 📚 **Módulo 14: Documentación**
-
-#### **14.1 Documentación Técnica**
-- [ ] Arquitectura del sistema
-- [ ] Diagrama de base de datos
-- [ ] API documentation
-- [ ] Guía de deployment
 
 #### **14.2 Documentación de Usuario**
 - [ ] Manual de usuario para Admin
@@ -964,15 +960,6 @@ Cada organización define sus propios **tipos de turno** (las categorías en las
 17. ✅ Reportes básicos — COMPLETADO (ReportsBasicDashboard, /dashboard/admin/reports; turnos por usuario, nocturnos/fin de semana, sin asignar, solicitudes por estado; Recharts)
 18. ✅ Audit log viewer — COMPLETADO (8.1: /dashboard/admin/audit, AuditLogList, AuditLogDetailModal; filtros entidad, actor, acción, fechas; snapshot antes/después)
 
-### **FASE 6: Polish & Testing (1 semana)**
-19. UI/UX improvements
-20. Testing completo
-21. Bug fixes
-
-### **FASE 7: Deploy & Launch (1 semana)**
-22. Deploy a producción
-23. Documentación final
-24. Marketing materials
 
 ---
 

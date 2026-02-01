@@ -1,7 +1,7 @@
 'use client';
 
-import { useCallback, useEffect } from 'react';
 import { ROLE_LABELS } from './role-labels';
+import { Dialog } from '@/components/ui/Dialog';
 
 export type MemberForDetails = {
   id: string;
@@ -24,35 +24,9 @@ type Props = {
  * Botón "Editar rol" abre EditMembershipForm (manejado por el padre).
  */
 export function MemberDetails({ member, onClose, onEditRole }: Props) {
-  const onEscape = useCallback(
-    (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    },
-    [onClose]
-  );
-  useEffect(() => {
-    document.addEventListener('keydown', onEscape);
-    return () => document.removeEventListener('keydown', onEscape);
-  }, [onEscape]);
-
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="member-details-title"
-    >
-      <button
-        type="button"
-        onClick={onClose}
-        className="absolute inset-0 bg-black/50"
-        aria-label="Cerrar"
-      />
-      <div className="relative w-full max-w-md rounded-xl border border-border bg-background p-6 shadow-lg">
-        <h2 id="member-details-title" className="text-lg font-semibold text-text-primary">
-          Detalle del miembro
-        </h2>
-        <dl className="mt-4 space-y-3 text-sm">
+    <Dialog open onClose={onClose} title="Detalle del miembro" panelClassName="max-w-md">
+        <dl className="space-y-3 text-sm">
           <div>
             <dt className="text-text-secondary">Nombre</dt>
             <dd className="text-text-primary">{member.full_name?.trim() || '—'}</dd>
@@ -92,7 +66,6 @@ export function MemberDetails({ member, onClose, onEditRole }: Props) {
             Editar rol
           </button>
         </div>
-      </div>
-    </div>
+    </Dialog>
   );
 }

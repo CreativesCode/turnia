@@ -10,6 +10,7 @@ import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/Button';
 import { Textarea } from '@/components/ui/Textarea';
 import { useToast } from '@/components/ui/toast/ToastProvider';
+import { Dialog } from '@/components/ui/Dialog';
 
 type Shift = { id: string; org_id: string };
 
@@ -87,21 +88,21 @@ export function TakeOpenRequestModal({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-60 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="takeopen-title">
-      <button type="button" onClick={onClose} className="absolute inset-0 bg-black/50" aria-label="Cerrar" />
-      <div className="relative w-full max-w-sm rounded-xl border border-border bg-background p-6 shadow-lg">
-        <h2 id="takeopen-title" className="text-lg font-semibold text-text-primary">
-          Tomar este turno
-        </h2>
-        <p className="mt-1 text-sm text-muted">
-          Si la organización lo permite, te asignarán el turno al instante. Si no, un responsable lo revisará.
-        </p>
+    <Dialog
+      open={open}
+      onClose={onClose}
+      zIndex={60}
+      closeOnEscape={!loading}
+      title="Tomar este turno"
+      description="Si la organización lo permite, te asignarán el turno al instante. Si no, un responsable lo revisará."
+      panelClassName="max-w-sm"
+    >
         {pendingExists && (
           <p className="mt-3 text-sm text-amber-600">
             Ya tienes una solicitud pendiente para este turno.
           </p>
         )}
-        <form onSubmit={handleSubmit} className="mt-4 space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4">
           <label className="block text-sm font-medium text-text-primary">
             Comentario <span className="text-muted">(opcional)</span>
           </label>
@@ -123,7 +124,6 @@ export function TakeOpenRequestModal({
             </Button>
           </div>
         </form>
-      </div>
-    </div>
+    </Dialog>
   );
 }

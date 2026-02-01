@@ -7,8 +7,9 @@
  */
 
 import { createClient } from '@/lib/supabase/client';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { ConfirmModal } from '@/components/ui/ConfirmModal';
+import { Dialog } from '@/components/ui/Dialog';
 
 export type AvailabilityEventType = 'vacation' | 'sick_leave' | 'training' | 'unavailable';
 
@@ -189,12 +190,31 @@ export function AvailabilityEventModal({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="w-full max-w-md rounded-xl border border-border bg-background shadow-lg">
-        <div className="border-b border-border px-4 py-3">
+    <>
+      <Dialog
+        open={open}
+        onClose={onClose}
+        active={!confirmDelete}
+        closeOnEscape={!loading && !deleting && !confirmDelete}
+        title={isEdit ? 'Editar disponibilidad' : 'Agregar disponibilidad'}
+        titleClassName="sr-only"
+        showCloseButton={false}
+        panelClassName="max-w-md p-0"
+        disableDefaultContentSpacing
+      >
+        <div className="border-b border-border px-4 py-3 flex items-center justify-between">
           <h2 className="text-lg font-semibold text-text-primary">
             {isEdit ? 'Editar disponibilidad' : 'Agregar disponibilidad'}
           </h2>
+          <button
+            type="button"
+            onClick={onClose}
+            className="min-h-[44px] min-w-[44px] rounded-lg px-2 text-muted hover:bg-subtle-bg hover:text-text-primary"
+            aria-label="Cerrar"
+            disabled={loading || deleting}
+          >
+            ✕
+          </button>
         </div>
         <form onSubmit={handleSubmit} className="p-4 space-y-4">
           {error && (
@@ -280,8 +300,7 @@ export function AvailabilityEventModal({
             )}
           </div>
         </form>
-      </div>
-
+      </Dialog>
       <ConfirmModal
         open={confirmDelete}
         onClose={() => setConfirmDelete(false)}
@@ -293,6 +312,6 @@ export function AvailabilityEventModal({
         variant="danger"
         loading={deleting}
       />
-    </div>
+    </>
   );
 }

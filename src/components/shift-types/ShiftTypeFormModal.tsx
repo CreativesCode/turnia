@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/client';
 import { generateColorFromName } from '@/lib/utils';
 import { useCallback, useEffect, useState } from 'react';
+import { Dialog } from '@/components/ui/Dialog';
 
 export type ShiftTypeRow = {
   id: string;
@@ -44,17 +45,20 @@ export function ShiftTypeFormModal({
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (open) {
+    if (!open) return;
+    // Evitar setState sincrónico dentro del effect (mejor para perf).
+    const t = window.setTimeout(() => {
       if (editing) {
         setName(editing.name);
         setLetter(editing.letter);
         setColor(editing.color);
         const st = editing.start_time?.substring(0, 5) ?? '';
         const et = editing.end_time?.substring(0, 5) ?? '';
-        const full24 = (et === '24:00' || et.startsWith('24:00')) && (st === '00:00' || st.startsWith('00:00'));
+        const full24 =
+          (et === '24:00' || et.startsWith('24:00')) && (st === '00:00' || st.startsWith('00:00'));
         setIs24h(!!full24);
         setStartTime(full24 ? '00:00' : st);
-        setEndTime(full24 ? '23:59' : (et === '24:00' || et.startsWith('24:00') ? '23:59' : et));
+        setEndTime(full24 ? '23:59' : et === '24:00' || et.startsWith('24:00') ? '23:59' : et);
       } else {
         setName('');
         setLetter('');
@@ -64,21 +68,9 @@ export function ShiftTypeFormModal({
         setIs24h(false);
       }
       setError(null);
-    }
+    }, 0);
+    return () => window.clearTimeout(t);
   }, [open, editing]);
-
-  const onEscape = useCallback(
-    (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && open && !loading) onClose();
-    },
-    [open, loading, onClose]
-  );
-
-  useEffect(() => {
-    if (!open) return;
-    document.addEventListener('keydown', onEscape);
-    return () => document.removeEventListener('keydown', onEscape);
-  }, [open, onEscape]);
 
   const generateColor = useCallback(() => {
     const base = generateColorFromName(name.trim() || 'tipo', existingColors);
@@ -165,23 +157,14 @@ export function ShiftTypeFormModal({
   if (!open) return null;
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="shift-type-modal-title"
+    <Dialog
+      open={open}
+      onClose={onClose}
+      closeOnEscape={!loading}
+      title={editing ? 'Editar tipo de turno' : 'Nuevo tipo de turno'}
+      panelClassName="max-w-sm"
     >
-      <button
-        type="button"
-        onClick={onClose}
-        className="absolute inset-0 bg-black/50"
-        aria-label="Cerrar"
-      />
-      <div className="relative w-full max-w-sm rounded-xl border border-border bg-background p-6 shadow-lg">
-        <h2 id="shift-type-modal-title" className="text-lg font-semibold text-text-primary">
-          {editing ? 'Editar tipo de turno' : 'Nuevo tipo de turno'}
-        </h2>
-        <form onSubmit={submit} className="mt-4 flex flex-col gap-4">
+      <form onSubmit={submit} className="flex flex-col gap-4">
           <label className="block text-sm font-medium text-text-secondary">
             Nombre
             <input
@@ -289,7 +272,6 @@ export function ShiftTypeFormModal({
             </button>
           </div>
         </form>
-      </div>
-    </div>
+    </Dialog>
   );
 }

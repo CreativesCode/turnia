@@ -6,6 +6,7 @@
  */
 
 import { getTypeLabel, type AvailabilityEvent } from './AvailabilityEventModal';
+import { Dialog } from '@/components/ui/Dialog';
 
 type Props = {
   open: boolean;
@@ -36,57 +37,52 @@ export function AvailabilityEventDetailModal({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="w-full max-w-md rounded-xl border border-border bg-background shadow-lg">
-        <div className="border-b border-border px-4 py-3 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-text-primary">Detalle de disponibilidad</h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded p-1 text-muted hover:bg-subtle-bg hover:text-text-primary"
-            aria-label="Cerrar"
-          >
-            ✕
-          </button>
-        </div>
-        <div className="p-4 space-y-3">
-          {event && (
-            <>
+    <Dialog
+      open={open}
+      onClose={onClose}
+      title="Detalle de disponibilidad"
+      titleClassName="sr-only"
+      showCloseButton={false}
+      panelClassName="max-w-md p-0"
+      disableDefaultContentSpacing
+    >
+      <div className="p-4 space-y-3">
+        {event && (
+          <>
+            <div>
+              <span className="text-sm font-medium text-text-secondary">Usuario</span>
+              <p className="text-text-primary">{userName?.trim() || event.user_id}</p>
+            </div>
+            <div>
+              <span className="text-sm font-medium text-text-secondary">Tipo</span>
+              <p className="text-text-primary">{getTypeLabel(event.type)}</p>
+            </div>
+            <div>
+              <span className="text-sm font-medium text-text-secondary">Desde</span>
+              <p className="text-text-primary">{formatDate(event.start_at)}</p>
+            </div>
+            <div>
+              <span className="text-sm font-medium text-text-secondary">Hasta</span>
+              <p className="text-text-primary">{formatDate(event.end_at)}</p>
+            </div>
+            {event.note?.trim() && (
               <div>
-                <span className="text-sm font-medium text-text-secondary">Usuario</span>
-                <p className="text-text-primary">{userName?.trim() || event.user_id}</p>
+                <span className="text-sm font-medium text-text-secondary">Nota</span>
+                <p className="text-text-primary whitespace-pre-wrap">{event.note.trim()}</p>
               </div>
-              <div>
-                <span className="text-sm font-medium text-text-secondary">Tipo</span>
-                <p className="text-text-primary">{getTypeLabel(event.type)}</p>
-              </div>
-              <div>
-                <span className="text-sm font-medium text-text-secondary">Desde</span>
-                <p className="text-text-primary">{formatDate(event.start_at)}</p>
-              </div>
-              <div>
-                <span className="text-sm font-medium text-text-secondary">Hasta</span>
-                <p className="text-text-primary">{formatDate(event.end_at)}</p>
-              </div>
-              {event.note?.trim() && (
-                <div>
-                  <span className="text-sm font-medium text-text-secondary">Nota</span>
-                  <p className="text-text-primary whitespace-pre-wrap">{event.note.trim()}</p>
-                </div>
-              )}
-            </>
-          )}
-        </div>
-        <div className="border-t border-border px-4 py-3">
-          <button
-            type="button"
-            onClick={onClose}
-            className="min-h-[44px] w-full rounded-lg border border-border px-4 py-2.5 text-sm font-medium text-text-secondary hover:bg-subtle-bg"
-          >
-            Cerrar
-          </button>
-        </div>
+            )}
+          </>
+        )}
       </div>
-    </div>
+      <div className="border-t border-border px-4 py-3">
+        <button
+          type="button"
+          onClick={onClose}
+          className="min-h-[44px] w-full rounded-lg border border-border px-4 py-2.5 text-sm font-medium text-text-secondary hover:bg-subtle-bg"
+        >
+          Cerrar
+        </button>
+      </div>
+    </Dialog>
   );
 }

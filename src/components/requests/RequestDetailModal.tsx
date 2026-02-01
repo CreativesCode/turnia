@@ -5,12 +5,13 @@
  * @see project-roadmap.md Módulo 4.2
  */
 
-import { useCallback, useEffect, useState } from 'react';
-import { createClient } from '@/lib/supabase/client';
-import { ConfirmModal } from '@/components/ui/ConfirmModal';
 import { Button } from '@/components/ui/Button';
+import { ConfirmModal } from '@/components/ui/ConfirmModal';
+import { Dialog } from '@/components/ui/Dialog';
 import { Textarea } from '@/components/ui/Textarea';
 import { useToast } from '@/components/ui/toast/ToastProvider';
+import { createClient } from '@/lib/supabase/client';
+import { useCallback, useState } from 'react';
 
 const REQUEST_TYPE_LABEL: Record<string, string> = {
   give_away: 'Dar de baja',
@@ -128,18 +129,7 @@ export function RequestDetailModal({ open, onClose, onResolved, request, names }
     onClose();
   }, [onClose]);
 
-  const onEscape = useCallback(
-    (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && open && !action) handleClose();
-    },
-    [open, action, handleClose]
-  );
-
-  useEffect(() => {
-    if (!open) return;
-    document.addEventListener('keydown', onEscape);
-    return () => document.removeEventListener('keydown', onEscape);
-  }, [open, onEscape]);
+  // Escape + focus trap handled by `Dialog` (via `useDialogA11y`).
 
   if (!open || !request) return null;
 
@@ -156,115 +146,115 @@ export function RequestDetailModal({ open, onClose, onResolved, request, names }
 
   return (
     <>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="request-detail-title">
-        <button type="button" onClick={handleClose} className="absolute inset-0 bg-black/50" aria-label="Cerrar" />
-        <div className="relative max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl border border-border bg-background p-6 shadow-lg">
-          <h2 id="request-detail-title" className="text-lg font-semibold text-text-primary">
-            Detalle de solicitud
-          </h2>
+      <Dialog
+        open={open}
+        onClose={handleClose}
+        active={!action}
+        closeOnEscape={!action}
+        title="Detalle de solicitud"
+        panelClassName="max-h-[90vh] max-w-lg overflow-y-auto"
+      >
 
-          <dl className="mt-4 space-y-2 text-sm">
-            <div>
-              <dt className="font-medium text-text-secondary">Tipo</dt>
-              <dd className="text-text-primary">{REQUEST_TYPE_LABEL[request.request_type] ?? request.request_type}</dd>
-            </div>
-            <div>
-              <dt className="font-medium text-text-secondary">Estado</dt>
-              <dd>
-                <span
-                  className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
-                    request.status === 'approved' ? 'bg-green-100 text-green-800' : request.status === 'rejected' || request.status === 'cancelled' ? 'bg-gray-100 text-gray-700' : 'bg-amber-100 text-amber-800'
+        <dl className="space-y-2 text-sm">
+          <div>
+            <dt className="font-medium text-text-secondary">Tipo</dt>
+            <dd className="text-text-primary">{REQUEST_TYPE_LABEL[request.request_type] ?? request.request_type}</dd>
+          </div>
+          <div>
+            <dt className="font-medium text-text-secondary">Estado</dt>
+            <dd>
+              <span
+                className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${request.status === 'approved' ? 'bg-green-100 text-green-800' : request.status === 'rejected' || request.status === 'cancelled' ? 'bg-gray-100 text-gray-700' : 'bg-amber-100 text-amber-800'
                   }`}
-                >
-                  {STATUS_LABEL[request.status] ?? request.status}
-                </span>
-              </dd>
-            </div>
+              >
+                {STATUS_LABEL[request.status] ?? request.status}
+              </span>
+            </dd>
+          </div>
+          <div>
+            <dt className="font-medium text-text-secondary">Solicitante</dt>
+            <dd className="text-text-primary">{requesterName}</dd>
+          </div>
+          <div>
+            <dt className="font-medium text-text-secondary">Turno</dt>
+            <dd className="text-text-primary">
+              <span className="font-medium">{letter}</span> {range}
+              {request.request_type !== 'take_open' && ` — ${assignedName}`}
+              {targetInfo}
+            </dd>
+          </div>
+          <div>
+            <dt className="font-medium text-text-secondary">Fecha solicitud</dt>
+            <dd className="text-text-primary">
+              {new Date(request.created_at).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+            </dd>
+          </div>
+          {request.comment && (
             <div>
-              <dt className="font-medium text-text-secondary">Solicitante</dt>
-              <dd className="text-text-primary">{requesterName}</dd>
-            </div>
-            <div>
-              <dt className="font-medium text-text-secondary">Turno</dt>
-              <dd className="text-text-primary">
-                <span className="font-medium">{letter}</span> {range}
-                {request.request_type !== 'take_open' && ` — ${assignedName}`}
-                {targetInfo}
-              </dd>
-            </div>
-            <div>
-              <dt className="font-medium text-text-secondary">Fecha solicitud</dt>
-              <dd className="text-text-primary">
-                {new Date(request.created_at).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
-              </dd>
-            </div>
-            {request.comment && (
-              <div>
-                <dt className="font-medium text-text-secondary">Comentario del solicitante</dt>
-                <dd className="text-text-primary">{request.comment}</dd>
-              </div>
-            )}
-            {request.request_type === 'give_away' && request.suggested_replacement_user_id && (
-              <div>
-                <dt className="font-medium text-text-secondary">Sugerencia de reemplazo</dt>
-                <dd className="text-text-primary">{names[request.suggested_replacement_user_id] ?? request.suggested_replacement_user_id.slice(0, 8)}</dd>
-              </div>
-            )}
-          </dl>
-
-          {error && <p className="mt-3 rounded-lg border border-red-200 bg-red-50 p-2 text-sm text-red-700">{error}</p>}
-
-          {canAct && (
-            <div className="mt-6 space-y-3">
-              <label className="block text-sm font-medium text-text-secondary">
-                Comentario (opcional; se guarda al rechazar)
-                <Textarea
-                  value={managerComment}
-                  onChange={(e) => setManagerComment(e.target.value)}
-                  placeholder="Ej. Motivo del rechazo o nota para el solicitante"
-                  rows={2}
-                  className="mt-1.5 min-h-[80px]"
-                />
-              </label>
-              <div className="flex flex-wrap gap-3">
-                <Button
-                  type="button"
-                  onClick={() => setAction('approve')}
-                  disabled={loading}
-                  className="bg-green-600 text-white hover:bg-green-700"
-                >
-                  Aprobar
-                </Button>
-                <Button
-                  type="button"
-                  onClick={() => setAction('reject')}
-                  disabled={loading}
-                  variant="secondary"
-                  className="border-red-200 text-red-600 hover:bg-red-50"
-                >
-                  Rechazar
-                </Button>
-                <Button
-                  type="button"
-                  onClick={handleClose}
-                  disabled={loading}
-                  variant="secondary"
-                >
-                  Cerrar
-                </Button>
-              </div>
+              <dt className="font-medium text-text-secondary">Comentario del solicitante</dt>
+              <dd className="text-text-primary">{request.comment}</dd>
             </div>
           )}
+          {request.request_type === 'give_away' && request.suggested_replacement_user_id && (
+            <div>
+              <dt className="font-medium text-text-secondary">Sugerencia de reemplazo</dt>
+              <dd className="text-text-primary">{names[request.suggested_replacement_user_id] ?? request.suggested_replacement_user_id.slice(0, 8)}</dd>
+            </div>
+          )}
+        </dl>
 
-          {!canAct && (
-            <div className="mt-6">
-              <Button type="button" variant="secondary" onClick={handleClose}>
+        {error && <p className="mt-3 rounded-lg border border-red-200 bg-red-50 p-2 text-sm text-red-700">{error}</p>}
+
+        {canAct && (
+          <div className="mt-6 space-y-3">
+            <label className="block text-sm font-medium text-text-secondary">
+              Comentario (opcional; se guarda al rechazar)
+              <Textarea
+                value={managerComment}
+                onChange={(e) => setManagerComment(e.target.value)}
+                placeholder="Ej. Motivo del rechazo o nota para el solicitante"
+                rows={2}
+                className="mt-1.5 min-h-[80px]"
+              />
+            </label>
+            <div className="flex flex-wrap gap-3">
+              <Button
+                type="button"
+                onClick={() => setAction('approve')}
+                disabled={loading}
+                className="bg-green-600 text-white hover:bg-green-700"
+              >
+                Aprobar
+              </Button>
+              <Button
+                type="button"
+                onClick={() => setAction('reject')}
+                disabled={loading}
+                variant="secondary"
+                className="border-red-200 text-red-600 hover:bg-red-50"
+              >
+                Rechazar
+              </Button>
+              <Button
+                type="button"
+                onClick={handleClose}
+                disabled={loading}
+                variant="secondary"
+              >
                 Cerrar
               </Button>
             </div>
-          )}
-        </div>
-      </div>
+          </div>
+        )}
+
+        {!canAct && (
+          <div className="mt-6">
+            <Button type="button" variant="secondary" onClick={handleClose}>
+              Cerrar
+            </Button>
+          </div>
+        )}
+      </Dialog>
 
       <ConfirmModal
         open={action === 'approve'}

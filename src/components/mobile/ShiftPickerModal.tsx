@@ -1,7 +1,7 @@
 'use client';
 
 import type { ShiftWithType } from '@/components/calendar/ShiftCalendar';
-import { useCallback, useEffect } from 'react';
+import { Dialog } from '@/components/ui/Dialog';
 
 export type ShiftPickerItem = {
   shift: ShiftWithType;
@@ -33,25 +33,18 @@ export function ShiftPickerModal({
   onClose: () => void;
   onSelect: (item: ShiftPickerItem) => void;
 }) {
-  const onEscape = useCallback(
-    (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && open) onClose();
-    },
-    [open, onClose]
-  );
-
-  useEffect(() => {
-    if (!open) return;
-    document.addEventListener('keydown', onEscape);
-    return () => document.removeEventListener('keydown', onEscape);
-  }, [open, onEscape]);
-
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center p-0 md:items-center md:p-4" role="dialog" aria-modal="true">
-      <button type="button" onClick={onClose} className="absolute inset-0 bg-black/50" aria-label="Cerrar" />
-      <div className="relative w-full max-w-none max-h-[75vh] overflow-y-auto rounded-t-2xl border border-b-0 border-border bg-background p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] shadow-lg md:max-w-md md:rounded-xl md:border-b md:p-6">
+    <Dialog
+      open={open}
+      onClose={onClose}
+      title={title}
+      titleClassName="sr-only"
+      variant="sheet"
+      showCloseButton={false}
+      disableDefaultContentSpacing
+    >
         <div className="mb-2 flex justify-center md:hidden">
           <span className="h-1 w-12 shrink-0 rounded-full bg-muted" aria-hidden />
         </div>
@@ -102,8 +95,7 @@ export function ShiftPickerModal({
             })}
           </ul>
         )}
-      </div>
-    </div>
+    </Dialog>
   );
 }
 

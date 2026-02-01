@@ -7,7 +7,7 @@
  * @see project-roadmap.md Módulo 3.1, 4.1
  */
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { formatShiftTypeSchedule } from '@/lib/utils';
 import { ConfirmModal } from '@/components/ui/ConfirmModal';
@@ -17,6 +17,7 @@ import { GiveAwayRequestModal } from '@/components/requests/GiveAwayRequestModal
 import { TakeOpenRequestModal } from '@/components/requests/TakeOpenRequestModal';
 import { SwapRequestModal } from '@/components/requests/SwapRequestModal';
 import type { ShiftWithType } from '@/components/calendar/ShiftCalendar';
+import { getFocusableElements, trapFocusWithin } from '@/lib/a11y';
 
 type RequestModalType = 'give_away' | 'take_open' | 'swap' | null;
 
@@ -46,6 +47,8 @@ export function ShiftDetailModal({
   currentUserId,
 }: Props) {
   const { toast } = useToast();
+  const panelRef = useRef<HTMLDivElement>(null);
+  const lastFocusedElementRef = useRef<HTMLElement | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -89,7 +92,13 @@ export function ShiftDetailModal({
 
   const onEscape = useCallback(
     (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && open) onClose();
+      if (e.key === 'Escape' && open) {
+        e.preventDefault();
+        onClose();
+        return;
+      }
+      const panel = panelRef.current;
+      if (open && panel) trapFocusWithin(e, panel);
     },
     [open, onClose]
   );
@@ -102,6 +111,21 @@ export function ShiftDetailModal({
     document.addEventListener('keydown', onEscape);
     return () => document.removeEventListener('keydown', onEscape);
   }, [open, onEscape]);
+
+  useEffect(() => {
+    if (open) {
+      lastFocusedElementRef.current =
+        (typeof document !== 'undefined' ? (document.activeElement as HTMLElement | null) : null) ?? null;
+      const t = window.setTimeout(() => {
+        const panel = panelRef.current;
+        if (!panel) return;
+        const focusables = getFocusableElements(panel);
+        (focusables[0] ?? panel).focus();
+      }, 0);
+      return () => window.clearTimeout(t);
+    }
+    lastFocusedElementRef.current?.focus?.();
+  }, [open]);
 
   if (!open || !shift) return null;
 
@@ -129,12 +153,28 @@ export function ShiftDetailModal({
         onClick={onClose}
         className="absolute inset-0 bg-black/50"
         aria-label="Cerrar"
+        tabIndex={-1}
       />
-      <div className="relative w-full max-w-none max-h-[85vh] overflow-y-auto rounded-t-2xl border border-b-0 border-border bg-background p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] shadow-lg md:max-w-sm md:max-h-[90vh] md:rounded-xl md:border-b md:pb-6">
+      <div
+        ref={panelRef}
+        tabIndex={-1}
+        className="relative w-full max-w-none max-h-[85vh] overflow-y-auto rounded-t-2xl border border-b-0 border-border bg-background p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] shadow-lg focus:outline-none focus:ring-2 focus:ring-primary-500 md:max-w-sm md:max-h-[90vh] md:rounded-xl md:border-b md:pb-6"
+      >
         {/* Asa para arrastrar en móvil (bottom sheet) */}
         <div className="-mt-1 mb-2 flex justify-center md:hidden">
           <span className="h-1 w-12 shrink-0 rounded-full bg-muted" aria-hidden />
         </div>
+        <button
+          type="button"
+          onClick={onClose}
+          className="absolute right-3 top-3 flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg text-muted hover:bg-subtle-bg hover:text-text-primary focus:outline-none focus:ring-2 focus:ring-primary-500"
+          aria-label="Cerrar"
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <line x1="18" y1="6" x2="6" y2="18" />
+            <line x1="6" y1="6" x2="18" y2="18" />
+          </svg>
+        </button>
         <h2 id="shift-detail-title" className="text-lg font-semibold text-text-primary">
           Detalle del turno
         </h2>

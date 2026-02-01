@@ -3,6 +3,7 @@
 import { IconAutogenSlug } from '@/components/ui/IconAutogenSlug';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
+import { Dialog } from '@/components/ui/Dialog';
 import { useToast } from '@/components/ui/toast/ToastProvider';
 import { createClient } from '@/lib/supabase/client';
 import { generateSlug } from '@/lib/utils';
@@ -33,19 +34,6 @@ export function CreateOrganizationModal({ open, onClose, onCreated }: Props) {
     }
   }, [open]);
 
-  const onEscape = useCallback(
-    (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && open && !loading) onClose();
-    },
-    [open, loading, onClose]
-  );
-
-  useEffect(() => {
-    if (!open) return;
-    document.addEventListener('keydown', onEscape);
-    return () => document.removeEventListener('keydown', onEscape);
-  }, [open, onEscape]);
-
   const submit = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault();
@@ -72,66 +60,56 @@ export function CreateOrganizationModal({ open, onClose, onCreated }: Props) {
   if (!open) return null;
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="create-org-modal-title"
+    <Dialog
+      open={open}
+      onClose={onClose}
+      title="Crear organización"
+      closeOnEscape={!loading}
+      panelClassName="max-w-sm"
     >
-      <button
-        type="button"
-        onClick={onClose}
-        className="absolute inset-0 bg-black/50"
-        aria-label="Cerrar"
-      />
-      <div className="relative w-full max-w-sm rounded-xl border border-border bg-background p-6 shadow-lg">
-        <h2 id="create-org-modal-title" className="text-lg font-semibold text-text-primary">
-          Crear organización
-        </h2>
-        <form onSubmit={submit} className="mt-4 flex flex-col gap-4">
-          <label className="block text-sm font-medium text-text-secondary">
-            Nombre
+      <form onSubmit={submit} className="flex flex-col gap-4">
+        <label className="block text-sm font-medium text-text-secondary">
+          Nombre
+          <Input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            required
+            placeholder="Mi Organización"
+            className="mt-1.5"
+          />
+        </label>
+        <label className="block text-sm font-medium text-text-secondary">
+          Slug <span className="font-normal text-muted">(opcional, único)</span>
+          <div className="mt-1.5 flex gap-2">
             <Input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              required
-              placeholder="Mi Organización"
-              className="mt-1.5"
+              value={slug}
+              onChange={(e) => setSlug(e.target.value)}
+              placeholder="mi-org"
+              className="min-w-0 flex-1"
             />
-          </label>
-          <label className="block text-sm font-medium text-text-secondary">
-            Slug <span className="font-normal text-muted">(opcional, único)</span>
-            <div className="mt-1.5 flex gap-2">
-              <Input
-                value={slug}
-                onChange={(e) => setSlug(e.target.value)}
-                placeholder="mi-org"
-                className="min-w-0 flex-1"
-              />
-              <Button
-                type="button"
-                variant="secondary"
-                size="icon"
-                onClick={() => setSlug(generateSlug(name) || slug)}
-                title="Autogenerar desde el nombre"
-                aria-label="Autogenerar slug desde el nombre"
-                className="h-11 w-11 bg-subtle-bg text-muted hover:border-primary-300 hover:bg-primary-50 hover:text-primary-600"
-              >
-                <IconAutogenSlug />
-              </Button>
-            </div>
-          </label>
-          {error && <p className="text-sm text-red-600">{error}</p>}
-          <div className="flex flex-wrap justify-end gap-3">
-            <Button variant="secondary" onClick={onClose} disabled={loading}>
-              Cancelar
-            </Button>
-            <Button type="submit" loading={loading}>
-              Crear
+            <Button
+              type="button"
+              variant="secondary"
+              size="icon"
+              onClick={() => setSlug(generateSlug(name) || slug)}
+              title="Autogenerar desde el nombre"
+              aria-label="Autogenerar slug desde el nombre"
+              className="h-11 w-11 bg-subtle-bg text-muted hover:border-primary-300 hover:bg-primary-50 hover:text-primary-600"
+            >
+              <IconAutogenSlug />
             </Button>
           </div>
-        </form>
-      </div>
-    </div>
+        </label>
+        {error && <p className="text-sm text-red-600">{error}</p>}
+        <div className="flex flex-wrap justify-end gap-3">
+          <Button variant="secondary" onClick={onClose} disabled={loading}>
+            Cancelar
+          </Button>
+          <Button type="submit" loading={loading}>
+            Crear
+          </Button>
+        </div>
+      </form>
+    </Dialog>
   );
 }

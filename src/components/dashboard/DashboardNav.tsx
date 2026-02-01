@@ -258,7 +258,12 @@ export function DashboardNav() {
             aria-modal="true"
             aria-labelledby="dashboard-more-menu-title"
           >
-            <div className="absolute inset-0 bg-black/50" onClick={closeMore} aria-hidden="true" />
+            <button
+              type="button"
+              className="absolute inset-0 bg-black/50"
+              onClick={closeMore}
+              aria-label="Cerrar menú"
+            />
             <div
               ref={morePanelRef}
               tabIndex={-1}
