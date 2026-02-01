@@ -10,6 +10,13 @@ Si eres nuevo en el proyecto, empieza por aquí:
 2. [Comandos de Setup](./setup-commands.md) - Configuración inicial del entorno
 3. [Primer Administrador](./first-admin.md) - Cómo configurar el primer usuario admin
 
+## 👤 Documentación de Usuario
+
+- [🧑‍💼 Manual Admin](./manual-admin.md) - Uso de Turnia como **Org Admin / Superadmin**
+- [🧑‍💼 Manual Manager](./manual-manager.md) - Operación diaria: calendario, turnos, solicitudes, disponibilidad
+- [👤 Manual Staff](./manual-staff.md) - Mis turnos, solicitudes y disponibilidad
+- [❓ FAQs](./faqs.md) - Preguntas frecuentes (uso y troubleshooting)
+
 ## 🎯 Planificación y Desarrollo
 
 - [📋 Project Roadmap](./project-roadmap.md) - Hoja de ruta completa del proyecto (994 líneas)
@@ -92,6 +99,10 @@ docs/
 ├── project-roadmap.md                 # Planificación completa
 ├── setup-commands.md                  # Comandos de setup
 ├── first-admin.md                     # Configuración admin
+├── manual-admin.md                    # Manual de usuario (Admin)
+├── manual-manager.md                  # Manual de usuario (Manager)
+├── manual-staff.md                    # Manual de usuario (Staff)
+├── faqs.md                            # Preguntas frecuentes
 ├── invitation-emails.md               # Email de invitaciones (Resend, opcional)
 ├── solicitudes-turnos.md              # Ceder / swap / pedir turno abierto (Módulo 4)
 ├── colors.md                          # Paleta de colores
@@ -137,7 +148,7 @@ docs/
 
 ## 📊 Estadísticas de Documentación
 
-- **Total de archivos**: 8 documentos
+- **Total de archivos (docs/)**: 18
 - **Cobertura**:
   - ✅ Desarrollo y Setup
   - ✅ Assets Nativos (completo)
@@ -145,15 +156,23 @@ docs/
   - ✅ Publicación en Stores
   - ✅ Diseño y UI
   - ✅ Planificación
+  - ✅ Manual de usuario (Admin)
+  - ✅ Manual de usuario (Manager)
+  - ✅ Manual de usuario (Staff)
+  - ✅ FAQs
 
 ## 🔄 Última Actualización
 
-**Fecha**: 24 de enero de 2026
+**Fecha**: 31 de enero de 2026
 
 **Cambios recientes**:
 - ✅ Módulo 1 (Sistema de invitaciones) marcado como concluido en project-roadmap
 - 📧 Añadida referencia a invitation-emails.md
 - 🗑️ Eliminado fix-jwt-error.md (obsoleto)
+- 🧑‍💼 Añadido manual de usuario para Admin
+- 🧑‍💼 Añadido manual de usuario para Manager
+- 👤 Añadido manual de usuario para Staff
+- ❓ Añadidas FAQs
 
 ## 🤝 Contribuir a la Documentación
 

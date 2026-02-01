@@ -916,10 +916,14 @@ Cada organización define sus propios **tipos de turno** (las categorías en las
 ### 📚 **Módulo 14: Documentación**
 
 #### **14.2 Documentación de Usuario**
-- [ ] Manual de usuario para Admin
-- [ ] Manual de usuario para Manager
-- [ ] Manual de usuario para Staff
-- [ ] FAQs
+- [x] Manual de usuario para Admin
+  - Guía: [Manual Admin](./manual-admin.md)
+- [x] Manual de usuario para Manager
+  - Guía: [Manual Manager](./manual-manager.md)
+- [x] Manual de usuario para Staff
+  - Guía: [Manual Staff](./manual-staff.md)
+- [x] FAQs
+  - Guía: [FAQs](./faqs.md)
 
 #### **14.3 Videos Tutoriales**
 - [ ] Cómo crear una organización
