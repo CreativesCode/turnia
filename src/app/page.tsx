@@ -4,12 +4,12 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-background">
       {/* Top nav */}
-      <header className="sticky top-0 z-20 border-b border-border bg-background/90 backdrop-blur">
-        <nav className="mx-auto flex h-20 max-w-6xl items-center justify-between px-6 lg:px-20">
-          <Link href="/" className="flex items-center gap-3">
+      <header className="sticky top-0 z-20 border-b border-border bg-background/90 backdrop-blur pt-safe">
+        <nav className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-4 sm:h-20 sm:px-6 lg:px-20">
+          <Link href="/" className="flex items-center gap-2 sm:gap-3">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/logo.png" alt="Turnia" className="h-10 w-10" />
-            <span className="text-2xl font-bold text-primary-600">Turnia</span>
+            <img src="/logo.png" alt="Turnia" className="h-10 w-10 sm:h-12 sm:w-12" />
+            <span className="text-xl font-bold text-primary-600 sm:text-2xl">Turnia</span>
           </Link>
 
           <div className="hidden items-center gap-10 text-sm font-medium text-text-secondary md:flex">
@@ -18,13 +18,13 @@ export default function Home() {
             <a href="#pricing" className="hover:text-primary-600">Precios</a>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             <Link href="/login" className="text-sm font-medium text-primary-600 hover:text-primary-700">
               Iniciar sesión
             </Link>
             <Link
               href="/signup"
-              className="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-primary-600 px-6 text-sm font-semibold text-white hover:bg-primary-700"
+              className="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-primary-600 px-4 text-sm font-semibold text-white hover:bg-primary-700 sm:px-6"
             >
               Comenzar gratis
             </Link>
