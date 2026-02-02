@@ -11,36 +11,39 @@ import { OrgSettingsForm } from '@/components/organizations/OrgSettingsForm';
 import { useCurrentOrg } from '@/hooks/useCurrentOrg';
 import { createClient } from '@/lib/supabase/client';
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import useSWR from 'swr';
 
 type OrgOption = { id: string; name: string };
 
 export default function AdminSettingsPage() {
   const { orgId, isSuperadmin, isLoading, error } = useCurrentOrg();
-  const [orgs, setOrgs] = useState<OrgOption[]>([]);
-  const [orgsLoading, setOrgsLoading] = useState(false);
   const [selectedOrgId, setSelectedOrgId] = useState<string | null>(null);
+
+  const orgsKey = useMemo(() => (isSuperadmin ? (['adminSettingsOrgs'] as const) : null), [isSuperadmin]);
+  const orgsFetcher = useMemo(() => {
+    if (!isSuperadmin) return null;
+    return async (): Promise<OrgOption[]> => {
+      const supabase = createClient();
+      const { data, error } = await supabase.from('organizations').select('id, name').order('name');
+      if (error) throw new Error(error.message);
+      return (data ?? []) as OrgOption[];
+    };
+  }, [isSuperadmin]);
+
+  const { data: orgs = [], isLoading: orgsLoading } = useSWR(orgsKey, orgsFetcher as any, {
+    revalidateOnFocus: true,
+    revalidateOnReconnect: true,
+    dedupingInterval: 10_000,
+  });
 
   useEffect(() => {
     if (!isSuperadmin) {
-      setOrgs([]);
       setSelectedOrgId(orgId);
       return;
     }
-    setOrgsLoading(true);
-    const supabase = createClient();
-    supabase
-      .from('organizations')
-      .select('id, name')
-      .order('name')
-      .then(({ data, error: err }) => {
-        setOrgsLoading(false);
-        if (err) return;
-        const list = (data ?? []) as OrgOption[];
-        setOrgs(list);
-        if (list.length > 0 && !selectedOrgId) setSelectedOrgId(list[0].id);
-      });
-  }, [isSuperadmin, orgId]);
+    if (!selectedOrgId && orgs.length > 0) setSelectedOrgId(orgs[0].id);
+  }, [isSuperadmin, orgId, orgs, selectedOrgId]);
 
   const effectiveOrgId = isSuperadmin ? selectedOrgId : orgId;
   const canEdit = isSuperadmin || !!orgId;
@@ -99,7 +102,7 @@ export default function AdminSettingsPage() {
             className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-text-primary"
           >
             <option value="">Seleccionar…</option>
-            {orgs.map((o) => (
+            {orgs.map((o: OrgOption) => (
               <option key={o.id} value={o.id}>
                 {o.name}
               </option>

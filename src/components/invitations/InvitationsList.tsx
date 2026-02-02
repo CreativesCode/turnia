@@ -1,7 +1,8 @@
 'use client';
 
 import { createClient } from '@/lib/supabase/client';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import useSWR from 'swr';
 
 const ROLE_LABELS: Record<string, string> = {
   org_admin: 'Admin org',
@@ -22,12 +23,22 @@ type Row = {
 
 type Props = {
   orgId: string;
-  refreshKey: number;
+  refreshKey?: number;
 };
 
-export function InvitationsList({ orgId, refreshKey }: Props) {
-  const [rows, setRows] = useState<Row[]>([]);
-  const [loading, setLoading] = useState(true);
+async function fetchInvitations(orgId: string): Promise<Row[]> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from('organization_invitations')
+    .select('id, email, role, status, expires_at, created_at, token')
+    .eq('org_id', orgId)
+    .in('status', ['pending', 'accepted', 'expired', 'cancelled'])
+    .order('created_at', { ascending: false });
+  if (error) throw new Error(error.message);
+  return (data ?? []) as Row[];
+}
+
+export function InvitationsList({ orgId, refreshKey = 0 }: Props) {
   const [cancelling, setCancelling] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [resending, setResending] = useState<string | null>(null);
@@ -35,6 +46,39 @@ export function InvitationsList({ orgId, refreshKey }: Props) {
   const [filterStatus, setFilterStatus] = useState<string>('');
   const [filterRole, setFilterRole] = useState<string>('');
   const [filterExpires, setFilterExpires] = useState<string>('');
+  const realtimeTimerRef = useRef<number | null>(null);
+
+  const swrKey = useMemo(() => (orgId ? ['invitations', orgId, refreshKey] as const : null), [orgId, refreshKey]);
+  const { data: rows = [], error: swrError, isLoading, mutate } = useSWR(swrKey, () => fetchInvitations(orgId!), {
+    revalidateOnFocus: true,
+    revalidateOnReconnect: true,
+    dedupingInterval: 2000,
+  });
+
+  useEffect(() => {
+    if (realtimeTimerRef.current !== null) window.clearTimeout(realtimeTimerRef.current);
+    realtimeTimerRef.current = window.setTimeout(() => void mutate(), 250);
+  }, [mutate]);
+
+  useEffect(() => {
+    if (!orgId) return;
+    const supabase = createClient();
+    const channel = supabase
+      .channel(`invitations:${orgId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'organization_invitations', filter: `org_id=eq.${orgId}` },
+        () => {
+          if (realtimeTimerRef.current !== null) window.clearTimeout(realtimeTimerRef.current);
+          realtimeTimerRef.current = window.setTimeout(() => void mutate(), 250);
+        }
+      )
+      .subscribe();
+    return () => {
+      if (realtimeTimerRef.current !== null) window.clearTimeout(realtimeTimerRef.current);
+      void supabase.removeChannel(channel);
+    };
+  }, [orgId, mutate]);
 
   const filteredRows = useMemo(() => {
     const now = Date.now();
@@ -49,31 +93,16 @@ export function InvitationsList({ orgId, refreshKey }: Props) {
     });
   }, [rows, filterStatus, filterRole, filterExpires]);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    const supabase = createClient();
-    const { data, error } = await supabase
-      .from('organization_invitations')
-      .select('id, email, role, status, expires_at, created_at, token')
-      .eq('org_id', orgId)
-      .in('status', ['pending', 'accepted', 'expired', 'cancelled'])
-      .order('created_at', { ascending: false });
-    setLoading(false);
-    if (error) return;
-    setRows((data ?? []) as Row[]);
-  }, [orgId]);
-
-  useEffect(() => {
-    load();
-  }, [load, refreshKey]);
-
-  const cancel = useCallback(async (id: string) => {
-    setCancelling(id);
-    const supabase = createClient();
-    await supabase.from('organization_invitations').update({ status: 'cancelled' }).eq('id', id);
-    setCancelling(null);
-    await load();
-  }, [load]);
+  const cancel = useCallback(
+    async (id: string) => {
+      setCancelling(id);
+      const supabase = createClient();
+      await supabase.from('organization_invitations').update({ status: 'cancelled' }).eq('id', id);
+      setCancelling(null);
+      void mutate();
+    },
+    [mutate]
+  );
 
   const copyLink = useCallback(async (t: string, id: string) => {
     const url = typeof window !== 'undefined' ? `${window.location.origin}/invite?token=${encodeURIComponent(t)}` : '';
@@ -96,35 +125,42 @@ export function InvitationsList({ orgId, refreshKey }: Props) {
     }
   }, []);
 
-  const resend = useCallback(async (id: string) => {
-    setResending(id);
-    const supabase = createClient();
-    const { data: sess } = await supabase.auth.getSession();
-    if (!sess?.session?.access_token) {
+  const resend = useCallback(
+    async (id: string) => {
+      setResending(id);
+      const supabase = createClient();
+      const { data: sess } = await supabase.auth.getSession();
+      if (!sess?.session?.access_token) {
+        setResending(null);
+        return;
+      }
+      const { data, error } = await supabase.functions.invoke('resend-invitation', {
+        body: { invitation_id: id },
+      });
       setResending(null);
-      return;
-    }
-    const { data, error } = await supabase.functions.invoke('resend-invitation', {
-      body: { invitation_id: id },
-    });
-    setResending(null);
-    if (!error && data?.ok) await load();
-  }, [load]);
+      if (!error && data?.ok) void mutate();
+    },
+    [mutate]
+  );
 
-  const extend = useCallback(async (r: Row) => {
-    if (r.status !== 'pending') return;
-    setExtending(r.id);
-    const supabase = createClient();
-    const now = Date.now();
-    const exp = new Date(r.expires_at).getTime();
-    const base = exp > now ? exp : now;
-    const newExp = new Date(base + 7 * 24 * 60 * 60 * 1000).toISOString();
-    await supabase.from('organization_invitations').update({ expires_at: newExp }).eq('id', r.id);
-    setExtending(null);
-    await load();
-  }, [load]);
+  const extend = useCallback(
+    async (r: Row) => {
+      if (r.status !== 'pending') return;
+      setExtending(r.id);
+      const supabase = createClient();
+      const now = Date.now();
+      const exp = new Date(r.expires_at).getTime();
+      const base = exp > now ? exp : now;
+      const newExp = new Date(base + 7 * 24 * 60 * 60 * 1000).toISOString();
+      await supabase.from('organization_invitations').update({ expires_at: newExp }).eq('id', r.id);
+      setExtending(null);
+      void mutate();
+    },
+    [mutate]
+  );
 
-  if (loading) return <p className="text-sm text-muted">Cargando invitaciones…</p>;
+  if (swrError) return <p className="text-sm text-red-600">Error al cargar invitaciones.</p>;
+  if (isLoading) return <p className="text-sm text-muted">Cargando invitaciones…</p>;
   if (rows.length === 0) return <p className="text-sm text-muted">No hay invitaciones.</p>;
 
   return (

@@ -40,6 +40,7 @@ function NavIcon({
   return (
     <Link
       href={href}
+      prefetch={true}
       className="flex min-h-[44px] min-w-[44px] flex-1 flex-col items-center justify-center gap-0.5 py-2 text-[10px] font-medium transition-colors md:min-h-0 md:min-w-0"
       aria-current={isActive ? 'page' : undefined}
     >
@@ -192,7 +193,13 @@ export function DashboardNav() {
   }, [closeMore, router]);
 
   const link = (href: string, label: string) => (
-    <Link key={href} href={href} onClick={closeMore} className="block rounded-lg px-4 py-3 text-sm text-text-primary hover:bg-subtle-bg">
+    <Link
+      key={href}
+      href={href}
+      prefetch={true}
+      onClick={closeMore}
+      className="block rounded-lg px-4 py-3 text-sm text-text-primary hover:bg-subtle-bg"
+    >
       {label}
     </Link>
   );
@@ -202,7 +209,7 @@ export function DashboardNav() {
       <>
         <header className="sticky top-0 z-30 border-b border-border bg-background px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
           <div className="flex items-center justify-between">
-            <Link href={homeHref} className="font-semibold text-text-primary">
+            <Link href={homeHref} prefetch={true} className="font-semibold text-text-primary">
               Turnia
             </Link>
             <div className="flex items-center gap-1">

@@ -7,6 +7,9 @@
  */
 
 import { createClient } from '@/lib/supabase/client';
+import { fetchProfilesMap } from '@/lib/supabase/queries';
+import Link from 'next/link';
+import { useCallback, useMemo, useState } from 'react';
 import {
   Bar,
   BarChart,
@@ -19,26 +22,27 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import { useCallback, useEffect, useState } from 'react';
-import Link from 'next/link';
+import useSWR from 'swr';
 
 type Props = { orgId: string };
 
-type OST = { name: string; letter: string };
-
-type ShiftRow = {
-  id: string;
-  start_at: string;
-  assigned_user_id: string | null;
-  organization_shift_types: OST | OST[] | null;
+type ReportByUserTypeRow = {
+  user_id: string | null;
+  shift_type_name: string;
+  shift_type_letter: string;
+  shift_count: number;
 };
 
-function normOST(ost: OST | OST[] | null): OST | null {
-  if (!ost) return null;
-  return Array.isArray(ost) ? ost[0] ?? null : ost;
-}
+type ReportSummaryRow = {
+  unassigned_count: number;
+  night_count: number;
+  weekend_count: number;
+};
 
-type RequestRow = { id: string; status: string; created_at: string };
+type ReportRequestsStatusRow = {
+  status: string;
+  request_count: number;
+};
 
 function toDateInput(d: Date): string {
   const y = d.getFullYear();
@@ -66,18 +70,6 @@ const REQUEST_STATUS_LABELS: Record<string, string> = {
 
 const PIE_COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#6B7280'];
 
-function isNightType(ost: OST | null): boolean {
-  if (!ost) return false;
-  if (ost.letter === 'N') return true;
-  return /\b(noche|night|nocturno|nocturna)\b/i.test(ost.name ?? '');
-}
-
-function isWeekend(iso: string): boolean {
-  const d = new Date(iso);
-  const day = d.getUTCDay();
-  return day === 0 || day === 6;
-}
-
 export function ReportsBasicDashboard({ orgId }: Props) {
   const now = new Date();
   const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -85,135 +77,80 @@ export function ReportsBasicDashboard({ orgId }: Props) {
 
   const [start, setStart] = useState(toDateInput(firstDay));
   const [end, setEnd] = useState(toDateInput(lastDay));
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const swrKey = useMemo(() => ['reportsBasic', orgId, start, end] as const, [orgId, start, end]);
 
-  // Aggregated data
-  const [byUser, setByUser] = useState<{ user: string; total: number; [type: string]: string | number }[]>([]);
-  const [nightCount, setNightCount] = useState(0);
-  const [weekendCount, setWeekendCount] = useState(0);
-  const [unassignedCount, setUnassignedCount] = useState(0);
-  const [byStatus, setByStatus] = useState<{ status: string; label: string; count: number }[]>([]);
-  const [typeNames, setTypeNames] = useState<string[]>([]);
-
-  const fetchReports = useCallback(async () => {
-    setError(null);
-    setLoading(true);
+  const fetcher = useCallback(async () => {
     const supabase = createClient();
     const startISO = toStartISO(start);
     const endISO = toEndISO(end);
 
-    // Shifts en el rango (start_at dentro del rango)
-    const { data: shiftRows, error: shiftsErr } = await supabase
-      .from('shifts')
-      .select('id, start_at, assigned_user_id, organization_shift_types(name, letter)')
-      .eq('org_id', orgId)
-      .gte('start_at', startISO)
-      .lte('start_at', endISO);
+    const [byUserTypeRes, summaryRes, byStatusRes] = await Promise.all([
+      supabase.rpc('report_shift_counts_by_user_type', { p_org_id: orgId, p_from: startISO, p_to: endISO }),
+      supabase.rpc('report_shift_counts_summary', { p_org_id: orgId, p_from: startISO, p_to: endISO }),
+      supabase.rpc('report_shift_requests_status_counts', { p_org_id: orgId, p_from: startISO, p_to: endISO }),
+    ]);
 
-    if (shiftsErr) {
-      setError(shiftsErr.message);
-      setLoading(false);
-      return;
-    }
+    if (byUserTypeRes.error) throw new Error(byUserTypeRes.error.message);
+    if (summaryRes.error) throw new Error(summaryRes.error.message);
+    if (byStatusRes.error) throw new Error(byStatusRes.error.message);
 
-    const shifts = (shiftRows ?? []) as unknown as ShiftRow[];
+    const byUserType = (byUserTypeRes.data ?? []) as unknown as ReportByUserTypeRow[];
+    const summary = (summaryRes.data?.[0] ?? { unassigned_count: 0, night_count: 0, weekend_count: 0 }) as ReportSummaryRow;
+    const byStatus = (byStatusRes.data ?? []) as unknown as ReportRequestsStatusRow[];
 
-    // shift_requests con created_at en el rango
-    const { data: requestRows, error: reqErr } = await supabase
-      .from('shift_requests')
-      .select('id, status, created_at')
-      .eq('org_id', orgId)
-      .gte('created_at', startISO)
-      .lte('created_at', endISO);
+    const userIds = Array.from(new Set(byUserType.map((r) => r.user_id).filter(Boolean))) as string[];
+    const names = userIds.length > 0 ? await fetchProfilesMap(supabase, userIds, { fallbackName: (id) => id.slice(0, 8) }) : {};
 
-    if (reqErr) {
-      setError(reqErr.message);
-      setLoading(false);
-      return;
-    }
+    const allTypes = Array.from(new Set(byUserType.map((r) => r.shift_type_name))).sort();
 
-    const requests = (requestRows ?? []) as RequestRow[];
-
-    // Perfiles para nombres de usuario
-    const userIds = [...new Set(shifts.map((s) => s.assigned_user_id).filter(Boolean))] as string[];
-    let names: Record<string, string> = {};
-    if (userIds.length > 0) {
-      const { data: profiles } = await supabase
-        .from('profiles')
-        .select('id, full_name')
-        .in('id', userIds);
-      names = Object.fromEntries(
-        ((profiles ?? []) as { id: string; full_name: string | null }[]).map((p) => [
-          p.id,
-          p.full_name || p.id.slice(0, 8),
-        ])
-      );
-    }
-
-    // 1) Turnos por usuario (y por tipo)
     const userTypeCount = new Map<string, Map<string, number>>();
-    const allTypes = new Set<string>();
-
-    for (const s of shifts) {
-      const ost = normOST(s.organization_shift_types);
-      const typeName = ost?.name ?? 'Sin tipo';
-      allTypes.add(typeName);
-      const uid = s.assigned_user_id ?? '__unassigned__';
+    for (const r of byUserType) {
+      const uid = r.user_id ?? '__unassigned__';
       if (!userTypeCount.has(uid)) userTypeCount.set(uid, new Map());
-      const m = userTypeCount.get(uid)!;
-      m.set(typeName, (m.get(typeName) ?? 0) + 1);
+      userTypeCount.get(uid)!.set(r.shift_type_name, Number(r.shift_count ?? 0));
     }
 
-    const typeList = Array.from(allTypes).sort();
-    setTypeNames(typeList);
-
-    const byUserRows: { user: string; total: number; [k: string]: string | number }[] = [];
+    const byUserRows: { user: string; total: number;[type: string]: string | number }[] = [];
     for (const [uid, typeMap] of userTypeCount) {
       const userLabel = uid === '__unassigned__' ? '— Sin asignar' : names[uid] ?? uid.slice(0, 8);
       const total = Array.from(typeMap.values()).reduce((a, b) => a + b, 0);
-      const row: { user: string; total: number; [k: string]: string | number } = {
-        user: userLabel,
-        total,
-      };
-      for (const t of typeList) row[t] = typeMap.get(t) ?? 0;
+      const row: { user: string; total: number;[k: string]: string | number } = { user: userLabel, total };
+      for (const t of allTypes) row[t] = typeMap.get(t) ?? 0;
       byUserRows.push(row);
     }
     byUserRows.sort((a, b) => b.total - a.total);
-    setByUser(byUserRows);
 
-    // 2) Noche y fin de semana
-    let night = 0;
-    let weekend = 0;
-    for (const s of shifts) {
-      if (isNightType(normOST(s.organization_shift_types))) night++;
-      if (isWeekend(s.start_at)) weekend++;
-    }
-    setNightCount(night);
-    setWeekendCount(weekend);
+    const statusRows = (byStatus ?? [])
+      .map((r) => ({
+        status: r.status,
+        label: REQUEST_STATUS_LABELS[r.status] ?? r.status,
+        count: Number(r.request_count ?? 0),
+      }))
+      .sort((a, b) => b.count - a.count);
 
-    // 3) Sin asignar
-    setUnassignedCount(shifts.filter((s) => !s.assigned_user_id).length);
-
-    // 4) Solicitudes por estado
-    const statusCount = new Map<string, number>();
-    for (const r of requests) {
-      statusCount.set(r.status, (statusCount.get(r.status) ?? 0) + 1);
-    }
-    const statusRows = Array.from(statusCount.entries()).map(([status, count]) => ({
-      status,
-      label: REQUEST_STATUS_LABELS[status] ?? status,
-      count,
-    }));
-    statusRows.sort((a, b) => b.count - a.count);
-    setByStatus(statusRows);
-
-    setLoading(false);
+    return {
+      typeNames: allTypes,
+      byUser: byUserRows,
+      unassignedCount: Number(summary.unassigned_count ?? 0),
+      nightCount: Number(summary.night_count ?? 0),
+      weekendCount: Number(summary.weekend_count ?? 0),
+      byStatus: statusRows,
+    };
   }, [orgId, start, end]);
 
-  useEffect(() => {
-    fetchReports();
-  }, [fetchReports]);
+  const { data, error, isLoading, isValidating, mutate } = useSWR(swrKey, fetcher, {
+    revalidateOnFocus: true,
+    revalidateOnReconnect: true,
+    dedupingInterval: 5000,
+  });
+
+  const loading = isLoading || (isValidating && !data);
+  const byUser = data?.byUser ?? [];
+  const nightCount = data?.nightCount ?? 0;
+  const weekendCount = data?.weekendCount ?? 0;
+  const unassignedCount = data?.unassignedCount ?? 0;
+  const byStatus = data?.byStatus ?? [];
+  const typeNames = data?.typeNames ?? [];
 
   if (loading) {
     return (
@@ -232,10 +169,10 @@ export function ReportsBasicDashboard({ orgId }: Props) {
   if (error) {
     return (
       <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-        {error}
+        {String((error as Error).message ?? error)}
         <button
           type="button"
-          onClick={fetchReports}
+          onClick={() => void mutate()}
           className="ml-2 font-medium underline hover:no-underline"
         >
           Reintentar

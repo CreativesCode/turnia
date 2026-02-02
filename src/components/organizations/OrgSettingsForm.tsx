@@ -7,7 +7,8 @@
  */
 
 import { createClient } from '@/lib/supabase/client';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import useSWR from 'swr';
 
 export type OrgSettingsRow = {
   org_id: string;
@@ -35,9 +36,7 @@ type Props = {
 };
 
 export function OrgSettingsForm({ orgId, canEdit, onSaved }: Props) {
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
   const [allowSelfAssign, setAllowSelfAssign] = useState(DEFAULTS.allow_self_assign_open_shifts);
@@ -45,39 +44,71 @@ export function OrgSettingsForm({ orgId, canEdit, onSaved }: Props) {
   const [requireApprovalGiveAways, setRequireApprovalGiveAways] = useState(DEFAULTS.require_approval_for_give_aways);
   const [minRestHours, setMinRestHours] = useState(DEFAULTS.min_rest_hours);
 
-  const load = useCallback(async () => {
-    if (!orgId) return;
-    setLoading(true);
-    setError(null);
+  const swrKey = useMemo(() => ['orgSettings', orgId] as const, [orgId]);
+  const fetcher = useCallback(async (): Promise<Partial<OrgSettingsRow> | null> => {
+    if (!orgId) return null;
     const supabase = createClient();
-    const { data, error: err } = await supabase
+    const { data, error } = await supabase
       .from('org_settings')
       .select('allow_self_assign_open_shifts, require_approval_for_swaps, require_approval_for_give_aways, min_rest_hours')
       .eq('org_id', orgId)
       .maybeSingle();
-    setLoading(false);
-    if (err) {
-      setError(err.message);
-      return;
-    }
-    const row = data as Partial<OrgSettingsRow> | null;
-    if (row) {
-      setAllowSelfAssign(row.allow_self_assign_open_shifts ?? DEFAULTS.allow_self_assign_open_shifts);
-      setRequireApprovalSwaps(row.require_approval_for_swaps ?? DEFAULTS.require_approval_for_swaps);
-      setRequireApprovalGiveAways(row.require_approval_for_give_aways ?? DEFAULTS.require_approval_for_give_aways);
-      setMinRestHours(typeof row.min_rest_hours === 'number' ? row.min_rest_hours : DEFAULTS.min_rest_hours);
-    }
+    if (error) throw new Error(error.message);
+    return (data as Partial<OrgSettingsRow> | null) ?? null;
   }, [orgId]);
 
+  const { data, error: swrError, isLoading, isValidating, mutate } = useSWR(swrKey, fetcher, {
+    revalidateOnFocus: true,
+    revalidateOnReconnect: true,
+    dedupingInterval: 5000,
+  });
+
+  // Cargar state del form desde SWR (solo cuando llega data/ cambia orgId).
   useEffect(() => {
-    load();
-  }, [load]);
+    const row = data;
+    if (!row) {
+      setAllowSelfAssign(DEFAULTS.allow_self_assign_open_shifts);
+      setRequireApprovalSwaps(DEFAULTS.require_approval_for_swaps);
+      setRequireApprovalGiveAways(DEFAULTS.require_approval_for_give_aways);
+      setMinRestHours(DEFAULTS.min_rest_hours);
+      return;
+    }
+    setAllowSelfAssign(row.allow_self_assign_open_shifts ?? DEFAULTS.allow_self_assign_open_shifts);
+    setRequireApprovalSwaps(row.require_approval_for_swaps ?? DEFAULTS.require_approval_for_swaps);
+    setRequireApprovalGiveAways(row.require_approval_for_give_aways ?? DEFAULTS.require_approval_for_give_aways);
+    setMinRestHours(typeof row.min_rest_hours === 'number' ? row.min_rest_hours : DEFAULTS.min_rest_hours);
+  }, [orgId, data]);
+
+  const realtimeTimerRef = useRef<number | null>(null);
+  const scheduleRealtimeRefresh = useCallback(() => {
+    if (realtimeTimerRef.current) window.clearTimeout(realtimeTimerRef.current);
+    realtimeTimerRef.current = window.setTimeout(() => void mutate(), 250);
+  }, [mutate]);
+
+  useEffect(() => {
+    if (!orgId) return;
+    const supabase = createClient();
+    const channel = supabase
+      .channel(`turnia:org_settings:${orgId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'org_settings', filter: `org_id=eq.${orgId}` },
+        () => scheduleRealtimeRefresh()
+      )
+      .subscribe();
+    return () => {
+      if (realtimeTimerRef.current) {
+        window.clearTimeout(realtimeTimerRef.current);
+        realtimeTimerRef.current = null;
+      }
+      supabase.removeChannel(channel);
+    };
+  }, [orgId, scheduleRealtimeRefresh]);
 
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault();
       if (!canEdit) return;
-      setError(null);
       setSuccess(null);
       setSaving(true);
       const supabase = createClient();
@@ -96,15 +127,19 @@ export function OrgSettingsForm({ orgId, canEdit, onSaved }: Props) {
         );
       setSaving(false);
       if (err) {
-        setError(err.message);
+        // Revalidar por si el estado local quedó desfasado.
+        await mutate();
         return;
       }
       setSuccess('Configuración guardada.');
       setTimeout(() => setSuccess(null), 2500);
       onSaved?.();
     },
-    [orgId, canEdit, allowSelfAssign, requireApprovalSwaps, requireApprovalGiveAways, minRestHours, onSaved]
+    [orgId, canEdit, allowSelfAssign, requireApprovalSwaps, requireApprovalGiveAways, minRestHours, onSaved, mutate]
   );
+
+  const loading = isLoading || (isValidating && data == null);
+  const error = swrError ? String((swrError as Error).message ?? swrError) : null;
 
   if (loading) {
     return (

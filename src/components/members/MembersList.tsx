@@ -2,7 +2,8 @@
 
 import { ConfirmModal } from '@/components/ui/ConfirmModal';
 import { createClient } from '@/lib/supabase/client';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import useSWR from 'swr';
 import { EditMembershipForm } from './EditMembershipForm';
 import { MemberDetails } from './MemberDetails';
 import type { MemberForDetails } from './MemberDetails';
@@ -21,30 +22,30 @@ type Props = {
   onRefresh?: () => void;
 };
 
+const PAGE_SIZE = 50;
+
 export function MembersList({ orgId, refreshKey = 0, onRefresh }: Props) {
-  const [rows, setRows] = useState<MemberForDetails[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [detailMember, setDetailMember] = useState<MemberForDetails | null>(null);
   const [editMember, setEditMember] = useState<MemberForDetails | null>(null);
   const [confirmRemove, setConfirmRemove] = useState<MemberForDetails | null>(null);
   const [removing, setRemoving] = useState(false);
   const [removeError, setRemoveError] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+  const swrKey = useMemo(() => ['membersList', orgId, page] as const, [orgId, page]);
+
+  const fetcher = useCallback(async (): Promise<{ rows: MemberForDetails[]; total: number }> => {
     const supabase = createClient();
-    const { data: memberships, error: mErr } = await supabase
+    const fromIdx = (page - 1) * PAGE_SIZE;
+    const { data: memberships, error: mErr, count } = await supabase
       .from('memberships')
-      .select('id, user_id, role, created_at, updated_at')
+      .select('id, user_id, role, created_at, updated_at', { count: 'exact' })
       .eq('org_id', orgId)
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
+      .range(fromIdx, fromIdx + PAGE_SIZE - 1);
 
     if (mErr) {
-      setError(mErr.message);
-      setLoading(false);
-      return;
+      throw new Error(mErr.message);
     }
 
     const list = (memberships ?? []) as {
@@ -55,9 +56,7 @@ export function MembersList({ orgId, refreshKey = 0, onRefresh }: Props) {
       updated_at: string | null;
     }[];
     if (list.length === 0) {
-      setRows([]);
-      setLoading(false);
-      return;
+      return { rows: [], total: count ?? 0 };
     }
 
     const userIds = [...new Set(list.map((m) => m.user_id))];
@@ -65,11 +64,7 @@ export function MembersList({ orgId, refreshKey = 0, onRefresh }: Props) {
       .from('profiles')
       .select('id, full_name, email')
       .in('id', userIds);
-    const profileMap = Object.fromEntries(
-      ((profiles ?? []) as { id: string; full_name: string | null; email: string | null }[]).map(
-        (p) => [p.id, p]
-      )
-    );
+    const profileMap = Object.fromEntries(((profiles ?? []) as { id: string; full_name: string | null; email: string | null }[]).map((p) => [p.id, p]));
 
     const merged: MemberForDetails[] = list.map((m) => {
       const p = profileMap[m.user_id];
@@ -81,13 +76,44 @@ export function MembersList({ orgId, refreshKey = 0, onRefresh }: Props) {
       };
     });
 
-    setRows(merged);
-    setLoading(false);
-  }, [orgId]);
+    return { rows: merged, total: count ?? 0 };
+  }, [orgId, page]);
+
+  const { data, error: swrError, isLoading, isValidating, mutate } = useSWR(swrKey, fetcher, {
+    revalidateOnFocus: true,
+    revalidateOnReconnect: true,
+    dedupingInterval: 5000,
+  });
 
   useEffect(() => {
-    load();
-  }, [load, refreshKey]);
+    void mutate();
+  }, [refreshKey, mutate]);
+
+  const realtimeTimerRef = useRef<number | null>(null);
+  const scheduleRealtimeRefresh = useCallback(() => {
+    if (realtimeTimerRef.current) window.clearTimeout(realtimeTimerRef.current);
+    realtimeTimerRef.current = window.setTimeout(() => void mutate(), 250);
+  }, [mutate]);
+
+  useEffect(() => {
+    const supabase = createClient();
+    const channel = supabase
+      .channel(`turnia:memberships:${orgId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'memberships', filter: `org_id=eq.${orgId}` },
+        () => scheduleRealtimeRefresh()
+      )
+      .subscribe();
+
+    return () => {
+      if (realtimeTimerRef.current) {
+        window.clearTimeout(realtimeTimerRef.current);
+        realtimeTimerRef.current = null;
+      }
+      supabase.removeChannel(channel);
+    };
+  }, [orgId, scheduleRealtimeRefresh]);
 
   const doRemove = useCallback(async () => {
     if (!confirmRemove) return;
@@ -110,8 +136,14 @@ export function MembersList({ orgId, refreshKey = 0, onRefresh }: Props) {
       return;
     }
     onRefresh?.();
-    load();
-  }, [orgId, confirmRemove, onRefresh, load]);
+    void mutate();
+  }, [orgId, confirmRemove, onRefresh, mutate]);
+
+  const rows = data?.rows ?? [];
+  const total = data?.total ?? 0;
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const loading = isLoading || (isValidating && !data);
+  const error = swrError ? String((swrError as Error).message ?? swrError) : null;
 
   if (loading) {
     return (
@@ -130,6 +162,13 @@ export function MembersList({ orgId, refreshKey = 0, onRefresh }: Props) {
     return (
       <div className="rounded-xl border border-border bg-background p-4">
         <p className="text-sm text-red-600">{error}</p>
+        <button
+          type="button"
+          onClick={() => void mutate()}
+          className="mt-3 min-h-[44px] min-w-[44px] rounded-lg border border-border px-4 py-2.5 text-sm font-medium text-text-secondary hover:bg-subtle-bg"
+        >
+          Reintentar
+        </button>
       </div>
     );
   }
@@ -210,6 +249,32 @@ export function MembersList({ orgId, refreshKey = 0, onRefresh }: Props) {
         </table>
       </div>
 
+      {totalPages > 1 && (
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-4">
+          <p className="text-sm text-text-secondary">
+            {total} miembro{total !== 1 ? 's' : ''} · Página {page} de {totalPages}
+          </p>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page <= 1}
+              className="rounded-lg border border-border bg-background px-4 py-2 text-sm font-medium text-text-primary hover:bg-subtle-bg disabled:opacity-50"
+            >
+              Anterior
+            </button>
+            <button
+              type="button"
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={page >= totalPages}
+              className="rounded-lg border border-border bg-background px-4 py-2 text-sm font-medium text-text-primary hover:bg-subtle-bg disabled:opacity-50"
+            >
+              Siguiente
+            </button>
+          </div>
+        </div>
+      )}
+
       {detailMember && (
         <MemberDetails
           member={detailMember}
@@ -227,7 +292,7 @@ export function MembersList({ orgId, refreshKey = 0, onRefresh }: Props) {
           orgId={orgId}
           onSuccess={() => {
             onRefresh?.();
-            load();
+            void mutate();
           }}
           onClose={() => setEditMember(null)}
         />

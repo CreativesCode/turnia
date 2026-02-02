@@ -1,7 +1,8 @@
 'use client';
 
 import { createClient } from '@/lib/supabase/client';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
+import useSWR from 'swr';
 
 const ROLE_LABELS: Record<string, string> = {
   superadmin: 'Superadmin',
@@ -26,13 +27,8 @@ type Props = {
 };
 
 export function OrganizationMembers({ orgId, refreshKey = 0 }: Props) {
-  const [rows, setRows] = useState<MemberRow[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+  const swrKey = useMemo(() => ['organizationMembers', orgId] as const, [orgId]);
+  const fetcher = useCallback(async (): Promise<MemberRow[]> => {
     const supabase = createClient();
 
     const { data: memberships, error: mErr } = await supabase
@@ -41,18 +37,10 @@ export function OrganizationMembers({ orgId, refreshKey = 0 }: Props) {
       .eq('org_id', orgId)
       .order('created_at', { ascending: false });
 
-    if (mErr) {
-      setError(mErr.message);
-      setLoading(false);
-      return;
-    }
+    if (mErr) throw new Error(mErr.message);
 
     const list = (memberships ?? []) as { id: string; user_id: string; role: string; created_at: string }[];
-    if (list.length === 0) {
-      setRows([]);
-      setLoading(false);
-      return;
-    }
+    if (list.length === 0) return [];
 
     const userIds = [...new Set(list.map((m) => m.user_id))];
     const { data: profiles } = await supabase.from('profiles').select('id, full_name, email').in('id', userIds);
@@ -67,13 +55,48 @@ export function OrganizationMembers({ orgId, refreshKey = 0 }: Props) {
       };
     });
 
-    setRows(merged);
-    setLoading(false);
+    return merged;
   }, [orgId]);
 
+  const { data: rows = [], error: swrError, isLoading, isValidating, mutate } = useSWR(swrKey, fetcher, {
+    revalidateOnFocus: true,
+    revalidateOnReconnect: true,
+    dedupingInterval: 5000,
+  });
+
   useEffect(() => {
-    load();
-  }, [load, refreshKey]);
+    // Trigger revalidate desde padre
+    void mutate();
+  }, [refreshKey, mutate]);
+
+  const realtimeTimerRef = useRef<number | null>(null);
+  const scheduleRealtimeRefresh = useCallback(() => {
+    if (realtimeTimerRef.current) window.clearTimeout(realtimeTimerRef.current);
+    realtimeTimerRef.current = window.setTimeout(() => void mutate(), 250);
+  }, [mutate]);
+
+  useEffect(() => {
+    const supabase = createClient();
+    const channel = supabase
+      .channel(`turnia:membershipsOrg:${orgId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'memberships', filter: `org_id=eq.${orgId}` },
+        () => scheduleRealtimeRefresh()
+      )
+      .subscribe();
+
+    return () => {
+      if (realtimeTimerRef.current) {
+        window.clearTimeout(realtimeTimerRef.current);
+        realtimeTimerRef.current = null;
+      }
+      supabase.removeChannel(channel);
+    };
+  }, [orgId, scheduleRealtimeRefresh]);
+
+  const loading = isLoading || (isValidating && rows.length === 0);
+  const error = swrError ? String((swrError as Error).message ?? swrError) : null;
 
   if (loading) {
     return (

@@ -6,8 +6,9 @@
  */
 
 import { createClient } from '@/lib/supabase/client';
+import { fetchOrgMemberIds, fetchProfilesMap, fetchShiftTypes } from '@/lib/supabase/queries';
 import { isColorLight } from '@/lib/utils';
-import { useCallback, useEffect, useState } from 'react';
+import { memo, useCallback, useEffect, useState } from 'react';
 
 function ChevronDown() {
   return (
@@ -46,47 +47,40 @@ type Props = {
   className?: string;
 };
 
-export function ShiftCalendarFilters({ orgId, value, onChange, className = '' }: Props) {
+function ShiftCalendarFiltersInner({ orgId, value, onChange, className = '' }: Props) {
   const [filtersVisible, setFiltersVisible] = useState(false);
   const [shiftTypes, setShiftTypes] = useState<ShiftTypeOption[]>([]);
   const [members, setMembers] = useState<MemberOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [typesOpen, setTypesOpen] = useState(false);
 
-  const load = useCallback(() => {
+  const load = useCallback(async () => {
     if (!orgId) return;
     setLoading(true);
     const supabase = createClient();
-    Promise.all([
-      supabase
-        .from('organization_shift_types')
-        .select('id, name, letter, color')
-        .eq('org_id', orgId)
-        .order('sort_order')
-        .order('name'),
-      supabase.from('memberships').select('user_id').eq('org_id', orgId),
-    ]).then(([stRes, mRes]) => {
-      setShiftTypes((stRes.data ?? []) as ShiftTypeOption[]);
-      const userIds = (mRes.data ?? []).map((r: { user_id: string }) => r.user_id);
-      if (userIds.length === 0) {
-        setMembers([]);
-        setLoading(false);
-        return;
-      }
-      supabase
-        .from('profiles')
-        .select('id, full_name')
-        .in('id', userIds)
-        .then(({ data }) => {
-          setMembers(
-            (data ?? []).map((p: { id: string; full_name: string | null }) => ({
-              user_id: p.id,
-              full_name: p.full_name,
-            }))
-          );
-          setLoading(false);
-        });
-    });
+
+    const [{ data: stData }, memberIds] = await Promise.all([
+      fetchShiftTypes(supabase, orgId),
+      fetchOrgMemberIds(supabase, orgId),
+    ]);
+
+    setShiftTypes(((stData ?? []) as unknown) as ShiftTypeOption[]);
+
+    const userIds = Array.from(new Set((memberIds ?? []).filter(Boolean)));
+    if (userIds.length === 0) {
+      setMembers([]);
+      setLoading(false);
+      return;
+    }
+
+    const map = await fetchProfilesMap(supabase, userIds);
+    setMembers(
+      userIds.map((id) => ({
+        user_id: id,
+        full_name: map[id] || null,
+      }))
+    );
+    setLoading(false);
   }, [orgId]);
 
   useEffect(() => {
@@ -151,110 +145,110 @@ export function ShiftCalendarFilters({ orgId, value, onChange, className = '' }:
           role="group"
           aria-label="Filtros del calendario"
         >
-      {/* Tipos de turno */}
-      <div className="relative">
-        <button
-          type="button"
-          onClick={() => setTypesOpen((o) => !o)}
-          className="flex min-h-[44px] min-w-[44px] items-center gap-1.5 rounded-lg border border-border bg-background px-3 py-2 text-sm text-text-secondary hover:bg-subtle-bg focus:outline-none focus:ring-2 focus:ring-primary-500"
-          aria-haspopup="listbox"
-          aria-expanded={typesOpen}
-        >
-          <span className="font-medium text-text-primary">Tipo:</span>
-          <span>{allTypesSelected ? 'Todos' : `${value.shiftTypeIds.length} seleccionados`}</span>
-        </button>
-        {typesOpen && (
-          <>
+          {/* Tipos de turno */}
+          <div className="relative">
             <button
               type="button"
-              aria-label="Cerrar"
-              className="fixed inset-0 z-10"
-              onClick={() => setTypesOpen(false)}
-            />
-            <div className="absolute left-0 top-full z-20 mt-1 max-h-64 min-w-[200px] overflow-y-auto rounded-lg border border-border bg-background py-2 shadow-lg">
-              <div className="border-b border-border px-3 pb-2">
+              onClick={() => setTypesOpen((o) => !o)}
+              className="flex min-h-[44px] min-w-[44px] items-center gap-1.5 rounded-lg border border-border bg-background px-3 py-2 text-sm text-text-secondary hover:bg-subtle-bg focus:outline-none focus:ring-2 focus:ring-primary-500"
+              aria-haspopup="listbox"
+              aria-expanded={typesOpen}
+            >
+              <span className="font-medium text-text-primary">Tipo:</span>
+              <span>{allTypesSelected ? 'Todos' : `${value.shiftTypeIds.length} seleccionados`}</span>
+            </button>
+            {typesOpen && (
+              <>
                 <button
                   type="button"
-                  onClick={selectAllTypes}
-                  className="text-xs text-primary-600 hover:underline"
-                >
-                  Ver todos los tipos
-                </button>
-              </div>
-              <div className="mt-2 flex flex-col gap-0.5 px-2" role="listbox">
-                {shiftTypes.map((t) => {
-                  const checked = allTypesSelected || value.shiftTypeIds.includes(t.id);
-                  const txt = isColorLight(t.color) ? '#111' : '#fff';
-                  return (
-                    <label
-                      key={t.id}
-                      className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 hover:bg-subtle-bg"
+                  aria-label="Cerrar"
+                  className="fixed inset-0 z-10"
+                  onClick={() => setTypesOpen(false)}
+                />
+                <div className="absolute left-0 top-full z-20 mt-1 max-h-64 min-w-[200px] overflow-y-auto rounded-lg border border-border bg-background py-2 shadow-lg">
+                  <div className="border-b border-border px-3 pb-2">
+                    <button
+                      type="button"
+                      onClick={selectAllTypes}
+                      className="text-xs text-primary-600 hover:underline"
                     >
-                      <input
-                        type="checkbox"
-                        checked={checked}
-                        onChange={() => toggleType(t.id)}
-                        className="h-4 w-4 rounded border-border"
-                      />
-                      <span
-                        className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold"
-                        style={{ backgroundColor: t.color, color: txt }}
-                      >
-                        {t.letter}
-                      </span>
-                      <span className="text-sm text-text-primary">{t.name}</span>
-                    </label>
-                  );
-                })}
-              </div>
-            </div>
-          </>
-        )}
-      </div>
+                      Ver todos los tipos
+                    </button>
+                  </div>
+                  <div className="mt-2 flex flex-col gap-0.5 px-2" role="listbox">
+                    {shiftTypes.map((t) => {
+                      const checked = allTypesSelected || value.shiftTypeIds.includes(t.id);
+                      const txt = isColorLight(t.color) ? '#111' : '#fff';
+                      return (
+                        <label
+                          key={t.id}
+                          className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 hover:bg-subtle-bg"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => toggleType(t.id)}
+                            className="h-4 w-4 rounded border-border"
+                          />
+                          <span
+                            className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold"
+                            style={{ backgroundColor: t.color, color: txt }}
+                          >
+                            {t.letter}
+                          </span>
+                          <span className="text-sm text-text-primary">{t.name}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
 
-      {/* Usuario */}
-      <label className="flex min-h-[44px] items-center gap-2">
-        <span className="text-sm font-medium text-text-secondary">Usuario:</span>
-        <select
-          value={value.userId ?? ''}
-          onChange={(e) => onChange({ ...value, userId: e.target.value || null })}
-          className="min-h-[44px] rounded-lg border border-border bg-background px-3 py-2 text-sm text-text-primary focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-        >
-          <option value="">Todos</option>
-          {members.map((m) => (
-            <option key={m.user_id} value={m.user_id}>
-              {m.full_name?.trim() || m.user_id}
-            </option>
-          ))}
-        </select>
-      </label>
+          {/* Usuario */}
+          <label className="flex min-h-[44px] items-center gap-2">
+            <span className="text-sm font-medium text-text-secondary">Usuario:</span>
+            <select
+              value={value.userId ?? ''}
+              onChange={(e) => onChange({ ...value, userId: e.target.value || null })}
+              className="min-h-[44px] rounded-lg border border-border bg-background px-3 py-2 text-sm text-text-primary focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+            >
+              <option value="">Todos</option>
+              {members.map((m) => (
+                <option key={m.user_id} value={m.user_id}>
+                  {m.full_name?.trim() || m.user_id}
+                </option>
+              ))}
+            </select>
+          </label>
 
-      {/* Estado */}
-      <label className="flex min-h-[44px] items-center gap-2">
-        <span className="text-sm font-medium text-text-secondary">Estado:</span>
-        <select
-          value={value.status}
-          onChange={(e) =>
-            onChange({ ...value, status: e.target.value as ShiftCalendarFiltersState['status'] })
-          }
-          className="min-h-[44px] rounded-lg border border-border bg-background px-3 py-2 text-sm text-text-primary focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-        >
-          <option value="all">Todos</option>
-          <option value="draft">Borrador</option>
-          <option value="published">Publicado</option>
-        </select>
-      </label>
+          {/* Estado */}
+          <label className="flex min-h-[44px] items-center gap-2">
+            <span className="text-sm font-medium text-text-secondary">Estado:</span>
+            <select
+              value={value.status}
+              onChange={(e) =>
+                onChange({ ...value, status: e.target.value as ShiftCalendarFiltersState['status'] })
+              }
+              className="min-h-[44px] rounded-lg border border-border bg-background px-3 py-2 text-sm text-text-primary focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+            >
+              <option value="all">Todos</option>
+              <option value="draft">Borrador</option>
+              <option value="published">Publicado</option>
+            </select>
+          </label>
 
-      {/* Limpiar filtros (si hay alguno activo) */}
-      {(value.userId || value.status !== 'all' || value.shiftTypeIds.length > 0) && (
-        <button
-          type="button"
-          onClick={() => onChange(defaultFilters)}
-          className="min-h-[44px] min-w-[44px] rounded-lg px-3 py-2 text-sm text-muted hover:bg-subtle-bg hover:text-text-secondary"
-        >
-          Limpiar
-        </button>
-      )}
+          {/* Limpiar filtros (si hay alguno activo) */}
+          {(value.userId || value.status !== 'all' || value.shiftTypeIds.length > 0) && (
+            <button
+              type="button"
+              onClick={() => onChange(defaultFilters)}
+              className="min-h-[44px] min-w-[44px] rounded-lg px-3 py-2 text-sm text-muted hover:bg-subtle-bg hover:text-text-secondary"
+            >
+              Limpiar
+            </button>
+          )}
         </div>
       )}
     </div>
@@ -262,3 +256,12 @@ export function ShiftCalendarFilters({ orgId, value, onChange, className = '' }:
 }
 
 export { defaultFilters };
+
+export const ShiftCalendarFilters = memo(
+  ShiftCalendarFiltersInner,
+  (prev, next) =>
+    prev.orgId === next.orgId &&
+    prev.value === next.value &&
+    prev.onChange === next.onChange &&
+    prev.className === next.className
+);

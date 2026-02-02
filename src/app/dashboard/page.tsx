@@ -1046,13 +1046,25 @@ function StaffHome({
       </section>
 
       <div className="flex flex-wrap gap-3 md:hidden">
-        <Link href="/dashboard/staff" className="rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-primary-700">
+        <Link
+          href="/dashboard/staff"
+          prefetch={true}
+          className="rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-primary-700"
+        >
           Ir a mi área
         </Link>
-        <Link href="/dashboard/notifications" className="rounded-lg border border-border bg-background px-4 py-2.5 text-sm font-medium text-text-secondary hover:bg-subtle-bg">
+        <Link
+          href="/dashboard/notifications"
+          prefetch={true}
+          className="rounded-lg border border-border bg-background px-4 py-2.5 text-sm font-medium text-text-secondary hover:bg-subtle-bg"
+        >
           Notificaciones
         </Link>
-        <Link href="/dashboard/staff/my-requests" className="rounded-lg border border-border bg-background px-4 py-2.5 text-sm font-medium text-text-secondary hover:bg-subtle-bg">
+        <Link
+          href="/dashboard/staff/my-requests"
+          prefetch={true}
+          className="rounded-lg border border-border bg-background px-4 py-2.5 text-sm font-medium text-text-secondary hover:bg-subtle-bg"
+        >
           Solicitudes
         </Link>
       </div>
@@ -1064,6 +1076,7 @@ function MenuRow({ href, label, last = false }: { href: string; label: string; l
   return (
     <Link
       href={href}
+      prefetch={true}
       className={`flex min-h-[52px] items-center justify-between px-4 text-sm text-text-primary hover:bg-subtle-bg ${last ? '' : 'border-b border-border'}`}
     >
       <span>{label}</span>

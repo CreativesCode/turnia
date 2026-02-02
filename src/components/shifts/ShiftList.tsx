@@ -6,14 +6,15 @@
  * @see project-roadmap.md Módulo 3.4
  */
 
-import { useCallback, useEffect, useState, memo } from 'react';
-import { createClient } from '@/lib/supabase/client';
-import { isColorLight } from '@/lib/utils';
-import { ConfirmModal } from '@/components/ui/ConfirmModal';
 import type { ShiftWithType } from '@/components/calendar/ShiftCalendar';
+import { ConfirmModal } from '@/components/ui/ConfirmModal';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { getCacheEntry, setCache } from '@/lib/cache';
-import { fetchProfilesMap } from '@/lib/supabase/queries';
+import { createClient } from '@/lib/supabase/client';
+import { fetchOrgMemberIds, fetchProfilesMap, fetchShiftTypes } from '@/lib/supabase/queries';
+import { isColorLight } from '@/lib/utils';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import useSWR from 'swr';
 
 type ShiftListCache = {
   rows: ShiftWithType[];
@@ -32,6 +33,15 @@ function listFiltersKey(f: ShiftListFilters): string {
 
 function shiftListCacheKey(orgId: string, filters: ShiftListFilters, sortDir: 'asc' | 'desc', page: number) {
   return `turnia:cache:shiftList:${orgId}:page=${page}:sort=${sortDir}:${listFiltersKey(filters)}`;
+}
+
+function shiftListMaxAgeMs(filters: ShiftListFilters): number {
+  // Si el usuario filtra solo pasado explícito (dateTo en el pasado), podemos cachear más tiempo.
+  if (filters.dateTo) {
+    const endOfDay = new Date(filters.dateTo + 'T23:59:59.999').getTime();
+    if (Number.isFinite(endOfDay) && endOfDay < Date.now()) return 1000 * 60 * 60 * 24; // 24h
+  }
+  return 1000 * 60 * 5; // 5min por defecto (más fresco)
 }
 
 function ChevronDown() {
@@ -110,183 +120,147 @@ function ShiftListInner({
   onSelectionChange,
 }: Props) {
   const { isOnline } = useOnlineStatus();
-  const [rows, setRows] = useState<ShiftWithType[]>([]);
-  const [profilesMap, setProfilesMap] = useState<Record<string, string>>({});
   const [shiftTypes, setShiftTypes] = useState<ShiftTypeOption[]>([]);
   const [members, setMembers] = useState<MemberOption[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
-  const [usingCache, setUsingCache] = useState(false);
   const [filters, setFilters] = useState<ShiftListFilters>(defaultListFilters);
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   const [page, setPage] = useState(1);
-  const [totalCount, setTotalCount] = useState(0);
   const [filtersVisible, setFiltersVisible] = useState(false);
   const [typesOpen, setTypesOpen] = useState(false);
   const [deleteShift, setDeleteShift] = useState<ShiftWithType | null>(null);
   const [deleting, setDeleting] = useState(false);
 
-  const loadMeta = useCallback(() => {
+  const loadMeta = useCallback(async () => {
     if (!orgId) return;
     const supabase = createClient();
-    Promise.all([
-      supabase
-        .from('organization_shift_types')
-        .select('id, name, letter, color')
-        .eq('org_id', orgId)
-        .order('sort_order')
-        .order('name'),
-      supabase.from('memberships').select('user_id').eq('org_id', orgId),
-    ]).then(([stRes, mRes]) => {
-      setShiftTypes((stRes.data ?? []) as ShiftTypeOption[]);
-      const ids = (mRes.data ?? []).map((r: { user_id: string }) => r.user_id);
-      if (ids.length === 0) {
-        setMembers([]);
-        return;
-      }
-      supabase
-        .from('profiles')
-        .select('id, full_name')
-        .in('id', ids)
-        .then(({ data }) => {
-          setMembers(
-            (data ?? []).map((p: { id: string; full_name: string | null }) => ({
-              user_id: p.id,
-              full_name: p.full_name,
-            }))
-          );
-        });
-    });
+    const [{ data: stData }, memberIds] = await Promise.all([
+      fetchShiftTypes(supabase, orgId),
+      fetchOrgMemberIds(supabase, orgId),
+    ]);
+    setShiftTypes(((stData ?? []) as unknown) as ShiftTypeOption[]);
+    const userIds = Array.from(new Set((memberIds ?? []).filter(Boolean)));
+    if (userIds.length === 0) {
+      setMembers([]);
+      return;
+    }
+    const map = await fetchProfilesMap(supabase, userIds);
+    setMembers(
+      userIds.map((id) => ({
+        user_id: id,
+        full_name: map[id] || null,
+      }))
+    );
   }, [orgId]);
 
   useEffect(() => {
     loadMeta();
   }, [loadMeta]);
 
-  const load = useCallback(async () => {
-    if (!orgId) {
-      setRows([]);
-      setTotalCount(0);
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-    setError(null);
-    setNotice(null);
-    setUsingCache(false);
+  const swrKey = useMemo(() => {
+    if (!orgId) return null;
+    return ['shiftList', orgId, page, sortDir, listFiltersKey(filters)] as const;
+  }, [orgId, page, sortDir, filters]);
 
-    const key = shiftListCacheKey(orgId, filters, sortDir, page);
-    const cached = getCacheEntry<ShiftListCache>(key, {
-      maxAgeMs: 1000 * 60 * 60 * 24 * 30, // 30 días
-    });
+  const cachedEntry = useMemo(() => {
+    if (!orgId) return null;
+    const k = shiftListCacheKey(orgId, filters, sortDir, page);
+    return getCacheEntry<ShiftListCache>(k, { maxAgeMs: shiftListMaxAgeMs(filters) });
+  }, [orgId, filters, sortDir, page]);
 
-    if (!isOnline) {
-      if (cached) {
-        setRows(cached.data.rows);
-        setProfilesMap(cached.data.profilesMap);
-        setTotalCount(cached.data.totalCount);
-        setUsingCache(true);
-        setNotice(
-          `Sin conexión. Mostrando datos guardados (${new Date(cached.savedAt).toLocaleString('es-ES')}).`
-        );
-        setLoading(false);
-        return;
+  const fetcher = useCallback(
+    async (key: readonly ['shiftList', string, number, 'asc' | 'desc', string]): Promise<ShiftListCache> => {
+      const [, orgIdKey, pageKey, sortDirKey] = key;
+      const supabase = createClient();
+
+      const from = (pageKey - 1) * PAGE_SIZE;
+      const to = from + PAGE_SIZE - 1;
+
+      const cacheKey = shiftListCacheKey(orgIdKey, filters, sortDirKey, pageKey);
+      const cached = getCacheEntry<ShiftListCache>(cacheKey, { maxAgeMs: shiftListMaxAgeMs(filters) });
+
+      if (!isOnline) {
+        if (cached) return cached.data;
+        throw new Error('Sin conexión y sin datos guardados para estos filtros.');
       }
-      setRows([]);
-      setProfilesMap({});
-      setTotalCount(0);
-      setError('Sin conexión y sin datos guardados para estos filtros.');
-      setLoading(false);
-      return;
-    }
 
-    const supabase = createClient();
+      let q = supabase
+        .from('shifts')
+        .select(
+          `id, org_id, shift_type_id, status, start_at, end_at, assigned_user_id, location,
+           organization_shift_types (id, name, letter, color, start_time, end_time)`,
+          { count: 'exact' }
+        )
+        .eq('org_id', orgIdKey)
+        .order('start_at', { ascending: sortDirKey === 'asc' })
+        .range(from, to);
 
-    const from = (page - 1) * PAGE_SIZE;
-    const to = from + PAGE_SIZE - 1;
+      if (filters.shiftTypeIds.length > 0) q = q.in('shift_type_id', filters.shiftTypeIds);
+      if (filters.userId) q = q.eq('assigned_user_id', filters.userId);
+      if (filters.status !== 'all') q = q.eq('status', filters.status);
+      if (filters.dateFrom) q = q.gte('end_at', new Date(filters.dateFrom + 'T00:00:00').toISOString());
+      if (filters.dateTo) q = q.lte('start_at', new Date(filters.dateTo + 'T23:59:59.999').toISOString());
 
-    let q = supabase
-      .from('shifts')
-      .select(
-        `id, org_id, shift_type_id, status, start_at, end_at, assigned_user_id, location,
-         organization_shift_types (id, name, letter, color, start_time, end_time)`,
-        { count: 'exact' }
-      )
-      .eq('org_id', orgId)
-      .order('start_at', { ascending: sortDir === 'asc' })
-      .range(from, to);
-
-    if (filters.shiftTypeIds.length > 0) {
-      q = q.in('shift_type_id', filters.shiftTypeIds);
-    }
-    if (filters.userId) {
-      q = q.eq('assigned_user_id', filters.userId);
-    }
-    if (filters.status !== 'all') {
-      q = q.eq('status', filters.status);
-    }
-    if (filters.dateFrom) {
-      const iso = new Date(filters.dateFrom + 'T00:00:00').toISOString();
-      q = q.gte('end_at', iso);
-    }
-    if (filters.dateTo) {
-      const iso = new Date(filters.dateTo + 'T23:59:59.999').toISOString();
-      q = q.lte('start_at', iso);
-    }
-
-    const { data, error: err, count } = await q;
-
-    if (err) {
-      if (cached) {
-        setRows(cached.data.rows);
-        setProfilesMap(cached.data.profilesMap);
-        setTotalCount(cached.data.totalCount);
-        setUsingCache(true);
-        setNotice(
-          `No se pudo actualizar. Mostrando datos guardados (${new Date(cached.savedAt).toLocaleString('es-ES')}).`
-        );
-        setLoading(false);
-        return;
+      const { data, error: err, count } = await q;
+      if (err) {
+        if (cached) return cached.data;
+        throw new Error(err.message);
       }
-      setError(err.message);
-      setRows([]);
-      setProfilesMap({});
-      setTotalCount(0);
-      setLoading(false);
-      return;
-    }
 
-    const raw = (data ?? []) as unknown[];
-    const list: ShiftWithType[] = raw.map((s) => ({
-      ...(s as ShiftWithType),
-      organization_shift_types: normalizeShiftType((s as Record<string, unknown>).organization_shift_types),
-    }));
-    setRows(list);
-    setTotalCount(count ?? 0);
+      const raw = (data ?? []) as unknown[];
+      const rows: ShiftWithType[] = raw.map((s) => ({
+        ...(s as ShiftWithType),
+        organization_shift_types: normalizeShiftType((s as Record<string, unknown>).organization_shift_types),
+      }));
 
-    const userIds = [...new Set(list.map((s) => s.assigned_user_id).filter(Boolean))] as string[];
-    let nextProfilesMap: Record<string, string> = {};
-    if (userIds.length > 0) {
-      const map = await fetchProfilesMap(supabase, userIds);
-      nextProfilesMap = map;
-      setProfilesMap(map);
-    } else {
-      nextProfilesMap = {};
-      setProfilesMap({});
-    }
+      const userIds = [...new Set(rows.map((s) => s.assigned_user_id).filter(Boolean))] as string[];
+      const profilesMap = userIds.length > 0 ? await fetchProfilesMap(supabase, userIds) : {};
 
-    setCache(key, { rows: list, profilesMap: nextProfilesMap, totalCount: count ?? 0 });
-    setLoading(false);
-  }, [orgId, filters, sortDir, page, isOnline]);
+      const payload: ShiftListCache = { rows, profilesMap, totalCount: count ?? 0 };
+      setCache(cacheKey, payload);
+      return payload;
+    },
+    [filters, isOnline]
+  );
+
+  const { data: swrData, error: swrError, isLoading, isValidating, mutate } = useSWR<
+    ShiftListCache,
+    Error,
+    typeof swrKey
+  >(swrKey as any, fetcher as any, {
+    fallbackData: cachedEntry?.data,
+    revalidateOnFocus: true,
+    revalidateOnReconnect: true,
+    dedupingInterval: 5000,
+  });
 
   useEffect(() => {
-    // Evitar setState sincrónico en el cuerpo del effect (eslint react-hooks/set-state-in-effect)
-    const t = window.setTimeout(() => {
-      void load();
-    }, 0);
-    return () => window.clearTimeout(t);
-  }, [load, refreshKey]);
+    if (!swrKey) return;
+    void mutate();
+  }, [refreshKey, mutate, swrKey]);
+
+  const load = useCallback(() => void mutate(), [mutate]);
+
+  const rows = swrData?.rows ?? [];
+  const profilesMap = swrData?.profilesMap ?? {};
+  const totalCount = swrData?.totalCount ?? 0;
+  const error = swrError ? String((swrError as Error).message ?? swrError) : null;
+
+  const usingCache = useMemo(() => {
+    if (!orgId) return false;
+    if (!cachedEntry) return false;
+    if (!isOnline) return true;
+    return isValidating;
+  }, [orgId, cachedEntry, isOnline, isValidating]);
+
+  const notice = useMemo(() => {
+    if (!orgId || !cachedEntry) return null;
+    const ts = new Date(cachedEntry.savedAt).toLocaleString('es-ES');
+    if (!isOnline) return `Sin conexión. Mostrando datos guardados (${ts}).`;
+    if (isValidating) return `Mostrando datos guardados (${ts}) mientras se actualiza…`;
+    return null;
+  }, [orgId, cachedEntry, isOnline, isValidating]);
+
+  const loading = isLoading || (isValidating && !cachedEntry);
 
   const toggleSort = useCallback(() => {
     setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
@@ -416,125 +390,125 @@ function ShiftListInner({
             id="shift-list-filters-panel"
             className="flex flex-wrap items-center gap-3 border-t border-border p-3"
           >
-        {/* Tipo (checkboxes) */}
-        <div className="relative">
-          <button
-            type="button"
-            onClick={() => setTypesOpen((o) => !o)}
-            className="flex min-h-[44px] min-w-[44px] items-center gap-1.5 rounded-lg border border-border bg-background px-3 py-2 text-sm text-text-secondary hover:bg-subtle-bg focus:outline-none focus:ring-2 focus:ring-primary-500"
-          >
-            <span className="font-medium text-text-primary">Tipo:</span>
-            <span>{allTypesSelected ? 'Todos' : `${filters.shiftTypeIds.length} seleccionados`}</span>
-          </button>
-          {typesOpen && (
-            <>
-              <button type="button" className="fixed inset-0 z-10" onClick={() => setTypesOpen(false)} aria-label="Cerrar" />
-              <div className="absolute left-0 top-full z-20 mt-1 max-h-64 min-w-[200px] overflow-y-auto rounded-lg border border-border bg-background py-2 shadow-lg">
-                <div className="border-b border-border px-3 pb-2">
-                  <button type="button" onClick={selectAllTypes} className="text-xs text-primary-600 hover:underline">
-                    Ver todos los tipos
-                  </button>
-                </div>
-                <div className="mt-2 flex flex-col gap-0.5 px-2">
-                  {shiftTypes.map((t) => {
-                    const checked = allTypesSelected || filters.shiftTypeIds.includes(t.id);
-                    const txt = isColorLight(t.color) ? '#111' : '#fff';
-                    return (
-                      <label key={t.id} className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 hover:bg-subtle-bg">
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          onChange={() => toggleType(t.id)}
-                          className="h-4 w-4 rounded border-border"
-                        />
-                        <span
-                          className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold"
-                          style={{ backgroundColor: t.color, color: txt }}
-                        >
-                          {t.letter}
-                        </span>
-                        <span className="text-sm text-text-primary">{t.name}</span>
-                      </label>
-                    );
-                  })}
-                </div>
-              </div>
-            </>
-          )}
-        </div>
+            {/* Tipo (checkboxes) */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setTypesOpen((o) => !o)}
+                className="flex min-h-[44px] min-w-[44px] items-center gap-1.5 rounded-lg border border-border bg-background px-3 py-2 text-sm text-text-secondary hover:bg-subtle-bg focus:outline-none focus:ring-2 focus:ring-primary-500"
+              >
+                <span className="font-medium text-text-primary">Tipo:</span>
+                <span>{allTypesSelected ? 'Todos' : `${filters.shiftTypeIds.length} seleccionados`}</span>
+              </button>
+              {typesOpen && (
+                <>
+                  <button type="button" className="fixed inset-0 z-10" onClick={() => setTypesOpen(false)} aria-label="Cerrar" />
+                  <div className="absolute left-0 top-full z-20 mt-1 max-h-64 min-w-[200px] overflow-y-auto rounded-lg border border-border bg-background py-2 shadow-lg">
+                    <div className="border-b border-border px-3 pb-2">
+                      <button type="button" onClick={selectAllTypes} className="text-xs text-primary-600 hover:underline">
+                        Ver todos los tipos
+                      </button>
+                    </div>
+                    <div className="mt-2 flex flex-col gap-0.5 px-2">
+                      {shiftTypes.map((t) => {
+                        const checked = allTypesSelected || filters.shiftTypeIds.includes(t.id);
+                        const txt = isColorLight(t.color) ? '#111' : '#fff';
+                        return (
+                          <label key={t.id} className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 hover:bg-subtle-bg">
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() => toggleType(t.id)}
+                              className="h-4 w-4 rounded border-border"
+                            />
+                            <span
+                              className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold"
+                              style={{ backgroundColor: t.color, color: txt }}
+                            >
+                              {t.letter}
+                            </span>
+                            <span className="text-sm text-text-primary">{t.name}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
 
-        {/* Usuario */}
-        <label className="flex min-h-[44px] items-center gap-2">
-          <span className="text-sm font-medium text-text-secondary">Usuario:</span>
-          <select
-            value={filters.userId ?? ''}
-            onChange={(e) => {
-              setFilters((f) => ({ ...f, userId: e.target.value || null }));
-              setPage(1);
-            }}
-            className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-text-primary"
-          >
-            <option value="">Todos</option>
-            {members.map((m) => (
-              <option key={m.user_id} value={m.user_id}>
-                {m.full_name?.trim() || m.user_id}
-              </option>
-            ))}
-          </select>
-        </label>
+            {/* Usuario */}
+            <label className="flex min-h-[44px] items-center gap-2">
+              <span className="text-sm font-medium text-text-secondary">Usuario:</span>
+              <select
+                value={filters.userId ?? ''}
+                onChange={(e) => {
+                  setFilters((f) => ({ ...f, userId: e.target.value || null }));
+                  setPage(1);
+                }}
+                className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-text-primary"
+              >
+                <option value="">Todos</option>
+                {members.map((m) => (
+                  <option key={m.user_id} value={m.user_id}>
+                    {m.full_name?.trim() || m.user_id}
+                  </option>
+                ))}
+              </select>
+            </label>
 
-        {/* Rango de fechas */}
-        <label className="flex min-h-[44px] items-center gap-2">
-          <span className="text-sm font-medium text-text-secondary">Desde:</span>
-          <input
-            type="date"
-            value={filters.dateFrom}
-            onChange={(e) => {
-              setFilters((f) => ({ ...f, dateFrom: e.target.value }));
-              setPage(1);
-            }}
-            className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-text-primary"
-          />
-        </label>
-        <label className="flex min-h-[44px] items-center gap-2">
-          <span className="text-sm font-medium text-text-secondary">Hasta:</span>
-          <input
-            type="date"
-            value={filters.dateTo}
-            onChange={(e) => {
-              setFilters((f) => ({ ...f, dateTo: e.target.value }));
-              setPage(1);
-            }}
-            className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-text-primary"
-          />
-        </label>
+            {/* Rango de fechas */}
+            <label className="flex min-h-[44px] items-center gap-2">
+              <span className="text-sm font-medium text-text-secondary">Desde:</span>
+              <input
+                type="date"
+                value={filters.dateFrom}
+                onChange={(e) => {
+                  setFilters((f) => ({ ...f, dateFrom: e.target.value }));
+                  setPage(1);
+                }}
+                className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-text-primary"
+              />
+            </label>
+            <label className="flex min-h-[44px] items-center gap-2">
+              <span className="text-sm font-medium text-text-secondary">Hasta:</span>
+              <input
+                type="date"
+                value={filters.dateTo}
+                onChange={(e) => {
+                  setFilters((f) => ({ ...f, dateTo: e.target.value }));
+                  setPage(1);
+                }}
+                className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-text-primary"
+              />
+            </label>
 
-        {/* Estado */}
-        <label className="flex min-h-[44px] items-center gap-2">
-          <span className="text-sm font-medium text-text-secondary">Estado:</span>
-          <select
-            value={filters.status}
-            onChange={(e) => {
-              setFilters((f) => ({ ...f, status: e.target.value as ShiftListFilters['status'] }));
-              setPage(1);
-            }}
-            className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-text-primary"
-          >
-            <option value="all">Todos</option>
-            <option value="draft">Borrador</option>
-            <option value="published">Publicado</option>
-          </select>
-        </label>
+            {/* Estado */}
+            <label className="flex min-h-[44px] items-center gap-2">
+              <span className="text-sm font-medium text-text-secondary">Estado:</span>
+              <select
+                value={filters.status}
+                onChange={(e) => {
+                  setFilters((f) => ({ ...f, status: e.target.value as ShiftListFilters['status'] }));
+                  setPage(1);
+                }}
+                className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-text-primary"
+              >
+                <option value="all">Todos</option>
+                <option value="draft">Borrador</option>
+                <option value="published">Publicado</option>
+              </select>
+            </label>
 
-        {hasActiveFilters && (
-          <button
-            type="button"
-            onClick={clearFilters}
-            className="min-h-[44px] min-w-[44px] rounded-lg px-3 py-2 text-sm text-muted hover:bg-subtle-bg hover:text-text-secondary"
-          >
-            Limpiar
-          </button>
-        )}
+            {hasActiveFilters && (
+              <button
+                type="button"
+                onClick={clearFilters}
+                className="min-h-[44px] min-w-[44px] rounded-lg px-3 py-2 text-sm text-muted hover:bg-subtle-bg hover:text-text-secondary"
+              >
+                Limpiar
+              </button>
+            )}
           </div>
         )}
       </div>
@@ -550,9 +524,8 @@ function ShiftListInner({
 
       {notice && (
         <div
-          className={`rounded-lg border p-3 text-sm ${
-            usingCache ? 'border-amber-200 bg-amber-50 text-amber-800' : 'border-border bg-background text-text-secondary'
-          }`}
+          className={`rounded-lg border p-3 text-sm ${usingCache ? 'border-amber-200 bg-amber-50 text-amber-800' : 'border-border bg-background text-text-secondary'
+            }`}
           role="status"
           aria-live="polite"
         >
@@ -655,9 +628,8 @@ function ShiftListInner({
                         </td>
                         <td className="px-4 py-3">
                           <span
-                            className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
-                              s.status === 'published' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-700'
-                            }`}
+                            className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${s.status === 'published' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-700'
+                              }`}
                           >
                             {s.status === 'published' ? 'Publicado' : 'Borrador'}
                           </span>

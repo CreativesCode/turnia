@@ -10,47 +10,103 @@ import { NotificationsList, type NotificationRow } from '@/components/notificati
 import { Button } from '@/components/ui/Button';
 import { useScheduleOrg } from '@/hooks/useScheduleOrg';
 import { createClient } from '@/lib/supabase/client';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import useSWR from 'swr';
 
 const LIMIT = 50;
 
 export default function NotificationsPage() {
   const { canApproveRequests } = useScheduleOrg();
-  const [items, setItems] = useState<NotificationRow[]>([]);
-  const [loading, setLoading] = useState(true);
   const [markAllLoading, setMarkAllLoading] = useState(false);
+  const realtimeTimerRef = useRef<number | null>(null);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const swrKey = useMemo(() => ['notificationsPage', LIMIT] as const, []);
+  const fetcher = useCallback(async (): Promise<NotificationRow[]> => {
     const supabase = createClient();
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('notifications')
       .select('id, title, message, type, entity_type, entity_id, read_at, created_at')
       .order('created_at', { ascending: false })
       .limit(LIMIT);
-    setItems((data ?? []) as NotificationRow[]);
-    setLoading(false);
+    if (error) throw new Error(error.message);
+    return (data ?? []) as NotificationRow[];
   }, []);
 
+  const { data: items, error: swrError, isLoading, isValidating, mutate } = useSWR(swrKey, fetcher, {
+    revalidateOnFocus: true,
+    revalidateOnReconnect: true,
+    dedupingInterval: 5000,
+  });
+
+  const scheduleRealtimeRefresh = useCallback(() => {
+    if (realtimeTimerRef.current) window.clearTimeout(realtimeTimerRef.current);
+    realtimeTimerRef.current = window.setTimeout(() => {
+      void mutate();
+    }, 250);
+  }, [mutate]);
+
   useEffect(() => {
-    load();
-  }, [load]);
+    const supabase = createClient();
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+    let active = true;
+
+    void (async () => {
+      const { data } = await supabase.auth.getUser();
+      const userId = data.user?.id ?? null;
+      if (!active || !userId) return;
+
+      channel = supabase
+        .channel(`turnia:notificationsPage:${userId}`)
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'notifications',
+            filter: `user_id=eq.${userId}`,
+          },
+          () => {
+            scheduleRealtimeRefresh();
+          }
+        )
+        .subscribe();
+    })();
+
+    return () => {
+      active = false;
+      if (realtimeTimerRef.current) {
+        window.clearTimeout(realtimeTimerRef.current);
+        realtimeTimerRef.current = null;
+      }
+      if (channel) supabase.removeChannel(channel);
+    };
+  }, [scheduleRealtimeRefresh]);
 
   const markAsRead = useCallback(async (id: string) => {
     const supabase = createClient();
-    await supabase.from('notifications').update({ read_at: new Date().toISOString() }).eq('id', id);
-    setItems((prev) => prev.map((n) => (n.id === id ? { ...n, read_at: new Date().toISOString() } : n)));
-  }, []);
+    const nowIso = new Date().toISOString();
+    mutate((prev) => (prev ?? []).map((n) => (n.id === id ? { ...n, read_at: n.read_at || nowIso } : n)), {
+      revalidate: false,
+    });
+    const { error } = await supabase.from('notifications').update({ read_at: nowIso }).eq('id', id);
+    if (error) {
+      // Revalidar para reparar el estado si falla el update.
+      await mutate();
+    }
+  }, [mutate]);
 
   const markAllAsRead = useCallback(async () => {
-    const unread = items.filter((n) => !n.read_at);
+    const current = items ?? [];
+    const unread = current.filter((n) => !n.read_at);
     if (unread.length === 0) return;
     setMarkAllLoading(true);
     const supabase = createClient();
-    await supabase.from('notifications').update({ read_at: new Date().toISOString() }).in('id', unread.map((n) => n.id));
-    setItems((prev) => prev.map((n) => ({ ...n, read_at: n.read_at || new Date().toISOString() })));
+    const nowIso = new Date().toISOString();
+    mutate((prev) => (prev ?? []).map((n) => ({ ...n, read_at: n.read_at || nowIso })), { revalidate: false });
+    const { error } = await supabase.from('notifications').update({ read_at: nowIso }).in('id', unread.map((n) => n.id));
+    if (error) await mutate();
     setMarkAllLoading(false);
-  }, [items]);
+  }, [items, mutate]);
 
   const getHref = useCallback(
     (n: NotificationRow): string => {
@@ -65,7 +121,10 @@ export default function NotificationsPage() {
     [canApproveRequests]
   );
 
-  const unreadCount = items.filter((n) => !n.read_at).length;
+  const safeItems = items ?? [];
+  const unreadCount = useMemo(() => safeItems.filter((n) => !n.read_at).length, [safeItems]);
+  const loading = isLoading || (isValidating && !items);
+  const error = swrError ? String((swrError as Error).message ?? swrError) : null;
   const headerActions =
     unreadCount > 0 ? (
       <Button
@@ -101,12 +160,19 @@ export default function NotificationsPage() {
           </div>
         </div>
 
-        {loading ? (
+        {error ? (
+          <div className="p-6">
+            <p className="text-sm text-red-700">{error}</p>
+            <Button type="button" variant="secondary" className="mt-3" onClick={() => void mutate()}>
+              Reintentar
+            </Button>
+          </div>
+        ) : loading ? (
           <div className="p-6">
             <p className="text-sm text-muted">Cargando…</p>
           </div>
         ) : (
-          <NotificationsList items={items} onMarkAsRead={markAsRead} getHref={getHref} emptyMessage="No hay notificaciones." />
+          <NotificationsList items={safeItems} onMarkAsRead={markAsRead} getHref={getHref} emptyMessage="No hay notificaciones." />
         )}
       </div>
     </div>

@@ -2,6 +2,12 @@ import { AuthGuard } from '@/components/auth/AuthGuard';
 import { DashboardNav } from '@/components/dashboard/DashboardNav';
 import { DashboardSidebar } from '@/components/dashboard/DashboardSidebar';
 import { PushNotificationRegistrationLoader } from '@/components/notifications/PushNotificationRegistrationLoader';
+import type { Metadata } from 'next';
+
+export const metadata: Metadata = {
+  title: 'Dashboard - Turnia',
+  description: 'Panel principal de gestión de turnos',
+};
 
 export default function DashboardLayout({
   children,

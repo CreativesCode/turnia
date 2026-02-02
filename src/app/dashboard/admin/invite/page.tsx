@@ -3,38 +3,25 @@
 import { DashboardDesktopHeader } from '@/components/dashboard/DashboardDesktopHeader';
 import { InvitationsList } from '@/components/invitations/InvitationsList';
 import { InviteUserForm } from '@/components/invitations/InviteUserForm';
-import { createClient } from '@/lib/supabase/client';
+import { useCurrentOrg } from '@/hooks/useCurrentOrg';
 import Link from 'next/link';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 
 export default function AdminInvitePage() {
-  const [orgId, setOrgId] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { orgId, isLoading, error } = useCurrentOrg();
   const [refreshKey, setRefreshKey] = useState(0);
-
-  useEffect(() => {
-    const run = async () => {
-      const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        setLoading(false);
-        return;
-      }
-      const { data: memberships } = await supabase
-        .from('memberships')
-        .select('org_id')
-        .eq('user_id', user.id)
-        .in('role', ['org_admin', 'superadmin']);
-      const oid = memberships?.[0]?.org_id ?? null;
-      setOrgId(oid ?? null);
-      setLoading(false);
-    };
-    run();
-  }, []);
 
   const onInviteSuccess = useCallback(() => setRefreshKey((k) => k + 1), []);
 
-  if (loading) return <p className="text-muted">Cargando…</p>;
+  if (isLoading) return <p className="text-muted">Cargando…</p>;
+  if (error) {
+    return (
+      <div>
+        <p className="text-red-600">{error}</p>
+        <Link href="/dashboard/admin" className="mt-2 inline-block text-primary-600 hover:text-primary-700">Volver a Admin</Link>
+      </div>
+    );
+  }
   if (!orgId) {
     return (
       <div>

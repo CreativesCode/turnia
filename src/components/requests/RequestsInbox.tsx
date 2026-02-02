@@ -12,7 +12,8 @@ import { useToast } from '@/components/ui/toast/ToastProvider';
 import { createClient } from '@/lib/supabase/client';
 import { fetchProfilesMap } from '@/lib/supabase/queries';
 import { useSearchParams } from 'next/navigation';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import useSWR from 'swr';
 
 function ChevronDown() {
   return (
@@ -79,24 +80,20 @@ function getTypeLetter(ot: { name: string; letter: string } | { name: string; le
 
 export function RequestsInbox({ orgId, canApprove, refreshKey = 0 }: Props) {
   const { toast } = useToast();
-  const [rows, setRows] = useState<RequestDetailRow[]>([]);
-  const [names, setNames] = useState<Record<string, string>>({});
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [filters, setFilters] = useState<Filters>({ requestType: '', status: 'submitted,accepted' });
   const [filtersVisible, setFiltersVisible] = useState(false);
   const [detail, setDetail] = useState<RequestDetailRow | null>(null);
   const searchParams = useSearchParams();
   const openRequestId = searchParams?.get('request') ?? null;
+  const lastToastErrorRef = useRef<string | null>(null);
 
-  const load = useCallback(async () => {
-    if (!orgId) {
-      setRows([]);
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-    setError(null);
+  const swrKey = useMemo(() => {
+    if (!orgId) return null;
+    return ['requestsInbox', orgId, filters.requestType, filters.status] as const;
+  }, [orgId, filters.requestType, filters.status]);
+
+  const fetcher = useCallback(async (): Promise<{ rows: RequestDetailRow[]; names: Record<string, string> }> => {
+    if (!orgId) return { rows: [], names: {} };
     const supabase = createClient();
 
     let q = supabase
@@ -116,46 +113,56 @@ export function RequestsInbox({ orgId, canApprove, refreshKey = 0 }: Props) {
     }
 
     const { data, error: err } = await q;
+    if (err) throw new Error(err.message);
 
-    if (err) {
-      setError(err.message);
-      toast({ variant: 'error', title: 'No se pudieron cargar solicitudes', message: err.message });
-      setRows([]);
-      setLoading(false);
-      return;
-    }
-
-    const list = ((data ?? []) as unknown) as RequestDetailRow[];
-    setRows(list);
-
+    const rows = ((data ?? []) as unknown) as RequestDetailRow[];
     const userIds = new Set<string>();
-    list.forEach((r) => {
+    rows.forEach((r) => {
       userIds.add(r.requester_id);
       if (r.shift?.assigned_user_id) userIds.add(r.shift.assigned_user_id);
       if (r.target_shift?.assigned_user_id) userIds.add(r.target_shift.assigned_user_id);
       if (r.target_user_id) userIds.add(r.target_user_id);
       if (r.suggested_replacement_user_id) userIds.add(r.suggested_replacement_user_id);
     });
-    if (userIds.size > 0) {
-      const map = await fetchProfilesMap(supabase, Array.from(userIds), {
-        fallbackName: (id) => id.slice(0, 8),
-      });
-      setNames(map);
-    } else {
-      setNames({});
-    }
-    setLoading(false);
-  }, [orgId, filters.requestType, filters.status, toast]);
+    const names =
+      userIds.size > 0
+        ? await fetchProfilesMap(supabase, Array.from(userIds), { fallbackName: (id) => id.slice(0, 8) })
+        : {};
+    return { rows, names };
+  }, [orgId, filters.requestType, filters.status]);
+
+  const { data: swrData, error: swrError, isLoading, isValidating, mutate } = useSWR(swrKey, fetcher, {
+    revalidateOnFocus: true,
+    revalidateOnReconnect: true,
+    dedupingInterval: 5000,
+  });
 
   useEffect(() => {
-    load();
-  }, [load, refreshKey]);
+    if (!swrKey) return;
+    void mutate();
+  }, [refreshKey, mutate, swrKey]);
+
+  const rows = swrData?.rows ?? [];
+  const names = swrData?.names ?? {};
+  const loading = isLoading || (isValidating && !swrData);
+  const error = swrError ? String((swrError as Error).message ?? swrError) : null;
+
+  useEffect(() => {
+    if (!error) return;
+    if (lastToastErrorRef.current === error) return;
+    lastToastErrorRef.current = error;
+    toast({ variant: 'error', title: 'No se pudieron cargar solicitudes', message: error });
+  }, [error, toast]);
 
   // Abrir detalle si viene ?request=id (p. ej. desde una notificación)
   useEffect(() => {
     if (openRequestId && rows.length > 0) {
       const r = rows.find((row) => row.id === openRequestId);
-      if (r) setDetail(r);
+      if (r) {
+        // Evitar setState sincrónico en el cuerpo del effect
+        const t = window.setTimeout(() => setDetail(r), 0);
+        return () => window.clearTimeout(t);
+      }
     }
   }, [openRequestId, rows]);
 
@@ -370,7 +377,10 @@ export function RequestsInbox({ orgId, canApprove, refreshKey = 0 }: Props) {
       <RequestDetailModal
         open={!!detail}
         onClose={() => setDetail(null)}
-        onResolved={() => { setDetail(null); load(); }}
+        onResolved={() => {
+          setDetail(null);
+          void mutate();
+        }}
         request={detail}
         names={names}
       />

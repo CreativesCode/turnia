@@ -10,7 +10,8 @@ import { Skeleton } from '@/components/ui/Skeleton';
 import { useScheduleOrg } from '@/hooks/useScheduleOrg';
 import { createClient } from '@/lib/supabase/client';
 import Link from 'next/link';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import useSWR from 'swr';
 import { NotificationsList, type NotificationRow } from './NotificationsList';
 
 const LIMIT = 10;
@@ -35,48 +36,100 @@ function BellIcon({ className }: { className?: string }) {
 
 export function NotificationBell() {
   const { canApproveRequests } = useScheduleOrg();
-  const [unreadCount, setUnreadCount] = useState(0);
   const [open, setOpen] = useState(false);
-  const [list, setList] = useState<NotificationRow[]>([]);
-  const [loading, setLoading] = useState(false);
+  const openRef = useRef(open);
   const containerRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const panelId = 'notification-bell-panel';
   const titleId = 'notification-bell-title';
+  const realtimeTimerRef = useRef<number | null>(null);
 
   const close = useCallback(() => setOpen(false), []);
 
-  const fetchCount = useCallback(async () => {
+  const fetchCount = useCallback(async (): Promise<number> => {
     const supabase = createClient();
     const { count } = await supabase
       .from('notifications')
       .select('id', { count: 'exact', head: true })
       .is('read_at', null);
-    setUnreadCount(count ?? 0);
+    return count ?? 0;
   }, []);
 
-  const fetchList = useCallback(async () => {
-    setLoading(true);
+  const fetchList = useCallback(async (): Promise<NotificationRow[]> => {
     const supabase = createClient();
     const { data } = await supabase
       .from('notifications')
       .select('id, title, message, type, entity_type, entity_id, read_at, created_at')
       .order('created_at', { ascending: false })
       .limit(LIMIT);
-    setList((data ?? []) as NotificationRow[]);
-    setLoading(false);
-    fetchCount();
+    return (data ?? []) as NotificationRow[];
   }, [fetchCount]);
 
-  useEffect(() => {
-    fetchCount();
-  }, [fetchCount]);
+  const countKey = useMemo(() => ['notificationBellCount'] as const, []);
+  const listKey = useMemo(() => (open ? (['notificationBellList', LIMIT] as const) : null), [open]);
+
+  const { data: unreadCount = 0, mutate: mutateCount } = useSWR(countKey, fetchCount, {
+    revalidateOnFocus: true,
+    revalidateOnReconnect: true,
+    dedupingInterval: 5000,
+  });
+
+  const { data: list = [], isLoading: listLoading, mutate: mutateList } = useSWR(listKey, fetchList, {
+    revalidateOnFocus: false,
+    revalidateOnReconnect: true,
+    dedupingInterval: 5000,
+  });
 
   useEffect(() => {
-    if (open) fetchList();
-  }, [open, fetchList]);
+    openRef.current = open;
+  }, [open]);
+
+  const scheduleRealtimeRefresh = useCallback(() => {
+    if (realtimeTimerRef.current) window.clearTimeout(realtimeTimerRef.current);
+    realtimeTimerRef.current = window.setTimeout(() => {
+      void mutateCount();
+      if (openRef.current) void mutateList();
+    }, 250);
+  }, [mutateCount, mutateList]);
+
+  useEffect(() => {
+    const supabase = createClient();
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+    let active = true;
+
+    void (async () => {
+      const { data } = await supabase.auth.getUser();
+      const userId = data.user?.id ?? null;
+      if (!active || !userId) return;
+
+      channel = supabase
+        .channel(`turnia:notifications:${userId}`)
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'notifications',
+            filter: `user_id=eq.${userId}`,
+          },
+          () => {
+            scheduleRealtimeRefresh();
+          }
+        )
+        .subscribe();
+    })();
+
+    return () => {
+      active = false;
+      if (realtimeTimerRef.current) {
+        window.clearTimeout(realtimeTimerRef.current);
+        realtimeTimerRef.current = null;
+      }
+      if (channel) supabase.removeChannel(channel);
+    };
+  }, [scheduleRealtimeRefresh]);
 
   useEffect(() => {
     const onMouseDown = (e: MouseEvent) => {
@@ -142,11 +195,17 @@ export function NotificationBell() {
   const markAsRead = useCallback(
     async (id: string) => {
       const supabase = createClient();
-      await supabase.from('notifications').update({ read_at: new Date().toISOString() }).eq('id', id);
-      setList((prev) => prev.map((n) => (n.id === id ? { ...n, read_at: new Date().toISOString() } : n)));
-      fetchCount();
+      const nowIso = new Date().toISOString();
+      mutateList((prev) => (prev ?? []).map((n) => (n.id === id ? { ...n, read_at: n.read_at || nowIso } : n)), {
+        revalidate: false,
+      });
+      mutateCount((prev) => Math.max(0, (prev ?? 0) - 1), { revalidate: false });
+      const { error } = await supabase.from('notifications').update({ read_at: nowIso }).eq('id', id);
+      if (error) {
+        await Promise.all([mutateList(), mutateCount()]);
+      }
     },
-    [fetchCount]
+    [mutateCount, mutateList]
   );
 
   const getHref = useCallback(
@@ -212,7 +271,7 @@ export function NotificationBell() {
               </svg>
             </button>
           </div>
-          {loading ? (
+          {listLoading ? (
             <div className="space-y-2 px-3 py-4">
               <Skeleton className="h-4 w-56" />
               <Skeleton className="h-4 w-72" />

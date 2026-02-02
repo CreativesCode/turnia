@@ -3,7 +3,8 @@
 import { ConfirmModal } from '@/components/ui/ConfirmModal';
 import { createClient } from '@/lib/supabase/client';
 import Link from 'next/link';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import useSWR from 'swr';
 
 type Row = {
   id: string;
@@ -16,44 +17,84 @@ type Props = {
   refreshKey?: number;
 };
 
+const PAGE_SIZE = 50;
+
 export function OrganizationList({ refreshKey = 0 }: Props) {
-  const [rows, setRows] = useState<Row[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [confirmId, setConfirmId] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+  const swrKey = useMemo(() => ['organizationList', page] as const, [page]);
+
+  const fetcher = useCallback(async (): Promise<{ rows: Row[]; total: number }> => {
     const supabase = createClient();
-    const { data, error: err } = await supabase
+    const fromIdx = (page - 1) * PAGE_SIZE;
+    const { data, error: err, count } = await supabase
       .from('organizations')
-      .select('id, name, slug, created_at')
-      .order('name');
-    setLoading(false);
-    if (err) {
-      setError(err.message);
-      return;
-    }
-    setRows((data ?? []) as Row[]);
-  }, []);
+      .select('id, name, slug, created_at', { count: 'exact' })
+      .order('name')
+      .range(fromIdx, fromIdx + PAGE_SIZE - 1);
+    if (err) throw new Error(err.message);
+    return { rows: (data ?? []) as Row[], total: count ?? 0 };
+  }, [page]);
+
+  const { data, error: swrError, isLoading, isValidating, mutate } = useSWR(swrKey, fetcher, {
+    revalidateOnFocus: true,
+    revalidateOnReconnect: true,
+    dedupingInterval: 5000,
+  });
 
   useEffect(() => {
-    load();
-  }, [load, refreshKey]);
+    void mutate();
+  }, [refreshKey, mutate]);
+
+  const realtimeTimerRef = useRef<number | null>(null);
+  const scheduleRealtimeRefresh = useCallback(() => {
+    if (realtimeTimerRef.current) window.clearTimeout(realtimeTimerRef.current);
+    realtimeTimerRef.current = window.setTimeout(() => void mutate(), 250);
+  }, [mutate]);
+
+  useEffect(() => {
+    const supabase = createClient();
+    const channel = supabase
+      .channel('turnia:organizations')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'organizations' }, () => scheduleRealtimeRefresh())
+      .subscribe();
+
+    return () => {
+      if (realtimeTimerRef.current) {
+        window.clearTimeout(realtimeTimerRef.current);
+        realtimeTimerRef.current = null;
+      }
+      supabase.removeChannel(channel);
+    };
+  }, [scheduleRealtimeRefresh]);
 
   const deleteOrg = useCallback(
     async (id: string) => {
       setDeletingId(id);
       const supabase = createClient();
-      await supabase.from('organizations').delete().eq('id', id);
+      const { error } = await supabase.from('organizations').delete().eq('id', id);
       setDeletingId(null);
       setConfirmId(null);
-      load();
+      if (error) {
+        await mutate();
+        return;
+      }
+      // Refresh y ajustar página si se vacía (p.ej. borrar último item de la página)
+      const next = await mutate();
+      const totalAfter = (next as any)?.total as number | undefined;
+      const totalPagesAfter = Math.max(1, Math.ceil((totalAfter ?? 0) / PAGE_SIZE));
+      setPage((p) => Math.min(p, totalPagesAfter));
     },
-    [load]
+    [mutate]
   );
+
+  const rows = data?.rows ?? [];
+  const total = data?.total ?? 0;
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const loading = isLoading || (isValidating && !data);
+  const error = swrError ? String((swrError as Error).message ?? swrError) : null;
 
   if (loading) {
     return (
@@ -72,6 +113,13 @@ export function OrganizationList({ refreshKey = 0 }: Props) {
     return (
       <div className="rounded-xl border border-border bg-background p-6 shadow-sm">
         <p className="text-red-600">{error}</p>
+        <button
+          type="button"
+          onClick={() => void mutate()}
+          className="mt-3 min-h-[44px] min-w-[44px] rounded-lg border border-border px-4 py-2.5 text-sm font-medium text-text-secondary hover:bg-subtle-bg"
+        >
+          Reintentar
+        </button>
       </div>
     );
   }
@@ -124,6 +172,32 @@ export function OrganizationList({ refreshKey = 0 }: Props) {
           </tbody>
         </table>
       </div>
+
+      {totalPages > 1 && (
+        <div className="flex flex-wrap items-center justify-between gap-4 border-t border-border bg-background px-4 py-3">
+          <p className="text-sm text-text-secondary">
+            {total} organización{total !== 1 ? 'es' : ''} · Página {page} de {totalPages}
+          </p>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page <= 1}
+              className="rounded-lg border border-border bg-background px-4 py-2 text-sm font-medium text-text-primary hover:bg-subtle-bg disabled:opacity-50"
+            >
+              Anterior
+            </button>
+            <button
+              type="button"
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={page >= totalPages}
+              className="rounded-lg border border-border bg-background px-4 py-2 text-sm font-medium text-text-primary hover:bg-subtle-bg disabled:opacity-50"
+            >
+              Siguiente
+            </button>
+          </div>
+        </div>
+      )}
 
       <ConfirmModal
         open={!!confirmId}

@@ -4,17 +4,18 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import * as XLSX from 'https://esm.sh/xlsx@0.18.5';
+import { checkCanManageShifts, checkRateLimit, getAuthUser, logFailedAttempt } from '../_shared/auth.ts';
 import { corsHeaders } from '../_shared/cors.ts';
-import { getAuthUser, checkCanManageShifts, checkRateLimit, logFailedAttempt } from '../_shared/auth.ts';
 
 type ShiftRow = {
-  id: string;
   status: string;
   start_at: string;
   end_at: string;
-  assigned_user_id: string | null;
   location: string | null;
-  organization_shift_types: { name?: string; letter?: string } | null;
+  shift_type_name: string | null;
+  shift_type_letter: string | null;
+  assigned_user_id: string | null;
+  assigned_full_name: string | null;
 };
 
 function escapeCsvCell(val: string): string {
@@ -27,6 +28,8 @@ function escapeCsvCell(val: string): string {
 }
 
 const FN = 'export-schedule';
+const PAGE_SIZE = 2000;
+const XLSX_MAX_ROWS = 10_000;
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders });
@@ -70,6 +73,30 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Validación básica de fechas (ISO expected)
+    const startMs = Date.parse(start);
+    const endMs = Date.parse(end);
+    if (!Number.isFinite(startMs) || !Number.isFinite(endMs)) {
+      return new Response(JSON.stringify({ error: 'Invalid start/end timestamps' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    if (startMs > endMs) {
+      return new Response(JSON.stringify({ error: 'start must be <= end' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    // Límite de rango para evitar exportes masivos accidentales (1 año)
+    const maxRangeMs = 1000 * 60 * 60 * 24 * 366;
+    if (endMs - startMs > maxRangeMs) {
+      return new Response(JSON.stringify({ error: 'Rango demasiado grande (máx 12 meses). Acota el período.' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     // Permisos: team_manager, org_admin o superadmin
     const canManage = await checkCanManageShifts(supabase, user.id, orgId);
     if (!canManage) {
@@ -86,65 +113,92 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { data: rows, error } = await supabase
-      .from('shifts')
-      .select('id, status, start_at, end_at, assigned_user_id, location, organization_shift_types(name, letter)')
-      .eq('org_id', orgId)
-      .gte('start_at', start)
-      .lte('end_at', end)
-      .order('start_at');
-
-    if (error) {
-      return new Response(JSON.stringify({ error: error.message }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    const shiftRows = (rows ?? []) as ShiftRow[];
-    const userIds = [...new Set(shiftRows.map((r) => r.assigned_user_id).filter(Boolean))] as string[];
-    let names: Record<string, string> = {};
-    if (userIds.length > 0) {
-      const { data: profiles } = await supabase
-        .from('profiles')
-        .select('id, full_name')
-        .in('id', userIds);
-      names = Object.fromEntries(((profiles ?? []) as { id: string; full_name: string | null }[]).map((p) => [p.id, p.full_name ?? '']));
-    }
-
     const headers = ['Fecha', 'Hora inicio', 'Hora fin', 'Tipo', 'Letra', 'Estado', 'Asignado', 'Ubicación'];
     const toCells = (r: ShiftRow) => {
-      const ost = r.organization_shift_types ?? {};
-      const typeName = ost.name ?? '';
-      const typeLetter = ost.letter ?? '';
-      const start = r.start_at ?? '';
-      const end = r.end_at ?? '';
-      const startDate = start.slice(0, 10);
-      const startTime = start.slice(11, 16);
-      const endTime = end.slice(11, 16);
-      const assigned = r.assigned_user_id ? (names[r.assigned_user_id] || r.assigned_user_id) : '';
+      const typeName = r.shift_type_name ?? '';
+      const typeLetter = r.shift_type_letter ?? '';
+      const s = r.start_at ?? '';
+      const e = r.end_at ?? '';
+      const startDate = s.slice(0, 10);
+      const startTime = s.slice(11, 16);
+      const endTime = e.slice(11, 16);
+      const assigned =
+        r.assigned_user_id
+          ? (r.assigned_full_name?.trim() || r.assigned_user_id.slice(0, 8))
+          : '';
       return [startDate, startTime, endTime, typeName, typeLetter, r.status ?? '', assigned, r.location ?? ''];
     };
 
-    if (format === 'csv') {
-      const lines = [
-        headers.map(escapeCsvCell).join(','),
-        ...shiftRows.map((r) => toCells(r).map(escapeCsvCell).join(',')),
-      ];
-      const csv = '\uFEFF' + lines.join('\r\n'); // BOM para Excel en UTF-8
+    const baseFile = `horarios_${start.slice(0, 10)}_${end.slice(0, 10)}`;
 
-      return new Response(csv, {
+    if (format === 'csv') {
+      const enc = new TextEncoder();
+      const stream = new ReadableStream<Uint8Array>({
+        async start(controller) {
+          // BOM + header
+          controller.enqueue(enc.encode('\uFEFF' + headers.map(escapeCsvCell).join(',') + '\r\n'));
+          let from = 0;
+          while (true) {
+            const to = from + PAGE_SIZE - 1;
+            const { data, error } = await supabase
+              .rpc('export_schedule_rows', { p_org_id: orgId, p_from: start, p_to: end })
+              .range(from, to);
+            if (error) throw new Error(error.message);
+            const batch = ((data ?? []) as unknown) as ShiftRow[];
+            if (batch.length === 0) break;
+            // chunked write
+            let chunk = '';
+            for (const r of batch) {
+              chunk += toCells(r).map(escapeCsvCell).join(',') + '\r\n';
+            }
+            controller.enqueue(enc.encode(chunk));
+            if (batch.length < PAGE_SIZE) break;
+            from += PAGE_SIZE;
+          }
+          controller.close();
+        },
+      });
+
+      return new Response(stream, {
         headers: {
           ...corsHeaders,
           'Content-Type': 'text/csv; charset=utf-8',
-          'Content-Disposition': 'attachment; filename=horarios.csv',
+          'Content-Disposition': `attachment; filename=${baseFile}.csv`,
         },
       });
     }
 
     // Excel
+    // XLSX requiere materializar todo en memoria; ponemos un límite razonable.
+    const wsData: (string | number)[][] = [headers];
+    let from = 0;
+    while (true) {
+      const to = from + PAGE_SIZE - 1;
+      const { data, error } = await supabase
+        .rpc('export_schedule_rows', { p_org_id: orgId, p_from: start, p_to: end })
+        .range(from, to);
+      if (error) {
+        return new Response(JSON.stringify({ error: error.message }), {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      const batch = ((data ?? []) as unknown) as ShiftRow[];
+      if (batch.length === 0) break;
+      for (const r of batch) {
+        wsData.push(toCells(r));
+        if (wsData.length - 1 > XLSX_MAX_ROWS) {
+          return new Response(JSON.stringify({ error: 'Demasiados turnos para Excel. Usa CSV o acota el rango.' }), {
+            status: 413,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+      }
+      if (batch.length < PAGE_SIZE) break;
+      from += PAGE_SIZE;
+    }
+
     const wb = XLSX.utils.book_new();
-    const wsData = [headers, ...shiftRows.map(toCells)];
     const ws = XLSX.utils.aoa_to_sheet(wsData);
     ws['!cols'] = [
       { wch: 12 },
@@ -163,7 +217,7 @@ Deno.serve(async (req) => {
       headers: {
         ...corsHeaders,
         'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        'Content-Disposition': 'attachment; filename=horarios.xlsx',
+        'Content-Disposition': `attachment; filename=${baseFile}.xlsx`,
       },
     });
   } catch (e) {

@@ -10,7 +10,8 @@ import { ConfirmModal } from '@/components/ui/ConfirmModal';
 import { useToast } from '@/components/ui/toast/ToastProvider';
 import { createClient } from '@/lib/supabase/client';
 import { fetchProfilesMap } from '@/lib/supabase/queries';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import useSWR from 'swr';
 
 const REQUEST_TYPE_LABEL: Record<string, string> = {
   give_away: 'Dar de baja',
@@ -79,22 +80,17 @@ function getTypeLetter(ot: ShiftEmbed['organization_shift_types']): string {
 
 export function MyRequestsList({ orgId, userId, refreshKey = 0 }: Props) {
   const { toast } = useToast();
-  const [rows, setRows] = useState<Row[]>([]);
-  const [names, setNames] = useState<Record<string, string>>({});
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [cancelId, setCancelId] = useState<string | null>(null);
   const [cancelLoading, setCancelLoading] = useState(false);
   const [tab, setTab] = useState<Tab>('all');
 
-  const load = useCallback(async () => {
-    if (!orgId || !userId) {
-      setRows([]);
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-    setError(null);
+  const swrKey = useMemo(() => {
+    if (!orgId || !userId) return null;
+    return ['myRequests', orgId, userId] as const;
+  }, [orgId, userId]);
+
+  const fetcher = useCallback(async (): Promise<{ rows: Row[]; names: Record<string, string> }> => {
+    if (!orgId || !userId) return { rows: [], names: {} };
     const supabase = createClient();
     const { data, error: err } = await supabase
       .from('shift_requests')
@@ -107,40 +103,37 @@ export function MyRequestsList({ orgId, userId, refreshKey = 0 }: Props) {
       .eq('requester_id', userId)
       .order('created_at', { ascending: false });
 
-    if (err) {
-      setError(err.message);
-      setRows([]);
-      setLoading(false);
-      return;
-    }
+    if (err) throw new Error(err.message);
 
-    const list = ((data ?? []) as unknown) as Row[];
-    setRows(list);
-
+    const rows = ((data ?? []) as unknown) as Row[];
     const userIds = new Set<string>();
-    list.forEach((r) => {
+    rows.forEach((r) => {
       if (r.shift?.assigned_user_id) userIds.add(r.shift.assigned_user_id);
       if (r.target_shift?.assigned_user_id) userIds.add(r.target_shift.assigned_user_id);
       if (r.target_user_id) userIds.add(r.target_user_id);
     });
-    if (userIds.size > 0) {
-      const map = await fetchProfilesMap(supabase, Array.from(userIds), {
-        fallbackName: (id) => id.slice(0, 8),
-      });
-      setNames(map);
-    } else {
-      setNames({});
-    }
-    setLoading(false);
+    const names =
+      userIds.size > 0
+        ? await fetchProfilesMap(supabase, Array.from(userIds), { fallbackName: (id) => id.slice(0, 8) })
+        : {};
+    return { rows, names };
   }, [orgId, userId]);
 
+  const { data: swrData, error: swrError, isLoading, isValidating, mutate } = useSWR(swrKey, fetcher, {
+    revalidateOnFocus: true,
+    revalidateOnReconnect: true,
+    dedupingInterval: 5000,
+  });
+
   useEffect(() => {
-    // Evitar setState sincrónico en el cuerpo del effect (eslint react-hooks/set-state-in-effect)
-    const t = window.setTimeout(() => {
-      void load();
-    }, 0);
-    return () => window.clearTimeout(t);
-  }, [load, refreshKey]);
+    if (!swrKey) return;
+    void mutate();
+  }, [refreshKey, mutate, swrKey]);
+
+  const rows = swrData?.rows ?? [];
+  const names = swrData?.names ?? {};
+  const loading = isLoading || (isValidating && !swrData);
+  const error = swrError ? String((swrError as Error).message ?? swrError) : null;
 
   const handleCancel = useCallback(async () => {
     if (!cancelId) return;
@@ -153,13 +146,12 @@ export function MyRequestsList({ orgId, userId, refreshKey = 0 }: Props) {
     setCancelLoading(false);
     setCancelId(null);
     if (err) {
-      setError(err.message);
       toast({ variant: 'error', title: 'No se pudo cancelar', message: err.message });
       return;
     }
     toast({ variant: 'success', title: 'Solicitud cancelada', message: 'La solicitud fue cancelada.' });
-    load();
-  }, [cancelId, load, toast]);
+    void mutate();
+  }, [cancelId, toast, mutate]);
 
   const canCancel = (s: string) => ['draft', 'submitted', 'accepted'].includes(s);
   const isPending = (s: string) => ['draft', 'submitted', 'accepted'].includes(s);

@@ -5,8 +5,10 @@
  * @see project-roadmap.md Módulo 8.1
  */
 
-import { useCallback, useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { fetchOrgMemberIds, fetchProfilesMap } from '@/lib/supabase/queries';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import useSWR from 'swr';
 import { AuditLogDetailModal, type AuditLogRow } from './AuditLogDetailModal';
 
 const ENTITY_LABELS: Record<string, string> = {
@@ -65,14 +67,11 @@ function getActionLabel(a: string): string {
 }
 
 export function AuditLogList({ orgId }: Props) {
-  const [rows, setRows] = useState<AuditLogRow[]>([]);
-  const [actors, setActors] = useState<ActorOption[]>([]);
-  const [names, setNames] = useState<Record<string, string>>({});
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
-  const [total, setTotal] = useState(0);
-  const [detail, setDetail] = useState<AuditLogRow | null>(null);
+  const [detailId, setDetailId] = useState<string | null>(null);
+  const [detailEntry, setDetailEntry] = useState<AuditLogRow | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState<string | null>(null);
   const [filters, setFilters] = useState<Filters>(() => {
     const now = new Date();
     const first = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -86,37 +85,50 @@ export function AuditLogList({ orgId }: Props) {
     };
   });
 
-  const loadActors = useCallback(async () => {
+  const actorsKey = useMemo(() => ['auditActors', orgId] as const, [orgId]);
+  const actorsFetcher = useCallback(async (): Promise<ActorOption[]> => {
     const supabase = createClient();
-    const { data: mems } = await supabase
-      .from('memberships')
-      .select('user_id')
-      .eq('org_id', orgId);
-    const ids = [...new Set((mems ?? []).map((m: { user_id: string }) => m.user_id))];
-    if (ids.length === 0) {
-      setActors([]);
-      return;
-    }
-    const { data: profs } = await supabase
-      .from('profiles')
-      .select('id, full_name, email')
-      .in('id', ids);
-    const opts: ActorOption[] = (profs ?? []).map((p: { id: string; full_name: string | null; email: string | null }) => ({
-      id: p.id,
-      label: (p.full_name || p.email || p.id.slice(0, 8)).trim(),
-    }));
+    const ids = await fetchOrgMemberIds(supabase, orgId);
+    const unique = Array.from(new Set(ids.filter(Boolean)));
+    if (unique.length === 0) return [];
+    const map = await fetchProfilesMap(supabase, unique, { fallbackName: (id) => id.slice(0, 8) });
+    const opts = unique.map((id) => ({ id, label: (map[id] || id.slice(0, 8)).trim() }));
     opts.sort((a, b) => a.label.localeCompare(b.label));
-    setActors(opts);
+    return opts;
   }, [orgId]);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+  const { data: actors = [] } = useSWR(actorsKey, actorsFetcher, {
+    revalidateOnFocus: false,
+    revalidateOnReconnect: true,
+    dedupingInterval: 30_000,
+  });
+
+  type AuditListRow = Pick<
+    AuditLogRow,
+    'id' | 'org_id' | 'actor_id' | 'entity' | 'entity_id' | 'action' | 'comment' | 'created_at'
+  >;
+
+  const listKey = useMemo(
+    () =>
+      [
+        'auditLog',
+        orgId,
+        page,
+        filters.entity,
+        filters.actorId,
+        filters.action,
+        filters.dateFrom,
+        filters.dateTo,
+      ] as const,
+    [orgId, page, filters.entity, filters.actorId, filters.action, filters.dateFrom, filters.dateTo]
+  );
+
+  const listFetcher = useCallback(async (): Promise<{ rows: AuditListRow[]; total: number; names: Record<string, string> }> => {
     const supabase = createClient();
 
     let q = supabase
       .from('audit_log')
-      .select('id, org_id, actor_id, entity, entity_id, action, before_snapshot, after_snapshot, comment, created_at', { count: 'exact' })
+      .select('id, org_id, actor_id, entity, entity_id, action, comment, created_at', { count: 'exact' })
       .eq('org_id', orgId)
       .order('created_at', { ascending: false });
 
@@ -131,42 +143,74 @@ export function AuditLogList({ orgId }: Props) {
     const fromIdx = (page - 1) * PAGE_SIZE;
     const { data, error: err, count } = await q.range(fromIdx, fromIdx + PAGE_SIZE - 1);
 
-    if (err) {
-      setError(err.message);
-      setRows([]);
-      setTotal(0);
-      setLoading(false);
-      return;
-    }
+    if (err) throw new Error(err.message);
 
-    const list = (data ?? []) as AuditLogRow[];
-    setRows(list);
-    setTotal(count ?? 0);
+    const rows = (data ?? []) as AuditListRow[];
+    const actorIds = [...new Set(rows.map((r) => r.actor_id).filter(Boolean))] as string[];
+    const names =
+      actorIds.length > 0 ? await fetchProfilesMap(supabase, actorIds, { fallbackName: (id) => id.slice(0, 8) }) : {};
+    return { rows, total: count ?? 0, names };
+  }, [orgId, page, filters.actorId, filters.action, filters.dateFrom, filters.dateTo, filters.entity]);
 
-    const actorIds = [...new Set(list.map((r) => r.actor_id).filter(Boolean))] as string[];
-    if (actorIds.length > 0) {
-      const { data: profs } = await supabase
-        .from('profiles')
-        .select('id, full_name, email')
-        .in('id', actorIds);
-      const map: Record<string, string> = {};
-      (profs ?? []).forEach((p: { id: string; full_name: string | null; email: string | null }) => {
-        map[p.id] = (p.full_name || p.email || p.id.slice(0, 8)).trim();
-      });
-      setNames(map);
-    } else {
-      setNames({});
-    }
-    setLoading(false);
-  }, [orgId, page, filters.entity, filters.actorId, filters.action, filters.dateFrom, filters.dateTo]);
+  const { data: listData, error: listError, isLoading: listLoading, isValidating, mutate } = useSWR(listKey, listFetcher, {
+    revalidateOnFocus: true,
+    revalidateOnReconnect: true,
+    dedupingInterval: 5000,
+  });
+
+  const rows = listData?.rows ?? [];
+  const total = listData?.total ?? 0;
+  const names = listData?.names ?? {};
+  const loading = listLoading || (isValidating && !listData);
+  const error = listError ? String((listError as Error).message ?? listError) : null;
+
+  const realtimeTimerRef = useRef<number | null>(null);
+  const scheduleRealtimeRefresh = useCallback(() => {
+    if (realtimeTimerRef.current) window.clearTimeout(realtimeTimerRef.current);
+    realtimeTimerRef.current = window.setTimeout(() => void mutate(), 250);
+  }, [mutate]);
 
   useEffect(() => {
-    loadActors();
-  }, [loadActors]);
+    const supabase = createClient();
+    const channel = supabase
+      .channel(`turnia:audit_log:${orgId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'audit_log', filter: `org_id=eq.${orgId}` },
+        () => scheduleRealtimeRefresh()
+      )
+      .subscribe();
 
-  useEffect(() => {
-    load();
-  }, [load]);
+    return () => {
+      if (realtimeTimerRef.current) {
+        window.clearTimeout(realtimeTimerRef.current);
+        realtimeTimerRef.current = null;
+      }
+      supabase.removeChannel(channel);
+    };
+  }, [orgId, scheduleRealtimeRefresh]);
+
+  const openDetail = useCallback(
+    async (id: string) => {
+      setDetailId(id);
+      setDetailEntry(null);
+      setDetailError(null);
+      setDetailLoading(true);
+      const supabase = createClient();
+      const { data, error: err } = await supabase
+        .from('audit_log')
+        .select('id, org_id, actor_id, entity, entity_id, action, before_snapshot, after_snapshot, comment, created_at')
+        .eq('id', id)
+        .single();
+      setDetailLoading(false);
+      if (err) {
+        setDetailError(err.message);
+        return;
+      }
+      setDetailEntry(data as AuditLogRow);
+    },
+    [setDetailId]
+  );
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
@@ -283,7 +327,7 @@ export function AuditLogList({ orgId }: Props) {
                 {rows.map((r) => (
                   <tr
                     key={r.id}
-                    onClick={() => setDetail(r)}
+                    onClick={() => void openDetail(r.id)}
                     className="cursor-pointer border-b border-border hover:bg-subtle-bg last:border-b-0"
                   >
                     <td className="px-4 py-3 text-text-primary">
@@ -335,12 +379,24 @@ export function AuditLogList({ orgId }: Props) {
       )}
 
       <AuditLogDetailModal
-        open={!!detail}
-        onClose={() => setDetail(null)}
-        entry={detail}
-        actorName={detail?.actor_id ? names[detail.actor_id] ?? detail.actor_id.slice(0, 8) : '—'}
-        entityLabel={detail ? getEntityLabel(detail.entity) : ''}
-        actionLabel={detail ? getActionLabel(detail.action) : ''}
+        open={!!detailId}
+        onClose={() => {
+          setDetailId(null);
+          setDetailEntry(null);
+          setDetailError(null);
+          setDetailLoading(false);
+        }}
+        entry={detailEntry}
+        loading={detailLoading}
+        error={detailError}
+        actorName={
+          (detailEntry?.actor_id ?? rows.find((x) => x.id === detailId)?.actor_id)
+            ? names[(detailEntry?.actor_id ?? rows.find((x) => x.id === detailId)?.actor_id) as string] ??
+            ((detailEntry?.actor_id ?? rows.find((x) => x.id === detailId)?.actor_id) as string).slice(0, 8)
+            : '—'
+        }
+        entityLabel={detailEntry ? getEntityLabel(detailEntry.entity) : ''}
+        actionLabel={detailEntry ? getActionLabel(detailEntry.action) : ''}
       />
     </div>
   );

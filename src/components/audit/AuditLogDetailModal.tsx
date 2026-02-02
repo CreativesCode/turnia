@@ -25,6 +25,8 @@ type Props = {
   open: boolean;
   onClose: () => void;
   entry: AuditLogRow | null;
+  loading?: boolean;
+  error?: string | null;
   actorName: string;
   entityLabel: string;
   actionLabel: string;
@@ -46,11 +48,36 @@ export function AuditLogDetailModal({
   open,
   onClose,
   entry,
+  loading = false,
+  error = null,
   actorName,
   entityLabel,
   actionLabel,
 }: Props) {
   if (!open) return null;
+
+  if (error) {
+    return (
+      <Dialog open={open} onClose={onClose} title="Detalle del evento" panelClassName="max-w-xl">
+        <div className="space-y-3 text-sm">
+          <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-red-700">{error}</p>
+          <p className="text-text-secondary">Cierra el modal e intenta abrir el evento nuevamente.</p>
+        </div>
+      </Dialog>
+    );
+  }
+
+  if (loading && !entry) {
+    return (
+      <Dialog open={open} onClose={onClose} title="Detalle del evento" panelClassName="max-w-xl">
+        <div className="space-y-3 text-sm">
+          <div className="h-4 w-40 animate-pulse rounded bg-subtle-bg" />
+          <div className="h-4 w-64 animate-pulse rounded bg-subtle-bg" />
+          <div className="h-24 animate-pulse rounded-lg bg-subtle-bg" />
+        </div>
+      </Dialog>
+    );
+  }
 
   const hasBefore = entry?.before_snapshot && Object.keys(entry.before_snapshot).length > 0;
   const hasAfter = entry?.after_snapshot && Object.keys(entry.after_snapshot).length > 0;

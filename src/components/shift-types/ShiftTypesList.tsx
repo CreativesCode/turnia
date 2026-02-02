@@ -3,7 +3,8 @@
 import { ConfirmModal } from '@/components/ui/ConfirmModal';
 import { createClient } from '@/lib/supabase/client';
 import { formatShiftTypeSchedule, isColorLight } from '@/lib/utils';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import useSWR from 'swr';
 import type { ShiftTypeRow } from './ShiftTypeFormModal';
 import { ShiftTypeFormModal } from './ShiftTypeFormModal';
 
@@ -14,9 +15,6 @@ type Props = {
 };
 
 export function ShiftTypesList({ orgId, refreshKey = 0, onRefresh }: Props) {
-  const [rows, setRows] = useState<ShiftTypeRow[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [editing, setEditing] = useState<ShiftTypeRow | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<ShiftTypeRow | null>(null);
@@ -25,29 +23,57 @@ export function ShiftTypesList({ orgId, refreshKey = 0, onRefresh }: Props) {
   const [reordering, setReordering] = useState(false);
   const [reorderError, setReorderError] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+  const swrKey = useMemo(() => ['shiftTypes', orgId] as const, [orgId]);
+  const fetcher = useCallback(async (): Promise<ShiftTypeRow[]> => {
     const supabase = createClient();
-    const { data, error: err } = await supabase
+    const { data, error } = await supabase
       .from('organization_shift_types')
       .select('id, org_id, name, letter, color, sort_order, start_time, end_time')
       .eq('org_id', orgId)
       .order('sort_order', { ascending: true })
       .order('name', { ascending: true });
-
-    if (err) {
-      setError(err.message);
-      setLoading(false);
-      return;
-    }
-    setRows((data ?? []) as ShiftTypeRow[]);
-    setLoading(false);
+    if (error) throw new Error(error.message);
+    return (data ?? []) as ShiftTypeRow[];
   }, [orgId]);
 
+  const { data: rows = [], error: swrError, isLoading, isValidating, mutate } = useSWR(swrKey, fetcher, {
+    revalidateOnFocus: true,
+    revalidateOnReconnect: true,
+    dedupingInterval: 5000,
+  });
+
   useEffect(() => {
-    load();
-  }, [load, refreshKey]);
+    void mutate();
+  }, [refreshKey, mutate]);
+
+  const realtimeTimerRef = useRef<number | null>(null);
+  const scheduleRealtimeRefresh = useCallback(() => {
+    if (realtimeTimerRef.current) window.clearTimeout(realtimeTimerRef.current);
+    realtimeTimerRef.current = window.setTimeout(() => void mutate(), 250);
+  }, [mutate]);
+
+  useEffect(() => {
+    const supabase = createClient();
+    const channel = supabase
+      .channel(`turnia:shiftTypes:${orgId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'organization_shift_types', filter: `org_id=eq.${orgId}` },
+        () => scheduleRealtimeRefresh()
+      )
+      .subscribe();
+
+    return () => {
+      if (realtimeTimerRef.current) {
+        window.clearTimeout(realtimeTimerRef.current);
+        realtimeTimerRef.current = null;
+      }
+      supabase.removeChannel(channel);
+    };
+  }, [orgId, scheduleRealtimeRefresh]);
+
+  const loading = isLoading || (isValidating && rows.length === 0);
+  const error = swrError ? String((swrError as Error).message ?? swrError) : null;
 
   const doDelete = useCallback(async () => {
     if (!confirmDelete) return;
@@ -70,8 +96,8 @@ export function ShiftTypesList({ orgId, refreshKey = 0, onRefresh }: Props) {
       return;
     }
     onRefresh?.();
-    load();
-  }, [orgId, confirmDelete, onRefresh, load]);
+    void mutate();
+  }, [orgId, confirmDelete, onRefresh, mutate]);
 
   const existingLetters = rows.map((r) => r.letter);
   const existingColors = rows.map((r) => r.color);
@@ -90,17 +116,21 @@ export function ShiftTypesList({ orgId, refreshKey = 0, onRefresh }: Props) {
       setReordering(true);
 
       // Optimistic UI swap
-      setRows((prev) => {
-        if (index < 0 || index >= prev.length) return prev;
-        const t = index + dir;
-        if (t < 0 || t >= prev.length) return prev;
-        const next = [...prev];
-        const ra = next[index];
-        const rb = next[t];
-        next[index] = { ...rb, sort_order: ra.sort_order };
-        next[t] = { ...ra, sort_order: rb.sort_order };
-        return next;
-      });
+      mutate(
+        (prev) => {
+          const prevRows = (prev ?? []) as ShiftTypeRow[];
+          if (index < 0 || index >= prevRows.length) return prevRows;
+          const t = index + dir;
+          if (t < 0 || t >= prevRows.length) return prevRows;
+          const next = [...prevRows];
+          const ra = next[index];
+          const rb = next[t];
+          next[index] = { ...rb, sort_order: ra.sort_order };
+          next[t] = { ...ra, sort_order: rb.sort_order };
+          return next;
+        },
+        { revalidate: false }
+      );
 
       const supabase = createClient();
       const { error: e1 } = await supabase
@@ -119,14 +149,14 @@ export function ShiftTypesList({ orgId, refreshKey = 0, onRefresh }: Props) {
 
       if (e1 || e2) {
         setReorderError((e1 ?? e2)?.message ?? 'No se pudo reordenar.');
-        load();
+        void mutate();
         return;
       }
 
       onRefresh?.();
-      load();
+      void mutate();
     },
-    [rows, orgId, reordering, onRefresh, load]
+    [rows, orgId, reordering, onRefresh, mutate]
   );
 
   if (loading) {
@@ -146,6 +176,13 @@ export function ShiftTypesList({ orgId, refreshKey = 0, onRefresh }: Props) {
     return (
       <div className="rounded-xl border border-border bg-background p-4">
         <p className="text-sm text-red-600">{error}</p>
+        <button
+          type="button"
+          onClick={() => void mutate()}
+          className="mt-3 min-h-[44px] min-w-[44px] rounded-lg border border-border px-4 py-2.5 text-sm font-medium text-text-secondary hover:bg-subtle-bg"
+        >
+          Reintentar
+        </button>
       </div>
     );
   }
@@ -264,7 +301,7 @@ export function ShiftTypesList({ orgId, refreshKey = 0, onRefresh }: Props) {
         onClose={() => setCreateOpen(false)}
         onSuccess={() => {
           onRefresh?.();
-          load();
+          void mutate();
         }}
         orgId={orgId}
         editing={null}
@@ -277,7 +314,7 @@ export function ShiftTypesList({ orgId, refreshKey = 0, onRefresh }: Props) {
         onClose={() => setEditing(null)}
         onSuccess={() => {
           onRefresh?.();
-          load();
+          void mutate();
         }}
         orgId={orgId}
         editing={editing}
