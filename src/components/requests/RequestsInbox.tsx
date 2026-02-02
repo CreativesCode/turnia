@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/Button';
 import { Select } from '@/components/ui/Select';
 import { useToast } from '@/components/ui/toast/ToastProvider';
 import { createClient } from '@/lib/supabase/client';
+import { fetchProfilesMap } from '@/lib/supabase/queries';
 import { useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 
@@ -136,13 +137,8 @@ export function RequestsInbox({ orgId, canApprove, refreshKey = 0 }: Props) {
       if (r.suggested_replacement_user_id) userIds.add(r.suggested_replacement_user_id);
     });
     if (userIds.size > 0) {
-      const { data: profs } = await supabase
-        .from('profiles')
-        .select('id, full_name')
-        .in('id', Array.from(userIds));
-      const map: Record<string, string> = {};
-      (profs ?? []).forEach((p: { id: string; full_name: string | null }) => {
-        map[p.id] = p.full_name?.trim() || p.id.slice(0, 8);
+      const map = await fetchProfilesMap(supabase, Array.from(userIds), {
+        fallbackName: (id) => id.slice(0, 8),
       });
       setNames(map);
     } else {

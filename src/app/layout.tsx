@@ -1,7 +1,7 @@
-import type { Metadata } from "next";
+import { AppProviders } from "@/components/providers/AppProviders";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { AppProviders } from "@/components/providers/AppProviders";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -17,17 +17,18 @@ export const metadata: Metadata = {
   title: "Turnia - Gestión de Turnos Médicos",
   description: "Sistema de gestión de turnos y horarios para entornos de salud",
   manifest: "/manifest.json",
-  themeColor: "#17a2b8",
-  viewport: {
-    width: "device-width",
-    initialScale: 1,
-    maximumScale: 1,
-  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
     title: "Turnia",
   },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  themeColor: "#17a2b8",
 };
 
 const themeInitScript = `

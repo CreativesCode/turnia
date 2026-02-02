@@ -63,26 +63,19 @@ export default function ProfilePage() {
     const from = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
     const to = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
 
-    const { data: shifts } = await supabase
-      .from('shifts')
-      .select('start_at, end_at')
-      .eq('org_id', orgId)
-      .eq('assigned_user_id', userId)
-      .gte('start_at', from.toISOString())
-      .lte('start_at', to.toISOString())
-      .limit(200);
-
-    const monthShifts = (shifts ?? []).length;
-    const monthHours = (shifts ?? []).reduce((acc, s) => {
-      const st = new Date((s as { start_at: string }).start_at).getTime();
-      const en = new Date((s as { end_at: string }).end_at).getTime();
-      if (!isFinite(st) || !isFinite(en) || en <= st) return acc;
-      return acc + (en - st) / 3600_000;
-    }, 0);
+    const { data: monthAgg } = await supabase.rpc('shift_hours_stats', {
+      p_org_id: orgId,
+      p_from: from.toISOString(),
+      p_to: to.toISOString(),
+      p_user_id: userId,
+    });
+    const row = (monthAgg as Array<{ shift_count: number; total_hours: number | string }> | null | undefined)?.[0];
+    const monthShifts = Number(row?.shift_count ?? 0);
+    const monthHours = Number(row?.total_hours ?? 0);
 
     const { count: approvedRequests } = await supabase
       .from('shift_requests')
-      .select('*', { count: 'exact', head: true })
+      .select('id', { count: 'exact', head: true })
       .eq('org_id', orgId)
       .eq('requester_id', userId)
       .eq('status', 'approved');

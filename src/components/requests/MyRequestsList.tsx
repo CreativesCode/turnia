@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/Button';
 import { ConfirmModal } from '@/components/ui/ConfirmModal';
 import { useToast } from '@/components/ui/toast/ToastProvider';
 import { createClient } from '@/lib/supabase/client';
+import { fetchProfilesMap } from '@/lib/supabase/queries';
 import { useCallback, useEffect, useState } from 'react';
 
 const REQUEST_TYPE_LABEL: Record<string, string> = {
@@ -123,13 +124,8 @@ export function MyRequestsList({ orgId, userId, refreshKey = 0 }: Props) {
       if (r.target_user_id) userIds.add(r.target_user_id);
     });
     if (userIds.size > 0) {
-      const { data: profs } = await supabase
-        .from('profiles')
-        .select('id, full_name')
-        .in('id', Array.from(userIds));
-      const map: Record<string, string> = {};
-      (profs ?? []).forEach((p: { id: string; full_name: string | null }) => {
-        map[p.id] = p.full_name?.trim() || p.id.slice(0, 8);
+      const map = await fetchProfilesMap(supabase, Array.from(userIds), {
+        fallbackName: (id) => id.slice(0, 8),
       });
       setNames(map);
     } else {

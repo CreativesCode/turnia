@@ -5,13 +5,13 @@
  * @see project-roadmap.md Módulo 5.4
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
-import Link from 'next/link';
-import { createClient } from '@/lib/supabase/client';
-import { useScheduleOrg } from '@/hooks/useScheduleOrg';
-import { NotificationsList, type NotificationRow } from './NotificationsList';
 import { Button } from '@/components/ui/Button';
 import { Skeleton } from '@/components/ui/Skeleton';
+import { useScheduleOrg } from '@/hooks/useScheduleOrg';
+import { createClient } from '@/lib/supabase/client';
+import Link from 'next/link';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { NotificationsList, type NotificationRow } from './NotificationsList';
 
 const LIMIT = 10;
 
@@ -52,7 +52,7 @@ export function NotificationBell() {
     const supabase = createClient();
     const { count } = await supabase
       .from('notifications')
-      .select('*', { count: 'exact', head: true })
+      .select('id', { count: 'exact', head: true })
       .is('read_at', null);
     setUnreadCount(count ?? 0);
   }, []);

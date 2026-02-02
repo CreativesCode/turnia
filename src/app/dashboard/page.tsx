@@ -4,7 +4,9 @@ import { DashboardDesktopHeader } from '@/components/dashboard/DashboardDesktopH
 import { LinkButton } from '@/components/ui/LinkButton';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { useScheduleOrg } from '@/hooks/useScheduleOrg';
+import { getCacheEntry, setCache } from '@/lib/cache';
 import { createClient } from '@/lib/supabase/client';
+import { fetchProfilesMap } from '@/lib/supabase/queries';
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
@@ -121,6 +123,28 @@ type ManagerCardShift = {
   type_color: string | null;
 };
 
+type DashboardCacheData = {
+  fullName: string | null;
+  orgName: string | null;
+  todayShift: (ShiftRow & { organization_shift_types: ShiftType }) | null;
+  upcoming: (ShiftRow & { organization_shift_types: ShiftType })[];
+  monthShiftsCount: number;
+  monthHours: number;
+  myPendingRequestsCount: number;
+  pendingRequestsCount: number;
+  managerWeekCount: number;
+  managerWeekHours: number;
+  managerStaffActive: number;
+  managerToday: ManagerCardShift[];
+  adminMembersCount: number;
+  adminInvitesPending: number;
+  adminShiftTypesCount: number;
+};
+
+function dashboardCacheKey(orgId: string, userId: string, roleKey: 'admin' | 'manager' | 'staff'): string {
+  return `turnia:cache:dashboard:${orgId}:${userId}:${roleKey}`;
+}
+
 export default function DashboardPage() {
   const { orgId, userId, canManageOrg, canManageShifts, isLoading, error } = useScheduleOrg();
   const [fullName, setFullName] = useState<string | null>(null);
@@ -178,180 +202,199 @@ export default function DashboardPage() {
 
   const load = useCallback(async () => {
     if (!orgId || !userId) return;
-    setLoadingData(true);
     const supabase = createClient();
+    const roleKey: 'admin' | 'manager' | 'staff' = canManageOrg ? 'admin' : canManageShifts ? 'manager' : 'staff';
+    const key = dashboardCacheKey(orgId, userId, roleKey);
+    const cached = getCacheEntry<DashboardCacheData>(key, { maxAgeMs: 60_000 }); // 1 minuto
 
-    // Profile name
-    const p = await supabase.from('profiles').select('full_name').eq('id', userId).maybeSingle();
-    setFullName((p.data as { full_name?: string | null } | null)?.full_name ?? null);
+    if (cached) {
+      const d = cached.data;
+      setFullName(d.fullName);
+      setOrgName(d.orgName);
+      setTodayShift(d.todayShift);
+      setUpcoming(d.upcoming);
+      setMonthShiftsCount(d.monthShiftsCount);
+      setMonthHours(d.monthHours);
+      setMyPendingRequestsCount(d.myPendingRequestsCount);
+      setPendingRequestsCount(d.pendingRequestsCount);
+      setManagerWeekCount(d.managerWeekCount);
+      setManagerWeekHours(d.managerWeekHours);
+      setManagerStaffActive(d.managerStaffActive);
+      setManagerToday(d.managerToday);
+      setAdminMembersCount(d.adminMembersCount);
+      setAdminInvitesPending(d.adminInvitesPending);
+      setAdminShiftTypesCount(d.adminShiftTypesCount);
+    } else {
+      setLoadingData(true);
+    }
+    try {
+      // Rango de hoy (para turno actual del usuario)
+      const start = new Date();
+      start.setHours(0, 0, 0, 0);
+      const end = new Date();
+      end.setHours(23, 59, 59, 999);
 
-    // Org name (best-effort)
-    const o = await supabase.from('organizations').select('name').eq('id', orgId).maybeSingle();
-    setOrgName((o.data as { name?: string | null } | null)?.name ?? null);
+      // Próximos turnos (14 días)
+      const now = new Date();
+      const to = new Date(now);
+      to.setDate(now.getDate() + 14);
 
-    // Today shift (assigned)
-    const start = new Date();
-    start.setHours(0, 0, 0, 0);
-    const end = new Date();
-    end.setHours(23, 59, 59, 999);
-    const { data: today } = await supabase
-      .from('shifts')
-      .select(
-        `id, start_at, end_at, assigned_user_id, location,
-         organization_shift_types (id, name, letter, color)`
-      )
-      .eq('org_id', orgId)
-      .eq('assigned_user_id', userId)
-      .gte('end_at', start.toISOString())
-      .lte('start_at', end.toISOString())
-      .order('start_at', { ascending: true })
-      .limit(1);
+      // Stats del mes actual
+      const now0 = new Date();
+      const from = new Date(now0.getFullYear(), now0.getMonth(), 1, 0, 0, 0, 0);
+      const toMonthEnd = new Date(now0.getFullYear(), now0.getMonth() + 1, 0, 23, 59, 59, 999);
 
-    const t0 = (today?.[0] as ShiftRow | undefined) ?? null;
-    setTodayShift(t0 ? { ...t0, organization_shift_types: normalizeShiftType(t0.organization_shift_types) } : null);
+      // Semana actual (lunes-domingo)
+      const now2 = new Date();
+      const dayIdx = (now2.getDay() + 6) % 7; // 0 = lunes
+      const monday = new Date(now2);
+      monday.setDate(now2.getDate() - dayIdx);
+      monday.setHours(0, 0, 0, 0);
+      const sunday = new Date(monday);
+      sunday.setDate(monday.getDate() + 6);
+      sunday.setHours(23, 59, 59, 999);
 
-    // Upcoming preview (3)
-    const now = new Date();
-    const to = new Date(now);
-    to.setDate(now.getDate() + 14);
-    const { data: next } = await supabase
-      .from('shifts')
-      .select(
-        `id, start_at, end_at, assigned_user_id, location,
-         organization_shift_types (id, name, letter, color)`
-      )
-      .eq('org_id', orgId)
-      .eq('assigned_user_id', userId)
-      .gte('end_at', now.toISOString())
-      .lte('start_at', to.toISOString())
-      .order('start_at', { ascending: true })
-      .limit(3);
+      // Base (paralelo)
+      const [p, o, todayRes, nextRes, monthRes, myPendingRes, pendingReqRes] = await Promise.all([
+        supabase.from('profiles').select('full_name').eq('id', userId).maybeSingle(),
+        supabase.from('organizations').select('name').eq('id', orgId).maybeSingle(),
+        supabase
+          .from('shifts')
+          .select(
+            `id, start_at, end_at, assigned_user_id, location,
+             organization_shift_types (id, name, letter, color)`
+          )
+          .eq('org_id', orgId)
+          .eq('assigned_user_id', userId)
+          .gte('end_at', start.toISOString())
+          .lte('start_at', end.toISOString())
+          .order('start_at', { ascending: true })
+          .limit(1),
+        supabase
+          .from('shifts')
+          .select(
+            `id, start_at, end_at, assigned_user_id, location,
+             organization_shift_types (id, name, letter, color)`
+          )
+          .eq('org_id', orgId)
+          .eq('assigned_user_id', userId)
+          .gte('end_at', now.toISOString())
+          .lte('start_at', to.toISOString())
+          .order('start_at', { ascending: true })
+          .limit(3),
+        supabase.rpc('shift_hours_stats', {
+          p_org_id: orgId,
+          p_from: from.toISOString(),
+          p_to: toMonthEnd.toISOString(),
+          p_user_id: userId,
+        }),
+        supabase
+          .from('shift_requests')
+          .select('id', { count: 'exact', head: true })
+          .eq('org_id', orgId)
+          .eq('requester_id', userId)
+          .in('status', ['submitted', 'accepted']),
+        supabase
+          .from('shift_requests')
+          .select('id', { count: 'exact', head: true })
+          .eq('org_id', orgId)
+          .in('status', ['submitted', 'accepted']),
+      ]);
 
-    const list = ((next ?? []) as ShiftRow[]).map((s) => ({ ...s, organization_shift_types: normalizeShiftType(s.organization_shift_types) }));
-    setUpcoming(list);
+      const fullNameNext = (p.data as { full_name?: string | null } | null)?.full_name ?? null;
+      const orgNameNext = (o.data as { name?: string | null } | null)?.name ?? null;
+      setFullName(fullNameNext);
+      setOrgName(orgNameNext);
 
-    // --- Stats usuario (Pencil 6sxe4) ---
-    const now0 = new Date();
-    const from = new Date(now0.getFullYear(), now0.getMonth(), 1, 0, 0, 0, 0);
-    const toMonthEnd = new Date(now0.getFullYear(), now0.getMonth() + 1, 0, 23, 59, 59, 999);
-    const { data: monthShifts } = await supabase
-      .from('shifts')
-      .select('start_at, end_at')
-      .eq('org_id', orgId)
-      .eq('assigned_user_id', userId)
-      .gte('start_at', from.toISOString())
-      .lte('start_at', toMonthEnd.toISOString())
-      .limit(300);
-    const ms = (monthShifts ?? []) as Array<{ start_at: string; end_at: string }>;
-    const mh = ms.reduce((acc, s) => {
-      const st = new Date(s.start_at).getTime();
-      const en = new Date(s.end_at).getTime();
-      if (!isFinite(st) || !isFinite(en) || en <= st) return acc;
-      return acc + (en - st) / 3600_000;
-    }, 0);
-    setMonthShiftsCount(ms.length);
-    setMonthHours(mh);
+      const t0 = ((todayRes.data ?? [])[0] as ShiftRow | undefined) ?? null;
+      const todayShiftNext = t0 ? { ...t0, organization_shift_types: normalizeShiftType(t0.organization_shift_types) } : null;
+      setTodayShift(todayShiftNext);
 
-    const { count: myPending } = await supabase
-      .from('shift_requests')
-      .select('*', { count: 'exact', head: true })
-      .eq('org_id', orgId)
-      .eq('requester_id', userId)
-      .in('status', ['submitted', 'accepted']);
-    setMyPendingRequestsCount(myPending ?? 0);
-
-    // --- Dashboards Manager/Admin (según Pencil) ---
-    // Rango "esta semana" (lunes-domingo)
-    const now2 = new Date();
-    const dayIdx = (now2.getDay() + 6) % 7; // 0 = lunes
-    const monday = new Date(now2);
-    monday.setDate(now2.getDate() - dayIdx);
-    monday.setHours(0, 0, 0, 0);
-    const sunday = new Date(monday);
-    sunday.setDate(monday.getDate() + 6);
-    sunday.setHours(23, 59, 59, 999);
-
-    // Solicitudes pendientes (para manager/admin)
-    const { count: pendingReq } = await supabase
-      .from('shift_requests')
-      .select('*', { count: 'exact', head: true })
-      .eq('org_id', orgId)
-      .in('status', ['submitted', 'accepted']);
-    setPendingRequestsCount(pendingReq ?? 0);
-
-    if (canManageShifts && !canManageOrg) {
-      // Turnos esta semana (count)
-      const { count: weekCount } = await supabase
-        .from('shifts')
-        .select('*', { count: 'exact', head: true })
-        .eq('org_id', orgId)
-        .gte('start_at', monday.toISOString())
-        .lte('start_at', sunday.toISOString());
-      setManagerWeekCount(weekCount ?? 0);
-
-      // Horas programadas (esta semana)
-      const { data: weekShifts } = await supabase
-        .from('shifts')
-        .select('start_at, end_at')
-        .eq('org_id', orgId)
-        .gte('start_at', monday.toISOString())
-        .lte('start_at', sunday.toISOString())
-        .limit(700);
-      const wh = ((weekShifts ?? []) as Array<{ start_at: string; end_at: string }>).reduce((acc, s) => {
-        const st = new Date(s.start_at).getTime();
-        const en = new Date(s.end_at).getTime();
-        if (!isFinite(st) || !isFinite(en) || en <= st) return acc;
-        return acc + (en - st) / 3600_000;
-      }, 0);
-      setManagerWeekHours(wh);
-
-      // Staff activo ahora (distinct users en turnos activos)
-      const nowIso = new Date().toISOString();
-      const { data: activeRows } = await supabase
-        .from('shifts')
-        .select('assigned_user_id')
-        .eq('org_id', orgId)
-        .lte('start_at', nowIso)
-        .gte('end_at', nowIso)
-        .not('assigned_user_id', 'is', null)
-        .limit(500);
-      const activeIds = new Set<string>();
-      ((activeRows ?? []) as Array<{ assigned_user_id: string | null }>).forEach((r) => {
-        if (r.assigned_user_id) activeIds.add(r.assigned_user_id);
-      });
-      setManagerStaffActive(activeIds.size);
-
-      // Turnos de hoy (lista)
-      const startToday = new Date();
-      startToday.setHours(0, 0, 0, 0);
-      const endToday = new Date();
-      endToday.setHours(23, 59, 59, 999);
-      const { data: todayOrg } = await supabase
-        .from('shifts')
-        .select(
-          `id, start_at, end_at, assigned_user_id, location,
-           organization_shift_types (id, name, letter, color)`
-        )
-        .eq('org_id', orgId)
-        .gte('start_at', startToday.toISOString())
-        .lte('start_at', endToday.toISOString())
-        .order('start_at', { ascending: true })
-        .limit(10);
-
-      const rawToday = ((todayOrg ?? []) as ShiftRow[]).map((s) => ({
+      const list = ((nextRes.data ?? []) as ShiftRow[]).map((s) => ({
         ...s,
         organization_shift_types: normalizeShiftType(s.organization_shift_types),
       }));
-      const ids = [...new Set(rawToday.map((s) => s.assigned_user_id).filter(Boolean))] as string[];
-      let namesMap: Record<string, string> = {};
-      if (ids.length > 0) {
-        const { data: profs } = await supabase.from('profiles').select('id, full_name').in('id', ids);
-        (profs ?? []).forEach((p: { id: string; full_name: string | null }) => {
-          namesMap[p.id] = p.full_name?.trim() ?? '';
+      const upcomingNext = list as Array<ShiftRow & { organization_shift_types: ShiftType }>;
+      setUpcoming(upcomingNext);
+
+      const monthAgg = (monthRes.data as Array<{ shift_count: number; total_hours: number | string }> | null | undefined)?.[0];
+      const monthShiftsCountNext = Number(monthAgg?.shift_count ?? 0);
+      const monthHoursNext = Number(monthAgg?.total_hours ?? 0);
+      setMonthShiftsCount(monthShiftsCountNext);
+      setMonthHours(monthHoursNext);
+
+      const myPendingRequestsCountNext = myPendingRes.count ?? 0;
+      const pendingRequestsCountNext = pendingReqRes.count ?? 0;
+      setMyPendingRequestsCount(myPendingRequestsCountNext);
+      setPendingRequestsCount(pendingRequestsCountNext);
+
+      // Defaults para caché (si no aplica rol)
+      let managerWeekCountNext = 0;
+      let managerWeekHoursNext = 0;
+      let managerStaffActiveNext = 0;
+      let managerTodayNext: ManagerCardShift[] = [];
+      let adminMembersCountNext = 0;
+      let adminInvitesPendingNext = 0;
+      let adminShiftTypesCountNext = 0;
+
+      // Manager (solo)
+      if (canManageShifts && !canManageOrg) {
+        const startToday = new Date();
+        startToday.setHours(0, 0, 0, 0);
+        const endToday = new Date();
+        endToday.setHours(23, 59, 59, 999);
+        const nowIso = new Date().toISOString();
+
+        const [weekAggRes, activeRowsRes, todayOrgRes] = await Promise.all([
+          supabase.rpc('shift_hours_stats', {
+            p_org_id: orgId,
+            p_from: monday.toISOString(),
+            p_to: sunday.toISOString(),
+            p_user_id: null,
+          }),
+          supabase
+            .from('shifts')
+            .select('assigned_user_id')
+            .eq('org_id', orgId)
+            .lte('start_at', nowIso)
+            .gte('end_at', nowIso)
+            .not('assigned_user_id', 'is', null)
+            .limit(500),
+          supabase
+            .from('shifts')
+            .select(
+              `id, start_at, end_at, assigned_user_id, location,
+               organization_shift_types (id, name, letter, color)`
+            )
+            .eq('org_id', orgId)
+            .gte('start_at', startToday.toISOString())
+            .lte('start_at', endToday.toISOString())
+            .order('start_at', { ascending: true })
+            .limit(10),
+        ]);
+
+        const weekAgg = (weekAggRes.data as Array<{ shift_count: number; total_hours: number | string }> | null | undefined)?.[0];
+        const weekCount = Number(weekAgg?.shift_count ?? 0);
+        const weekHours = Number(weekAgg?.total_hours ?? 0);
+        setManagerWeekCount(weekCount);
+        managerWeekCountNext = weekCount;
+        setManagerWeekHours(weekHours);
+        managerWeekHoursNext = weekHours;
+
+        const activeIds = new Set<string>();
+        ((activeRowsRes.data ?? []) as Array<{ assigned_user_id: string | null }>).forEach((r) => {
+          if (r.assigned_user_id) activeIds.add(r.assigned_user_id);
         });
-      }
-      setManagerToday(
-        rawToday.map((s) => ({
+        setManagerStaffActive(activeIds.size);
+        managerStaffActiveNext = activeIds.size;
+
+        const rawToday = ((todayOrgRes.data ?? []) as ShiftRow[]).map((s) => ({
+          ...s,
+          organization_shift_types: normalizeShiftType(s.organization_shift_types),
+        }));
+        const ids = [...new Set(rawToday.map((s) => s.assigned_user_id).filter(Boolean))] as string[];
+        const namesMap = ids.length > 0 ? await fetchProfilesMap(supabase, ids) : {};
+        const todayList: ManagerCardShift[] = rawToday.map((s) => ({
           id: s.id,
           start_at: s.start_at,
           end_at: s.end_at,
@@ -360,26 +403,51 @@ export default function DashboardPage() {
           type_name: s.organization_shift_types?.name ?? 'Turno',
           type_letter: s.organization_shift_types?.letter ?? '?',
           type_color: s.organization_shift_types?.color ?? null,
-        }))
-      );
-    }
+        }));
+        setManagerToday(todayList);
+        managerTodayNext = todayList;
+      }
 
-    if (canManageOrg) {
-      const [{ count: membersCount }, { count: invitesPending }, { count: shiftTypesCount }] = await Promise.all([
-        supabase.from('memberships').select('*', { count: 'exact', head: true }).eq('org_id', orgId),
-        supabase
-          .from('organization_invitations')
-          .select('*', { count: 'exact', head: true })
-          .eq('org_id', orgId)
-          .eq('status', 'pending'),
-        supabase.from('organization_shift_types').select('*', { count: 'exact', head: true }).eq('org_id', orgId),
-      ]);
-      setAdminMembersCount(membersCount ?? 0);
-      setAdminInvitesPending(invitesPending ?? 0);
-      setAdminShiftTypesCount(shiftTypesCount ?? 0);
-    }
+      // Admin
+      if (canManageOrg) {
+        const [{ count: membersCount }, { count: invitesPending }, { count: shiftTypesCount }] = await Promise.all([
+          supabase.from('memberships').select('id', { count: 'exact', head: true }).eq('org_id', orgId),
+          supabase
+            .from('organization_invitations')
+            .select('id', { count: 'exact', head: true })
+            .eq('org_id', orgId)
+            .eq('status', 'pending'),
+          supabase.from('organization_shift_types').select('id', { count: 'exact', head: true }).eq('org_id', orgId),
+        ]);
+        setAdminMembersCount(membersCount ?? 0);
+        setAdminInvitesPending(invitesPending ?? 0);
+        setAdminShiftTypesCount(shiftTypesCount ?? 0);
+        adminMembersCountNext = membersCount ?? 0;
+        adminInvitesPendingNext = invitesPending ?? 0;
+        adminShiftTypesCountNext = shiftTypesCount ?? 0;
+      }
 
-    setLoadingData(false);
+      // Guardar caché del dashboard (por org + user + rol)
+      setCache<DashboardCacheData>(key, {
+        fullName: fullNameNext,
+        orgName: orgNameNext,
+        todayShift: todayShiftNext,
+        upcoming: upcomingNext,
+        monthShiftsCount: monthShiftsCountNext,
+        monthHours: monthHoursNext,
+        myPendingRequestsCount: myPendingRequestsCountNext,
+        pendingRequestsCount: pendingRequestsCountNext,
+        managerWeekCount: managerWeekCountNext,
+        managerWeekHours: managerWeekHoursNext,
+        managerStaffActive: managerStaffActiveNext,
+        managerToday: managerTodayNext,
+        adminMembersCount: adminMembersCountNext,
+        adminInvitesPending: adminInvitesPendingNext,
+        adminShiftTypesCount: adminShiftTypesCountNext,
+      });
+    } finally {
+      setLoadingData(false);
+    }
   }, [orgId, userId, canManageOrg, canManageShifts]);
 
   useEffect(() => {

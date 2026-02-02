@@ -13,6 +13,7 @@ import { ConfirmModal } from '@/components/ui/ConfirmModal';
 import type { ShiftWithType } from '@/components/calendar/ShiftCalendar';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { getCacheEntry, setCache } from '@/lib/cache';
+import { fetchProfilesMap } from '@/lib/supabase/queries';
 
 type ShiftListCache = {
   rows: ShiftWithType[];
@@ -267,11 +268,7 @@ function ShiftListInner({
     const userIds = [...new Set(list.map((s) => s.assigned_user_id).filter(Boolean))] as string[];
     let nextProfilesMap: Record<string, string> = {};
     if (userIds.length > 0) {
-      const { data: profs } = await supabase.from('profiles').select('id, full_name').in('id', userIds);
-      const map: Record<string, string> = {};
-      (profs ?? []).forEach((p: { id: string; full_name: string | null }) => {
-        map[p.id] = p.full_name?.trim() ?? '';
-      });
+      const map = await fetchProfilesMap(supabase, userIds);
       nextProfilesMap = map;
       setProfilesMap(map);
     } else {
