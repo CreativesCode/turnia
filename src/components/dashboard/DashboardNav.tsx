@@ -207,8 +207,8 @@ export function DashboardNav() {
   if (isMobile) {
     return (
       <>
-        <header className="sticky top-0 z-30 border-b border-border bg-background/90 backdrop-blur pt-[max(0.75rem,env(safe-area-inset-top))]">
-          <nav className="flex h-16 items-center justify-between px-4">
+        <header className="sticky top-0 z-30 border-b border-border bg-background/90 backdrop-blur">
+          <nav className="flex items-center justify-between px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
             <Link href={homeHref} prefetch={true} className="flex items-center gap-3">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src="/logo.png" alt="Turnia" className="h-10 w-10" />
