@@ -207,10 +207,12 @@ export function DashboardNav() {
   if (isMobile) {
     return (
       <>
-        <header className="sticky top-0 z-30 border-b border-border bg-background px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
-          <div className="flex items-center justify-between">
-            <Link href={homeHref} prefetch={true} className="font-semibold text-text-primary">
-              Turnia
+        <header className="sticky top-0 z-30 border-b border-border bg-background/90 backdrop-blur pt-[max(0.75rem,env(safe-area-inset-top))]">
+          <nav className="flex h-16 items-center justify-between px-4">
+            <Link href={homeHref} prefetch={true} className="flex items-center gap-3">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/logo.png" alt="Turnia" className="h-10 w-10" />
+              <span className="text-2xl font-bold text-primary-600">Turnia</span>
             </Link>
             <div className="flex items-center gap-1">
               <OfflinePill variant="dot" />
@@ -228,7 +230,7 @@ export function DashboardNav() {
                 <MenuIcon />
               </button>
             </div>
-          </div>
+          </nav>
         </header>
 
         <nav

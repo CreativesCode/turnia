@@ -195,7 +195,7 @@ export function DashboardSidebar() {
       <div className="flex items-center gap-3 px-5 py-5">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/logo.png" alt="Turnia" className="h-10 w-10" />
-        <span className="text-xl font-bold text-text-primary">Turnia</span>
+        <span className="text-2xl font-bold text-primary-600">Turnia</span>
       </div>
 
       <div className="flex-1 space-y-1 px-3 py-2">

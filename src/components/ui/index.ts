@@ -3,6 +3,7 @@ export * from './buttonStyles';
 export * from './Dialog';
 export * from './ConfirmModal';
 export * from './Input';
+export * from './PasswordInput';
 export * from './Select';
 export * from './Textarea';
 export * from './LinkButton';

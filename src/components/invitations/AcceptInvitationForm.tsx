@@ -2,6 +2,8 @@
 
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
+import { PasswordInput } from '@/components/ui/PasswordInput';
+import { redirectAfterAuth } from '@/lib/navigation';
 import { createClient } from '@/lib/supabase/client';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -71,7 +73,7 @@ export function AcceptInvitationForm({ invitation, sessionUser, token }: Props) 
       setError(json.error || 'Error al aceptar la invitación');
       return;
     }
-    router.replace('/dashboard');
+    redirectAfterAuth(router, '/dashboard');
   }, [token, router]);
 
   const handleSignup = async (e: React.FormEvent) => {
@@ -234,9 +236,8 @@ export function AcceptInvitationForm({ invitation, sessionUser, token }: Props) 
           <label className="text-sm font-medium text-text-primary" htmlFor="invite-pass">
             Crear contraseña
           </label>
-          <Input
+          <PasswordInput
             id="invite-pass"
-            type="password"
             placeholder="••••••••"
             value={password}
             onChange={(e) => setPassword(e.target.value)}

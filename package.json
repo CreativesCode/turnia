@@ -11,7 +11,7 @@
     "cap:sync": "npm run build && npx cap sync",
     "cap:ios": "npx cap open ios",
     "cap:android": "npx cap open android",
-    "cap:assets": "npx @capacitor/assets generate --iconBackgroundColor '#17a2b8' --iconBackgroundColorDark '#0d7a8a' --splashBackgroundColor '#ffffff' --splashBackgroundColorDark '#000000'",
+    "cap:assets": "npx @capacitor/assets generate --iconBackgroundColor=#ffffff --iconBackgroundColorDark=#f5f5f5 --splashBackgroundColor=#ffffff --splashBackgroundColorDark=#000000",
     "supabase:gen": "supabase gen types typescript --local > src/types/supabase.ts",
     "db:push": "supabase db push",
     "db:reset": "supabase db reset"

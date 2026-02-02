@@ -2,6 +2,8 @@
 
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
+import { PasswordInput } from '@/components/ui/PasswordInput';
+import { redirectAfterAuth } from '@/lib/navigation';
 import { createClient } from '@/lib/supabase/client';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -27,7 +29,7 @@ export function LoginForm() {
       setError(err.message);
       return;
     }
-    router.replace(redirect);
+    redirectAfterAuth(router, redirect);
   }
 
   return (
@@ -66,9 +68,8 @@ export function LoginForm() {
           <label className="text-sm font-medium text-text-primary" htmlFor="login-password">
             Contraseña
           </label>
-          <Input
+          <PasswordInput
             id="login-password"
-            type="password"
             placeholder="••••••••"
             value={password}
             onChange={(e) => setPassword(e.target.value)}

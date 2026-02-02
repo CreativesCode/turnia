@@ -8,7 +8,7 @@ export default function LoginPage() {
         <aside className="hidden w-[640px] flex-col justify-center bg-primary-600 p-12 text-white lg:flex">
           <div className="flex items-center gap-4">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/logo.png" alt="Turnia" className="h-20 w-20 rounded-2xl bg-white/10 p-2" />
+            <img src="/logo.png" alt="Turnia" className="h-20 w-20 rounded-2xl bg-primary-50 p-2" />
             <div>
               <p className="text-4xl font-bold leading-none">Turnia</p>
               <p className="mt-2 text-lg text-white/80">La forma más simple de gestionar turnos de trabajo.</p>

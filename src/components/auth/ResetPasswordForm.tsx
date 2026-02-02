@@ -1,7 +1,8 @@
 'use client';
 
 import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
+import { PasswordInput } from '@/components/ui/PasswordInput';
+import { redirectAfterAuth } from '@/lib/navigation';
 import { createClient } from '@/lib/supabase/client';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -46,7 +47,7 @@ export function ResetPasswordForm() {
     }
     setDone(true);
     // Opcional: redirigir a login tras unos segundos.
-    window.setTimeout(() => router.replace('/login'), 1200);
+    window.setTimeout(() => redirectAfterAuth(router, '/login'), 1200);
   };
 
   if (!ready) {
@@ -92,9 +93,8 @@ export function ResetPasswordForm() {
           <label htmlFor="reset-pass" className="text-sm font-medium text-text-primary">
             Nueva contraseña
           </label>
-          <Input
+          <PasswordInput
             id="reset-pass"
-            type="password"
             placeholder="Mínimo 8 caracteres"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
@@ -108,9 +108,8 @@ export function ResetPasswordForm() {
           <label htmlFor="reset-confirm" className="text-sm font-medium text-text-primary">
             Confirmar contraseña
           </label>
-          <Input
+          <PasswordInput
             id="reset-confirm"
-            type="password"
             placeholder="••••••••"
             value={confirm}
             onChange={(e) => setConfirm(e.target.value)}

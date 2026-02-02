@@ -2,8 +2,8 @@
 
 import * as React from 'react';
 
-import { cn } from '@/lib/cn';
 import { Spinner } from '@/components/ui/Spinner';
+import { cn } from '@/lib/cn';
 
 import { getButtonSizeClass, getButtonVariantClass, type ButtonSize, type ButtonVariant } from './buttonStyles';
 export type { ButtonSize, ButtonVariant } from './buttonStyles';
@@ -38,7 +38,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(function 
       disabled={isDisabled}
       aria-busy={loading || undefined}
       className={cn(
-        'inline-flex min-w-[44px] items-center justify-center gap-2 rounded-lg font-medium transition-colors',
+        'relative inline-flex min-w-[44px] items-center justify-center gap-2 rounded-lg font-medium transition-colors',
         'focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 focus:ring-offset-background',
         'disabled:pointer-events-none disabled:opacity-50',
         getButtonVariantClass(variant),
@@ -47,13 +47,12 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(function 
       )}
       {...props}
     >
+      <span className={loading ? 'invisible' : undefined}>{children}</span>
       {loading ? (
-        <>
+        <span className="absolute inset-0 flex items-center justify-center" aria-hidden>
           <Spinner aria-label="Cargando" />
-          <span className="sr-only">Cargando</span>
-        </>
+        </span>
       ) : null}
-      <span className={loading ? 'opacity-0' : undefined}>{children}</span>
     </button>
   );
 });

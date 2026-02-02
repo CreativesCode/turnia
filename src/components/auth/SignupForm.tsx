@@ -2,6 +2,8 @@
 
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
+import { PasswordInput } from '@/components/ui/PasswordInput';
+import { redirectAfterAuth } from '@/lib/navigation';
 import { createClient } from '@/lib/supabase/client';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -43,7 +45,7 @@ export function SignupForm() {
       return;
     }
     if (data.session) {
-      router.replace('/dashboard');
+      redirectAfterAuth(router, '/dashboard');
       return;
     }
     setDone(true);
@@ -130,9 +132,8 @@ export function SignupForm() {
           <label className="text-sm font-medium text-text-primary" htmlFor="signup-password">
             Contraseña
           </label>
-          <Input
+          <PasswordInput
             id="signup-password"
-            type="password"
             placeholder="Mínimo 8 caracteres"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
@@ -146,9 +147,8 @@ export function SignupForm() {
           <label className="text-sm font-medium text-text-primary" htmlFor="signup-confirm">
             Confirmar contraseña
           </label>
-          <Input
+          <PasswordInput
             id="signup-confirm"
-            type="password"
             placeholder="••••••••"
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
