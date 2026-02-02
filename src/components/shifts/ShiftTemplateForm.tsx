@@ -7,8 +7,8 @@
  * @see project-roadmap.md Módulo 3.3
  */
 
-import { useCallback, useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { useCallback, useEffect, useState } from 'react';
 
 const WEEKDAY_OPTIONS: { value: number; label: string }[] = [
   { value: 0, label: 'Dom' },
@@ -167,9 +167,9 @@ export function ShiftTemplateForm({ open, onClose, onSuccess, orgId }: Props) {
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto p-4">
       <button type="button" className="absolute inset-0 bg-black/40" onClick={onClose} aria-label="Cerrar" />
-      <div className="relative z-10 max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl border border-border bg-background p-6 shadow-xl">
+      <div className="relative z-10 my-auto max-h-[85dvh] w-full max-w-2xl overflow-y-auto rounded-xl border border-border bg-background p-6 shadow-xl">
         <h2 className="text-lg font-semibold text-text-primary">Generar desde patrón</h2>
         <p className="mt-1 text-sm text-muted">
           Define un patrón por día de la semana y aplícalo a un rango de fechas.

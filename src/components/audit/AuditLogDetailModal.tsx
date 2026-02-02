@@ -5,8 +5,8 @@
  * @see project-roadmap.md Módulo 8.1
  */
 
-import Link from 'next/link';
 import { Dialog } from '@/components/ui/Dialog';
+import Link from 'next/link';
 
 export type AuditLogRow = {
   id: string;
@@ -67,62 +67,62 @@ export function AuditLogDetailModal({
       open={open}
       onClose={onClose}
       title="Detalle del evento"
-      panelClassName="max-h-[90vh] max-w-xl overflow-y-auto"
+      panelClassName="max-w-xl"
     >
       {entry ? (
         <div className="space-y-4 text-sm">
-            <div className="grid gap-2 sm:grid-cols-2">
-              <div>
-                <span className="text-text-secondary">Fecha: </span>
-                <span className="text-text-primary">
-                  {new Date(entry.created_at).toLocaleString('es-ES', {
-                    dateStyle: 'medium',
-                    timeStyle: 'short',
-                  })}
-                </span>
-              </div>
-              <div>
-                <span className="text-text-secondary">Actor: </span>
-                <span className="text-text-primary">{actorName || '—'}</span>
-              </div>
-              <div>
-                <span className="text-text-secondary">Entidad: </span>
-                <span className="text-text-primary">{entityLabel}</span>
-              </div>
-              <div>
-                <span className="text-text-secondary">Acción: </span>
-                <span className="text-text-primary">{actionLabel}</span>
-              </div>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <div>
+              <span className="text-text-secondary">Fecha: </span>
+              <span className="text-text-primary">
+                {new Date(entry.created_at).toLocaleString('es-ES', {
+                  dateStyle: 'medium',
+                  timeStyle: 'short',
+                })}
+              </span>
             </div>
-
-            {entityLink && (
-              <div>
-                <Link
-                  href={entityLink.href}
-                  className="text-primary-600 hover:text-primary-700 hover:underline"
-                >
-                  {entityLink.label} →
-                </Link>
-              </div>
-            )}
-
-            {hasComment && (
-              <div>
-                <h4 className="text-sm font-medium text-text-secondary">Comentario</h4>
-                <p className="mt-1 rounded-lg border border-border bg-subtle-bg p-3 text-text-primary">
-                  {entry.comment}
-                </p>
-              </div>
-            )}
-
-            <div className="grid gap-4 sm:grid-cols-2">
-              <JsonBlock data={entry.before_snapshot} title="Antes" />
-              <JsonBlock data={entry.after_snapshot} title="Después" />
+            <div>
+              <span className="text-text-secondary">Actor: </span>
+              <span className="text-text-primary">{actorName || '—'}</span>
             </div>
+            <div>
+              <span className="text-text-secondary">Entidad: </span>
+              <span className="text-text-primary">{entityLabel}</span>
+            </div>
+            <div>
+              <span className="text-text-secondary">Acción: </span>
+              <span className="text-text-primary">{actionLabel}</span>
+            </div>
+          </div>
 
-            {!hasBefore && !hasAfter && !hasComment && (
-              <p className="text-text-secondary">No hay datos adicionales (snapshots vacíos).</p>
-            )}
+          {entityLink && (
+            <div>
+              <Link
+                href={entityLink.href}
+                className="text-primary-600 hover:text-primary-700 hover:underline"
+              >
+                {entityLink.label} →
+              </Link>
+            </div>
+          )}
+
+          {hasComment && (
+            <div>
+              <h4 className="text-sm font-medium text-text-secondary">Comentario</h4>
+              <p className="mt-1 rounded-lg border border-border bg-subtle-bg p-3 text-text-primary">
+                {entry.comment}
+              </p>
+            </div>
+          )}
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <JsonBlock data={entry.before_snapshot} title="Antes" />
+            <JsonBlock data={entry.after_snapshot} title="Después" />
+          </div>
+
+          {!hasBefore && !hasAfter && !hasComment && (
+            <p className="text-text-secondary">No hay datos adicionales (snapshots vacíos).</p>
+          )}
         </div>
       ) : null}
     </Dialog>

@@ -6,13 +6,13 @@
  * @see project-roadmap.md Módulo 4.1
  */
 
-import { useCallback, useEffect, useState } from 'react';
-import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/Button';
+import { Dialog } from '@/components/ui/Dialog';
 import { Select } from '@/components/ui/Select';
 import { Textarea } from '@/components/ui/Textarea';
 import { useToast } from '@/components/ui/toast/ToastProvider';
-import { Dialog } from '@/components/ui/Dialog';
+import { createClient } from '@/lib/supabase/client';
+import { useCallback, useEffect, useState } from 'react';
 
 type Shift = { id: string; org_id: string; start_at: string };
 
@@ -176,65 +176,64 @@ export function SwapRequestModal({
       closeOnEscape={!loading}
       title="Intercambiar este turno"
       description="Elige el turno con el que quieres intercambiar. La otra persona y un responsable deberán aceptar."
-      panelClassName="max-h-[90vh] overflow-y-auto"
     >
-        {pendingExists && (
-          <p className="mt-3 text-sm text-amber-600">
-            Ya tienes una solicitud de intercambio pendiente para este turno.
-          </p>
+      {pendingExists && (
+        <p className="mt-3 text-sm text-amber-600">
+          Ya tienes una solicitud de intercambio pendiente para este turno.
+        </p>
+      )}
+
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <label className="block text-sm font-medium text-text-primary">
+          Turno con el que intercambiar <span className="text-red-500">*</span>
+        </label>
+        {loadTargets ? (
+          <p className="text-sm text-muted">Cargando turnos…</p>
+        ) : targets.length === 0 ? (
+          <p className="text-sm text-muted">No hay turnos de otros compañeros en las fechas cercanas.</p>
+        ) : (
+          <Select
+            value={targetId}
+            onChange={(e) => setTargetId(e.target.value)}
+            required
+            disabled={pendingExists}
+          >
+            <option value="">Seleccionar…</option>
+            {targets.map((t) => {
+              const ot = t.organization_shift_types;
+              const letter = (Array.isArray(ot) ? ot[0] : ot)?.letter ?? '?';
+              return (
+                <option key={t.id} value={t.id}>
+                  {letter} – {formatRange(t.start_at, t.end_at)} – {t.assignedName}
+                </option>
+              );
+            })}
+          </Select>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-            <label className="block text-sm font-medium text-text-primary">
-              Turno con el que intercambiar <span className="text-red-500">*</span>
-            </label>
-          {loadTargets ? (
-            <p className="text-sm text-muted">Cargando turnos…</p>
-          ) : targets.length === 0 ? (
-            <p className="text-sm text-muted">No hay turnos de otros compañeros en las fechas cercanas.</p>
-          ) : (
-            <Select
-              value={targetId}
-              onChange={(e) => setTargetId(e.target.value)}
-              required
-              disabled={pendingExists}
-            >
-              <option value="">Seleccionar…</option>
-              {targets.map((t) => {
-                const ot = t.organization_shift_types;
-                const letter = (Array.isArray(ot) ? ot[0] : ot)?.letter ?? '?';
-                return (
-                  <option key={t.id} value={t.id}>
-                    {letter} – {formatRange(t.start_at, t.end_at)} – {t.assignedName}
-                  </option>
-                );
-              })}
-            </Select>
-          )}
+        <label className="block text-sm font-medium text-text-primary">
+          Comentario <span className="text-muted">(opcional)</span>
+        </label>
+        <Textarea
+          value={comment}
+          onChange={(e) => setComment(e.target.value)}
+          rows={2}
+          className="min-h-[80px]"
+          placeholder="Motivo del intercambio..."
+          disabled={pendingExists}
+        />
 
-          <label className="block text-sm font-medium text-text-primary">
-            Comentario <span className="text-muted">(opcional)</span>
-          </label>
-          <Textarea
-            value={comment}
-            onChange={(e) => setComment(e.target.value)}
-            rows={2}
-            className="min-h-[80px]"
-            placeholder="Motivo del intercambio..."
-            disabled={pendingExists}
-          />
+        {error && <p className="text-sm text-red-600">{error}</p>}
 
-          {error && <p className="text-sm text-red-600">{error}</p>}
-
-          <div className="flex justify-end gap-3">
-            <Button type="button" variant="secondary" onClick={onClose}>
-              Cancelar
-            </Button>
-            <Button type="submit" loading={loading} disabled={pendingExists || targets.length === 0}>
-              Enviar solicitud
-            </Button>
-          </div>
-        </form>
+        <div className="flex justify-end gap-3">
+          <Button type="button" variant="secondary" onClick={onClose}>
+            Cancelar
+          </Button>
+          <Button type="submit" loading={loading} disabled={pendingExists || targets.length === 0}>
+            Enviar solicitud
+          </Button>
+        </div>
+      </form>
     </Dialog>
   );
 }

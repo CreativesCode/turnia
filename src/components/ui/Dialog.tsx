@@ -87,13 +87,13 @@ export function Dialog({
 
   const containerBase =
     variant === 'sheet'
-      ? 'fixed inset-0 flex items-end justify-center p-0 md:items-center md:p-4'
-      : 'fixed inset-0 flex items-center justify-center p-4';
+      ? 'fixed inset-0 flex items-end justify-center p-0 overflow-y-auto md:items-center md:p-4'
+      : 'fixed inset-0 flex items-center justify-center p-4 overflow-y-auto';
 
   const panelBase =
     variant === 'sheet'
-      ? 'relative w-full max-w-none max-h-[75vh] overflow-y-auto rounded-t-2xl border border-b-0 border-border bg-background p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] shadow-lg md:max-w-md md:max-h-[90vh] md:rounded-xl md:border-b md:p-6'
-      : 'relative w-full max-w-md rounded-xl border border-border bg-background p-6 shadow-lg';
+      ? 'relative w-full max-w-none max-h-[85dvh] overflow-y-auto rounded-t-2xl border border-b-0 border-border bg-background p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] shadow-lg md:max-w-md md:max-h-[90vh] md:rounded-xl md:border-b md:p-6'
+      : 'relative w-full max-w-md my-auto max-h-[85dvh] overflow-y-auto rounded-xl border border-border bg-background p-6 shadow-lg';
 
   return (
     <div

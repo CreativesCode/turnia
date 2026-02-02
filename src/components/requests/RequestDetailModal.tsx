@@ -152,7 +152,7 @@ export function RequestDetailModal({ open, onClose, onResolved, request, names }
         active={!action}
         closeOnEscape={!action}
         title="Detalle de solicitud"
-        panelClassName="max-h-[90vh] max-w-lg overflow-y-auto"
+        panelClassName="max-w-lg"
       >
 
         <dl className="space-y-2 text-sm">

@@ -6,16 +6,16 @@
  * @see project-roadmap.md Módulo 3.2
  */
 
-import { createClient } from '@/lib/supabase/client';
-import { formatShiftTypeSchedule } from '@/lib/utils';
-import { useCallback, useEffect, useState } from 'react';
-import { ConfirmModal } from '@/components/ui/ConfirmModal';
 import type { ShiftWithType } from '@/components/calendar/ShiftCalendar';
 import { Button } from '@/components/ui/Button';
+import { ConfirmModal } from '@/components/ui/ConfirmModal';
 import { Dialog } from '@/components/ui/Dialog';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { useToast } from '@/components/ui/toast/ToastProvider';
+import { createClient } from '@/lib/supabase/client';
+import { formatShiftTypeSchedule } from '@/lib/utils';
+import { useCallback, useEffect, useState } from 'react';
 
 type ShiftTypeOption = { id: string; name: string; letter: string; start_time: string | null; end_time: string | null };
 type MemberOption = { user_id: string; full_name: string | null };
@@ -254,100 +254,99 @@ export function EditShiftModal({
         active={!confirmDelete}
         closeOnEscape={!loading && !deleting && !confirmDelete}
         title="Editar turno"
-        panelClassName="max-h-[90vh] overflow-y-auto"
       >
         <form onSubmit={submit} className="flex flex-col gap-4">
-            <label className="block text-sm font-medium text-text-secondary">
-              Fecha
-              <Input
-                type="date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                required
-                className="mt-1.5"
-              />
-            </label>
-            <label className="block text-sm font-medium text-text-secondary">
-              Tipo de turno
-              <Select
-                value={shiftTypeId}
-                onChange={(e) => setShiftTypeId(e.target.value)}
-                required
-                className="mt-1.5"
+          <label className="block text-sm font-medium text-text-secondary">
+            Fecha
+            <Input
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              required
+              className="mt-1.5"
+            />
+          </label>
+          <label className="block text-sm font-medium text-text-secondary">
+            Tipo de turno
+            <Select
+              value={shiftTypeId}
+              onChange={(e) => setShiftTypeId(e.target.value)}
+              required
+              className="mt-1.5"
+            >
+              {shiftTypes.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name} ({t.letter})
+                </option>
+              ))}
+            </Select>
+            {shiftTypeId && (() => {
+              const t = shiftTypes.find((x) => x.id === shiftTypeId);
+              const s = formatShiftTypeSchedule(t?.start_time ?? null, t?.end_time ?? null);
+              return s !== '—' ? (
+                <p className="mt-1 text-xs text-muted">Horario: {s}</p>
+              ) : (
+                <p className="mt-1 text-xs text-muted">Horario: 08:00–16:00 (por defecto)</p>
+              );
+            })()}
+          </label>
+          <label className="block text-sm font-medium text-text-secondary">
+            Asignar a
+            <Select
+              value={assignedUserId}
+              onChange={(e) => setAssignedUserId(e.target.value)}
+              className="mt-1.5"
+            >
+              <option value="">Sin asignar</option>
+              {members.map((m) => (
+                <option key={m.user_id} value={m.user_id}>
+                  {m.full_name?.trim() || m.user_id}
+                </option>
+              ))}
+            </Select>
+          </label>
+          <label className="block text-sm font-medium text-text-secondary">
+            Ubicación
+            <Input
+              type="text"
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+              placeholder="Opcional"
+              className="mt-1.5"
+            />
+          </label>
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={status === 'published'}
+              onChange={(e) => setStatus(e.target.checked ? 'published' : 'draft')}
+              className="h-4 w-4 rounded border-border"
+            />
+            <span className="text-sm font-medium text-text-secondary">Publicado</span>
+          </label>
+          {error && <p className="text-sm text-red-600">{error}</p>}
+          <div className="flex flex-wrap justify-between gap-3">
+            <div>
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => setConfirmDelete(true)}
+                disabled={loading}
+                className="px-2 text-red-600 hover:bg-red-50"
               >
-                {shiftTypes.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.name} ({t.letter})
-                  </option>
-                ))}
-              </Select>
-              {shiftTypeId && (() => {
-                const t = shiftTypes.find((x) => x.id === shiftTypeId);
-                const s = formatShiftTypeSchedule(t?.start_time ?? null, t?.end_time ?? null);
-                return s !== '—' ? (
-                  <p className="mt-1 text-xs text-muted">Horario: {s}</p>
-                ) : (
-                  <p className="mt-1 text-xs text-muted">Horario: 08:00–16:00 (por defecto)</p>
-                );
-              })()}
-            </label>
-            <label className="block text-sm font-medium text-text-secondary">
-              Asignar a
-              <Select
-                value={assignedUserId}
-                onChange={(e) => setAssignedUserId(e.target.value)}
-                className="mt-1.5"
-              >
-                <option value="">Sin asignar</option>
-                {members.map((m) => (
-                  <option key={m.user_id} value={m.user_id}>
-                    {m.full_name?.trim() || m.user_id}
-                  </option>
-                ))}
-              </Select>
-            </label>
-            <label className="block text-sm font-medium text-text-secondary">
-              Ubicación
-              <Input
-                type="text"
-                value={location}
-                onChange={(e) => setLocation(e.target.value)}
-                placeholder="Opcional"
-                className="mt-1.5"
-              />
-            </label>
-            <label className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={status === 'published'}
-                onChange={(e) => setStatus(e.target.checked ? 'published' : 'draft')}
-                className="h-4 w-4 rounded border-border"
-              />
-              <span className="text-sm font-medium text-text-secondary">Publicado</span>
-            </label>
-            {error && <p className="text-sm text-red-600">{error}</p>}
-            <div className="flex flex-wrap justify-between gap-3">
-              <div>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  onClick={() => setConfirmDelete(true)}
-                  disabled={loading}
-                  className="px-2 text-red-600 hover:bg-red-50"
-                >
-                  Eliminar turno
-                </Button>
-              </div>
-              <div className="flex gap-3">
-                <Button variant="secondary" onClick={onClose} disabled={loading}>
-                  Cancelar
-                </Button>
-                <Button type="submit" loading={loading}>
-                  Guardar
-                </Button>
-              </div>
+                Eliminar turno
+              </Button>
             </div>
-          </form>
+            <div className="flex gap-3">
+              <Button variant="secondary" onClick={onClose} disabled={loading}>
+                Cancelar
+              </Button>
+              <Button type="submit" loading={loading}>
+                Guardar
+              </Button>
+            </div>
+          </div>
+        </form>
       </Dialog>
 
       <ConfirmModal

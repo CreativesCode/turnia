@@ -200,7 +200,7 @@ export function DashboardNav() {
   if (isMobile) {
     return (
       <>
-        <header className="sticky top-0 z-30 border-b border-border bg-background px-4 py-3">
+        <header className="sticky top-0 z-30 border-b border-border bg-background px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
           <div className="flex items-center justify-between">
             <Link href={homeHref} className="font-semibold text-text-primary">
               Turnia
@@ -267,7 +267,7 @@ export function DashboardNav() {
             <div
               ref={morePanelRef}
               tabIndex={-1}
-              className="relative w-full max-h-[70vh] overflow-y-auto rounded-t-2xl border-t border-border bg-background pb-[env(safe-area-inset-bottom)] focus:outline-none focus:ring-2 focus:ring-primary-500"
+              className="relative w-full max-h-[85dvh] overflow-y-auto rounded-t-2xl border-t border-border bg-background pb-[env(safe-area-inset-bottom)] focus:outline-none focus:ring-2 focus:ring-primary-500"
             >
               <h2 id="dashboard-more-menu-title" className="sr-only">
                 Menú de navegación

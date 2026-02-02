@@ -7,17 +7,17 @@
  * @see project-roadmap.md Módulo 3.1, 4.1
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import type { ShiftWithType } from '@/components/calendar/ShiftCalendar';
+import { GiveAwayRequestModal } from '@/components/requests/GiveAwayRequestModal';
+import { SwapRequestModal } from '@/components/requests/SwapRequestModal';
+import { TakeOpenRequestModal } from '@/components/requests/TakeOpenRequestModal';
+import { Button } from '@/components/ui/Button';
+import { ConfirmModal } from '@/components/ui/ConfirmModal';
+import { useToast } from '@/components/ui/toast/ToastProvider';
+import { getFocusableElements, trapFocusWithin } from '@/lib/a11y';
 import { createClient } from '@/lib/supabase/client';
 import { formatShiftTypeSchedule } from '@/lib/utils';
-import { ConfirmModal } from '@/components/ui/ConfirmModal';
-import { Button } from '@/components/ui/Button';
-import { useToast } from '@/components/ui/toast/ToastProvider';
-import { GiveAwayRequestModal } from '@/components/requests/GiveAwayRequestModal';
-import { TakeOpenRequestModal } from '@/components/requests/TakeOpenRequestModal';
-import { SwapRequestModal } from '@/components/requests/SwapRequestModal';
-import type { ShiftWithType } from '@/components/calendar/ShiftCalendar';
-import { getFocusableElements, trapFocusWithin } from '@/lib/a11y';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 type RequestModalType = 'give_away' | 'take_open' | 'swap' | null;
 
@@ -158,7 +158,7 @@ export function ShiftDetailModal({
       <div
         ref={panelRef}
         tabIndex={-1}
-        className="relative w-full max-w-none max-h-[85vh] overflow-y-auto rounded-t-2xl border border-b-0 border-border bg-background p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] shadow-lg focus:outline-none focus:ring-2 focus:ring-primary-500 md:max-w-sm md:max-h-[90vh] md:rounded-xl md:border-b md:pb-6"
+        className="relative w-full max-w-none max-h-[85dvh] overflow-y-auto rounded-t-2xl border border-b-0 border-border bg-background p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] shadow-lg focus:outline-none focus:ring-2 focus:ring-primary-500 md:max-w-sm md:max-h-[90dvh] md:rounded-xl md:border-b md:pb-6"
       >
         {/* Asa para arrastrar en móvil (bottom sheet) */}
         <div className="-mt-1 mb-2 flex justify-center md:hidden">
