@@ -1,6 +1,9 @@
 'use client';
 
+import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
 import { createClient } from '@/lib/supabase/client';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useState } from 'react';
 
@@ -35,7 +38,6 @@ export function AcceptInvitationForm({ invitation, sessionUser, token }: Props) 
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [signupMode, setSignupMode] = useState<'choice' | 'signup'>('choice');
   const [fullName, setFullName] = useState('');
   const [password, setPassword] = useState('');
 
@@ -96,138 +98,169 @@ export function AcceptInvitationForm({ invitation, sessionUser, token }: Props) 
 
   if (isLoggedIn && !emailMatches) {
     return (
-      <div className="rounded-xl border border-border bg-background p-6 shadow-sm">
-        <h1 className="mb-4 text-xl font-semibold text-text-primary">Invitación para otro correo</h1>
-        <p className="mb-4 text-sm text-text-secondary">
+      <div className="rounded-2xl border border-border bg-background p-6 shadow-sm">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/logo.png" alt="Turnia" className="mx-auto h-20 w-20" />
+        <h1 className="mt-5 text-center text-2xl font-bold text-text-primary">Invitación para otro correo</h1>
+        <p className="mt-3 text-center text-sm text-text-secondary">
           Has iniciado sesión como <strong>{sessionUser?.email}</strong>. Esta invitación es para{' '}
           <strong>{invitation.email}</strong>.
         </p>
-        <p className="mb-4 text-sm text-text-secondary">
+        <p className="mt-3 text-center text-sm text-text-secondary">
           Cierra sesión e inicia con {invitation.email}, o crea una cuenta nueva con ese correo.
         </p>
-        <p className="flex flex-wrap gap-2 text-sm">
-          <a
+        <div className="mt-6 flex flex-wrap items-center justify-center gap-3 text-sm">
+          <Link
             href={`/login?redirect=${encodeURIComponent(`/invite?token=${encodeURIComponent(token)}`)}`}
-            className="text-primary-600 underline hover:text-primary-700"
+            className="font-medium text-primary-600 hover:text-primary-700"
           >
             Iniciar sesión con otro correo
-          </a>
-          <span className="text-muted">·</span>
-          <a href="/" className="text-primary-600 hover:text-primary-700">
+          </Link>
+          <span className="text-muted" aria-hidden>
+            ·
+          </span>
+          <Link href="/" className="font-medium text-primary-600 hover:text-primary-700">
             Volver
-          </a>
-        </p>
+          </Link>
+        </div>
       </div>
     );
   }
 
   if (isLoggedIn && emailMatches) {
     return (
-      <div className="rounded-xl border border-border bg-background p-6 shadow-sm">
-        <h1 className="mb-4 text-xl font-semibold text-text-primary">Aceptar invitación</h1>
-        <div className="mb-4 rounded-lg border border-border bg-subtle-bg p-3 text-sm text-text-secondary">
-          <p className="font-medium text-text-primary">{invitation.org_name || 'Organización'}</p>
-          <p>Rol: {ROLE_LABELS[invitation.role] || invitation.role}</p>
-          {invitation.invited_by_name && <p className="mt-1 text-muted">Invitado por {invitation.invited_by_name}</p>}
-        </div>
-        {error && <p className="mb-3 text-sm text-red-600">{error}</p>}
-        <button
-          type="button"
-          onClick={acceptInvitation}
-          disabled={loading}
-          className="w-full rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50"
-        >
-          {loading ? 'Aceptando…' : 'Aceptar invitación'}
-        </button>
-        <p className="mt-4 text-center text-xs text-muted">
-          <a href="/" className="text-primary-600 hover:text-primary-700">Volver</a>
-        </p>
-      </div>
-    );
-  }
+      <div className="rounded-2xl border border-border bg-background p-6 shadow-sm">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/logo.png" alt="Turnia" className="mx-auto h-20 w-20" />
 
-  if (signupMode === 'signup') {
-    return (
-      <div className="rounded-xl border border-border bg-background p-6 shadow-sm">
-        <h1 className="mb-4 text-xl font-semibold text-text-primary">Crear cuenta y aceptar</h1>
-        <p className="mb-4 text-sm text-text-secondary">
-          Te unirás a <strong>{invitation.org_name || 'la organización'}</strong> como{' '}
-          <strong>{ROLE_LABELS[invitation.role] || invitation.role}</strong>.
-        </p>
-        <form onSubmit={handleSignup} className="flex flex-col gap-4">
-          <input
-            type="email"
-            value={invitation.email}
-            readOnly
-            className="rounded-lg border border-border bg-subtle-bg px-3 py-2.5 text-sm text-muted"
-          />
-          <input
-            type="text"
-            placeholder="Nombre completo"
-            value={fullName}
-            onChange={(e) => setFullName(e.target.value)}
-            required
-            className="rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-text-primary placeholder:text-muted focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-          />
-          <input
-            type="password"
-            placeholder="Contraseña (mín. 6 caracteres)"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            minLength={6}
-            className="rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-text-primary placeholder:text-muted focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-          />
-          {error && <p className="text-sm text-red-600">{error}</p>}
-          <button
-            type="submit"
-            disabled={loading}
-            className="rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50"
-          >
-            {loading ? 'Creando…' : 'Crear cuenta y aceptar'}
-          </button>
-        </form>
-        <p className="mt-4 text-center text-xs text-muted">
-          <button
-            type="button"
-            onClick={() => { setSignupMode('choice'); setError(null); }}
-            className="text-primary-600 hover:text-primary-700"
-          >
-            ¿Ya tienes cuenta? Iniciar sesión
-          </button>
-        </p>
+        <div className="mt-5 text-center">
+          <h1 className="text-2xl font-bold text-text-primary">¡Te han invitado!</h1>
+          <p className="mt-2 text-sm text-text-secondary">Has sido invitado a unirte a</p>
+          <p className="mt-2 text-lg font-semibold text-primary-600">{invitation.org_name || 'la organización'}</p>
+        </div>
+
+        <div className="mt-6 rounded-2xl border border-border bg-subtle-bg p-5">
+          <p className="text-sm font-semibold text-text-secondary">Detalles de la invitación</p>
+          <div className="mt-4 space-y-3 text-sm">
+            <div className="flex items-center justify-between gap-4">
+              <span className="text-muted">Rol</span>
+              <span className="font-medium text-text-primary">{ROLE_LABELS[invitation.role] || invitation.role}</span>
+            </div>
+            <div className="flex items-center justify-between gap-4">
+              <span className="text-muted">Correo</span>
+              <span className="font-medium text-text-primary">{invitation.email}</span>
+            </div>
+            {invitation.invited_by_name ? (
+              <div className="flex items-center justify-between gap-4">
+                <span className="text-muted">Invitado por</span>
+                <span className="font-medium text-text-primary">{invitation.invited_by_name}</span>
+              </div>
+            ) : null}
+          </div>
+        </div>
+
+        {error ? <p className="mt-4 text-sm text-red-600">{error}</p> : null}
+
+        <div className="mt-5">
+          <Button type="button" onClick={acceptInvitation} loading={loading} className="w-full">
+            Aceptar invitación
+          </Button>
+        </div>
+
+        <div className="mt-5 text-center text-xs text-muted">
+          <Link href="/" className="text-primary-600 hover:text-primary-700">
+            Volver
+          </Link>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="rounded-xl border border-border bg-background p-6 shadow-sm">
-      <h1 className="mb-4 text-xl font-semibold text-text-primary">Invitación a Turnia</h1>
-      <div className="mb-4 rounded-lg border border-border bg-subtle-bg p-3 text-sm text-text-secondary">
-        <p className="font-medium text-text-primary">{invitation.org_name || 'Organización'}</p>
-        <p>Te invitan como: {ROLE_LABELS[invitation.role] || invitation.role}</p>
-        <p className="mt-1">Correo: {invitation.email}</p>
-        {invitation.invited_by_name && <p className="text-muted">Invitado por {invitation.invited_by_name}</p>}
+    <div className="rounded-2xl border border-border bg-background p-6 shadow-sm">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src="/logo.png" alt="Turnia" className="mx-auto h-20 w-20" />
+
+      <div className="mt-5 text-center">
+        <h1 className="text-2xl font-bold text-text-primary">¡Te han invitado!</h1>
+        <p className="mt-2 text-sm text-text-secondary">Has sido invitado a unirte a</p>
+        <p className="mt-2 text-lg font-semibold text-primary-600">{invitation.org_name || 'la organización'}</p>
       </div>
-      <p className="mb-4 text-sm text-text-secondary">Elige cómo continuar:</p>
-      <div className="flex flex-col gap-3">
-        <button
-          type="button"
-          onClick={() => setSignupMode('signup')}
-          className="rounded-lg border border-border bg-background px-4 py-2.5 text-sm font-medium text-text-primary hover:bg-subtle-bg focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-        >
-          Crear cuenta con {invitation.email}
-        </button>
-        <a
+
+      <div className="mt-6 rounded-2xl border border-border bg-subtle-bg p-5">
+        <p className="text-sm font-semibold text-text-secondary">Detalles de la invitación</p>
+        <div className="mt-4 space-y-3 text-sm">
+          <div className="flex items-center justify-between gap-4">
+            <span className="text-muted">Rol</span>
+            <span className="font-medium text-text-primary">{ROLE_LABELS[invitation.role] || invitation.role}</span>
+          </div>
+          <div className="flex items-center justify-between gap-4">
+            <span className="text-muted">Correo</span>
+            <span className="font-medium text-text-primary">{invitation.email}</span>
+          </div>
+          {invitation.invited_by_name ? (
+            <div className="flex items-center justify-between gap-4">
+              <span className="text-muted">Invitado por</span>
+              <span className="font-medium text-text-primary">{invitation.invited_by_name}</span>
+            </div>
+          ) : null}
+        </div>
+      </div>
+
+      <form onSubmit={handleSignup} className="mt-6 flex flex-col gap-3">
+        <div className="flex flex-col gap-2">
+          <label className="text-sm font-medium text-text-primary" htmlFor="invite-email">
+            Correo
+          </label>
+          <Input id="invite-email" type="email" value={invitation.email} readOnly className="bg-subtle-bg text-muted" />
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <label className="text-sm font-medium text-text-primary" htmlFor="invite-name">
+            Tu nombre
+          </label>
+          <Input
+            id="invite-name"
+            type="text"
+            placeholder="Ingresa tu nombre"
+            value={fullName}
+            onChange={(e) => setFullName(e.target.value)}
+            required
+            autoComplete="name"
+          />
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <label className="text-sm font-medium text-text-primary" htmlFor="invite-pass">
+            Crear contraseña
+          </label>
+          <Input
+            id="invite-pass"
+            type="password"
+            placeholder="••••••••"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            minLength={8}
+            autoComplete="new-password"
+          />
+        </div>
+
+        {error ? <p className="text-sm text-red-600">{error}</p> : null}
+
+        <Button type="submit" loading={loading} className="w-full">
+          Aceptar invitación
+        </Button>
+      </form>
+
+      <div className="mt-5 text-center text-xs text-muted">
+        <Link
           href={`/login?redirect=${encodeURIComponent(`/invite?token=${encodeURIComponent(token)}`)}`}
-          className="rounded-lg bg-primary-600 px-4 py-2.5 text-center text-sm font-medium text-white hover:bg-primary-700"
+          className="text-primary-600 hover:text-primary-700"
         >
-          Ya tengo cuenta · Iniciar sesión
-        </a>
+          ¿Ya tienes cuenta? Iniciar sesión
+        </Link>
       </div>
-      <p className="mt-4 text-center text-xs text-muted">
-        <a href="/" className="text-primary-600 hover:text-primary-700">Volver</a>
-      </p>
     </div>
   );
 }

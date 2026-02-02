@@ -1,5 +1,6 @@
 'use client';
 
+import { DashboardDesktopHeader } from '@/components/dashboard/DashboardDesktopHeader';
 import { InvitationsList } from '@/components/invitations/InvitationsList';
 import { InviteUserForm } from '@/components/invitations/InviteUserForm';
 import { createClient } from '@/lib/supabase/client';
@@ -45,7 +46,9 @@ export default function AdminInvitePage() {
 
   return (
     <div className="space-y-6">
-      <div>
+      <DashboardDesktopHeader title="Invitar usuarios" subtitle="Crea invitaciones por correo y comparte el enlace" />
+
+      <div className="md:hidden">
         <Link href="/dashboard/admin" className="text-sm text-primary-600 hover:text-primary-700">← Admin</Link>
         <h1 className="mt-2 text-xl font-semibold text-text-primary">Invitar usuarios</h1>
         <p className="mt-1 text-sm text-text-secondary">Crea invitaciones por correo y comparte el enlace. El enlace expira en 7 días.</p>

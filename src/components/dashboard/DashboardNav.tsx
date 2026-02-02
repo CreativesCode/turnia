@@ -6,16 +6,16 @@
  * @see project-roadmap.md Módulo 10.1
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { LogoutButton } from '@/components/auth/LogoutButton';
+import { NotificationBell } from '@/components/notifications/NotificationBell';
+import { OfflinePill } from '@/components/offline/OfflinePill';
+import { ThemeSelect, ThemeToggleButton } from '@/components/theme/theme';
+import { useIsMobile } from '@/hooks/useIsMobile';
+import { useScheduleOrg } from '@/hooks/useScheduleOrg';
+import { createClient } from '@/lib/supabase/client';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { createClient } from '@/lib/supabase/client';
-import { NotificationBell } from '@/components/notifications/NotificationBell';
-import { LogoutButton } from '@/components/auth/LogoutButton';
-import { ThemeSelect, ThemeToggleButton } from '@/components/theme/theme';
-import { OfflinePill } from '@/components/offline/OfflinePill';
-import { useScheduleOrg } from '@/hooks/useScheduleOrg';
-import { useIsMobile } from '@/hooks/useIsMobile';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 function getFocusableElements(container: HTMLElement): HTMLElement[] {
   const nodes = Array.from(
@@ -294,6 +294,7 @@ export function DashboardNav() {
                   </div>
                 </div>
                 {canManageShifts && link('/dashboard/manager/shifts', 'Lista de turnos')}
+                {link('/dashboard/profile', 'Mi perfil')}
                 {canManageOrg && (
                   <>
                     {link('/dashboard/admin/organizations', 'Organizaciones')}
@@ -326,6 +327,7 @@ export function DashboardNav() {
     <header className="border-b border-border bg-background px-4 py-3">
       <nav className="flex flex-wrap items-center gap-4 text-sm">
         <Link href="/dashboard" className="font-medium text-text-primary hover:text-primary-600">Dashboard</Link>
+        <Link href="/dashboard/profile" className="text-text-secondary hover:text-primary-600">Perfil</Link>
         <Link href="/dashboard/admin" className="text-text-secondary hover:text-primary-600">Admin</Link>
         <Link href="/dashboard/admin/organizations" className="text-text-secondary hover:text-primary-600">Organizaciones</Link>
         <Link href="/dashboard/admin/members" className="text-text-secondary hover:text-primary-600">Miembros</Link>

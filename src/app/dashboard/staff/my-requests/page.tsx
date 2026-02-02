@@ -6,13 +6,14 @@
  * @see project-roadmap.md Módulo 4.1, 4.4
  */
 
-import Link from 'next/link';
-import { useScheduleOrg } from '@/hooks/useScheduleOrg';
+import { DashboardDesktopHeader } from '@/components/dashboard/DashboardDesktopHeader';
 import { MyRequestsList } from '@/components/requests/MyRequestsList';
 import { PendingSwapsForYou } from '@/components/requests/PendingSwapsForYou';
-import { useCallback, useState } from 'react';
 import { Button } from '@/components/ui/Button';
+import { LinkButton } from '@/components/ui/LinkButton';
 import { useToast } from '@/components/ui/toast/ToastProvider';
+import { useScheduleOrg } from '@/hooks/useScheduleOrg';
+import { useCallback, useState } from 'react';
 
 export default function StaffMyRequestsPage() {
   const { orgId, userId, isLoading, error } = useScheduleOrg();
@@ -46,20 +47,30 @@ export default function StaffMyRequestsPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-4">
-        <h1 className="text-xl font-semibold text-text-primary">Mis solicitudes</h1>
-        <Link
-          href="/dashboard/staff"
-          className="text-sm text-primary-600 hover:text-primary-700"
-        >
-          ← Staff
-        </Link>
+      <DashboardDesktopHeader title="Mis Solicitudes" subtitle="Gestiona tus solicitudes y swaps" />
+
+      {/* Header (móvil inspirado en "Solicitudes - Mobile") */}
+      <div className="flex items-center justify-between gap-3 md:hidden">
+        <h1 className="text-lg font-semibold text-text-primary">Mis Solicitudes</h1>
+        <div className="flex items-center gap-2">
+          <LinkButton href="/dashboard/manager" variant="primary" size="sm">
+            Nueva
+          </LinkButton>
+          <Button type="button" variant="secondary" size="sm" onClick={onRefresh}>
+            Actualizar
+          </Button>
+        </div>
+      </div>
+
+      {/* Acciones desktop */}
+      <div className="hidden flex-wrap items-center gap-3 md:flex">
         <Button type="button" variant="secondary" onClick={onRefresh} className="ml-auto">
           Actualizar
         </Button>
       </div>
+
       <p className="text-sm text-muted">
-        Dar de baja, intercambiar o tomar turnos abiertos. Puedes cancelar solicitudes pendientes.
+        Dar de baja, intercambiar o tomar turnos abiertos. Para crear una nueva, abre el calendario, selecciona un turno y elige “Solicitar cambio”.
       </p>
       <PendingSwapsForYou
         orgId={orgId}

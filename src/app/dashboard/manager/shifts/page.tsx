@@ -5,17 +5,19 @@
  * @see project-roadmap.md Módulo 3.4
  */
 
-import { useCallback, useState } from 'react';
-import Link from 'next/link';
-import { ShiftList } from '@/components/shifts/ShiftList';
-import { ShiftDetailModal } from '@/components/shifts/ShiftDetailModal';
-import { EditShiftModal } from '@/components/shifts/EditShiftModal';
-import { CreateShiftModal } from '@/components/shifts/CreateShiftModal';
+import type { ShiftWithType } from '@/components/calendar/ShiftCalendar';
+import { DashboardDesktopHeader } from '@/components/dashboard/DashboardDesktopHeader';
 import { BulkOperationsPanel } from '@/components/shifts/BulkOperationsPanel';
 import { CopyShiftsModal } from '@/components/shifts/CopyShiftsModal';
+import { CreateShiftModal } from '@/components/shifts/CreateShiftModal';
+import { EditShiftModal } from '@/components/shifts/EditShiftModal';
+import { ShiftDetailModal } from '@/components/shifts/ShiftDetailModal';
+import { ShiftList } from '@/components/shifts/ShiftList';
 import { ShiftTemplateForm } from '@/components/shifts/ShiftTemplateForm';
+import { Button } from '@/components/ui/Button';
 import { useScheduleOrg } from '@/hooks/useScheduleOrg';
-import type { ShiftWithType } from '@/components/calendar/ShiftCalendar';
+import Link from 'next/link';
+import { useCallback, useState } from 'react';
 
 export default function ManagerShiftsListPage() {
   const { orgId, userId, canManageShifts, canCreateRequests, isLoading, error } = useScheduleOrg();
@@ -83,8 +85,20 @@ export default function ManagerShiftsListPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <h1 className="text-xl font-semibold text-text-primary">Lista de turnos</h1>
+      <DashboardDesktopHeader title="Lista de turnos" subtitle="Filtros, plantillas y operaciones masivas" />
+
+      {/* Header (móvil inspirado en "Lista Turnos - Mobile") */}
+      <div className="flex items-center justify-between gap-3 md:hidden">
+        <h1 className="text-lg font-semibold text-text-primary">Turnos</h1>
+        {canManageShifts ? (
+          <Button type="button" size="sm" onClick={() => setCreateOpen(true)}>
+            Nuevo
+          </Button>
+        ) : null}
+      </div>
+
+      {/* Acciones (desktop) */}
+      <div className="hidden flex-wrap items-center justify-end gap-4 md:flex">
         <div className="flex flex-wrap items-center gap-3">
           <Link
             href="/dashboard/manager"

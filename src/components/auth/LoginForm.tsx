@@ -1,6 +1,9 @@
 'use client';
 
+import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
 import { createClient } from '@/lib/supabase/client';
+import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useState } from 'react';
 
@@ -28,38 +31,87 @@ export function LoginForm() {
   }
 
   return (
-    <div className="rounded-xl border border-border bg-background p-6 shadow-sm">
-      <h1 className="mb-4 text-xl font-semibold text-text-primary">Turnia</h1>
-      <p className="mb-4 text-sm text-text-secondary">Inicia sesión en tu cuenta.</p>
-      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-        <input
-          type="email"
-          placeholder="Correo"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
-          className="rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-text-primary placeholder:text-muted focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-        />
-        <input
-          type="password"
-          placeholder="Contraseña"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-          className="rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-text-primary placeholder:text-muted focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-        />
-        {error && <p className="text-sm text-red-600">{error}</p>}
-        <button
-          type="submit"
-          disabled={loading}
-          className="rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50"
-        >
-          {loading ? 'Entrando…' : 'Entrar'}
-        </button>
+    <div className="flex flex-col gap-10">
+      {/* Mobile header (según Login - Mobile) */}
+      <div className="flex flex-col items-center gap-3 text-center lg:hidden">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/logo.png" alt="Turnia" className="h-16 w-16 rounded-2xl" />
+        <h1 className="text-3xl font-bold text-text-primary">Turnia</h1>
+        <p className="text-sm text-text-secondary">Gestión inteligente de turnos</p>
+      </div>
+
+      {/* Desktop header (según Login - Desktop) */}
+      <div className="hidden lg:block">
+        <h1 className="text-3xl font-bold text-text-primary">Bienvenido de vuelta</h1>
+        <p className="mt-2 text-sm text-text-secondary">Ingresa tus credenciales para continuar</p>
+      </div>
+
+      <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+        <div className="flex flex-col gap-2">
+          <label className="text-sm font-medium text-text-primary" htmlFor="login-email">
+            Correo electrónico
+          </label>
+          <Input
+            id="login-email"
+            type="email"
+            placeholder="tu@email.com"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            autoComplete="email"
+          />
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <label className="text-sm font-medium text-text-primary" htmlFor="login-password">
+            Contraseña
+          </label>
+          <Input
+            id="login-password"
+            type="password"
+            placeholder="••••••••"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            autoComplete="current-password"
+          />
+        </div>
+
+        <div className="-mt-1 flex justify-end">
+          <Link href="/forgot-password" className="text-sm font-medium text-primary-600 hover:text-primary-700">
+            ¿Olvidaste tu contraseña?
+          </Link>
+        </div>
+
+        {error ? <p className="-mt-1 text-sm text-red-600">{error}</p> : null}
+
+        <Button type="submit" loading={loading} className="w-full">
+          Iniciar sesión
+        </Button>
+
+        {/* Divider + Signup row (mobile) */}
+        <div className="lg:hidden">
+          <div className="my-2 flex items-center gap-4">
+            <div className="h-px w-full bg-border" />
+            <span className="text-sm text-muted">o</span>
+            <div className="h-px w-full bg-border" />
+          </div>
+          <div className="flex items-center justify-center gap-2 text-sm">
+            <span className="text-text-secondary">¿No tienes cuenta?</span>
+            <Link href="/signup" className="font-semibold text-primary-600 hover:text-primary-700">
+              Regístrate
+            </Link>
+          </div>
+        </div>
+
+        {/* Desktop signup row */}
+        <div className="hidden items-center justify-center gap-2 text-sm lg:flex">
+          <span className="text-text-secondary">¿No tienes cuenta?</span>
+          <Link href="/signup" className="font-semibold text-primary-600 hover:text-primary-700">
+            Regístrate gratis
+          </Link>
+        </div>
       </form>
-      <p className="mt-4 text-center text-xs text-muted">
-        ¿Sin cuenta? <a href="/signup" className="text-primary-600 underline hover:text-primary-700">Registrarse</a> · <a href="/" className="text-primary-600 hover:text-primary-700">Volver</a>
-      </p>
     </div>
   );
 }

@@ -1,5 +1,6 @@
 'use client';
 
+import { DashboardDesktopHeader } from '@/components/dashboard/DashboardDesktopHeader';
 import { ReportsBasicDashboard } from '@/components/reports/ReportsBasicDashboard';
 import { useCurrentOrg } from '@/hooks/useCurrentOrg';
 import { createClient } from '@/lib/supabase/client';
@@ -107,7 +108,9 @@ function AdminReportsContent() {
 
   return (
     <div className="space-y-6">
-      <div>
+      <DashboardDesktopHeader title="Reportes básicos" subtitle="Distribuciones, pendientes y métricas generales" />
+
+      <div className="md:hidden">
         <Link href="/dashboard/admin" className="text-sm text-primary-600 hover:text-primary-700">
           ← Admin
         </Link>

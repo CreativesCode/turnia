@@ -1,5 +1,6 @@
 'use client';
 
+import { DashboardDesktopHeader } from '@/components/dashboard/DashboardDesktopHeader';
 import { ShiftTypesList } from '@/components/shift-types/ShiftTypesList';
 import { useCurrentOrg } from '@/hooks/useCurrentOrg';
 import { createClient } from '@/lib/supabase/client';
@@ -110,7 +111,9 @@ function AdminShiftTypesContent() {
 
   return (
     <div className="space-y-6">
-      <div>
+      <DashboardDesktopHeader title="Tipos de turno" subtitle="Define letras y colores para el calendario" />
+
+      <div className="md:hidden">
         <Link href="/dashboard/admin" className="text-sm text-primary-600 hover:text-primary-700">
           ← Admin
         </Link>

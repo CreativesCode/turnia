@@ -1,15 +1,16 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { createClient } from '@/lib/supabase/client';
-import { useScheduleOrg } from '@/hooks/useScheduleOrg';
-import { QuickActions } from '@/components/mobile/QuickActions';
+import type { ShiftWithType } from '@/components/calendar/ShiftCalendar';
+import { DashboardDesktopHeader } from '@/components/dashboard/DashboardDesktopHeader';
 import { MyUpcomingShiftsWidget } from '@/components/mobile/MyUpcomingShiftsWidget';
 import { OnCallNowWidget } from '@/components/mobile/OnCallNowWidget';
+import { QuickActions } from '@/components/mobile/QuickActions';
 import { ShiftDetailModal } from '@/components/shifts/ShiftDetailModal';
-import type { ShiftWithType } from '@/components/calendar/ShiftCalendar';
 import { LinkButton } from '@/components/ui/LinkButton';
 import { Skeleton } from '@/components/ui/Skeleton';
+import { useScheduleOrg } from '@/hooks/useScheduleOrg';
+import { createClient } from '@/lib/supabase/client';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 export default function StaffPage() {
   const { orgId, userId, canManageShifts, canCreateRequests, isLoading, error } = useScheduleOrg();
@@ -89,7 +90,9 @@ export default function StaffPage() {
 
   return (
     <div className="space-y-4">
-      <div className="space-y-1">
+      <DashboardDesktopHeader title="Staff" subtitle="Mis turnos, solicitudes y disponibilidad" />
+
+      <div className="space-y-1 md:hidden">
         <h1 className="text-xl font-semibold text-text-primary">Staff</h1>
         <p className="text-text-secondary">Mis turnos, solicitudes (dar turno, swap, tomar abierto) y disponibilidad.</p>
       </div>
@@ -122,9 +125,9 @@ export default function StaffPage() {
           setDetailShift(null);
           setDetailAssignedName(null);
         }}
-        onEdit={() => {}}
-        onDeleted={() => {}}
-        onRequestCreated={() => {}}
+        onEdit={() => { }}
+        onDeleted={() => { }}
+        onRequestCreated={() => { }}
         shift={detailShift}
         assignedName={detailAssignedName}
         canManageShifts={canManageShifts}

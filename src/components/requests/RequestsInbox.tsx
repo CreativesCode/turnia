@@ -5,13 +5,13 @@
  * @see project-roadmap.md Módulo 4.2
  */
 
-import { useCallback, useEffect, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
-import { createClient } from '@/lib/supabase/client';
 import { RequestDetailModal, type RequestDetailRow } from '@/components/requests/RequestDetailModal';
 import { Button } from '@/components/ui/Button';
 import { Select } from '@/components/ui/Select';
 import { useToast } from '@/components/ui/toast/ToastProvider';
+import { createClient } from '@/lib/supabase/client';
+import { useSearchParams } from 'next/navigation';
+import { useCallback, useEffect, useState } from 'react';
 
 function ChevronDown() {
   return (
@@ -58,6 +58,16 @@ function formatRange(start: string, end: string): string {
   const d1 = new Date(start);
   const d2 = new Date(end);
   return `${d1.toLocaleDateString('es-ES', { day: '2-digit', month: 'short' })} ${d1.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })} – ${d2.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}`;
+}
+
+function formatRelative(iso: string): string {
+  const d = new Date(iso);
+  const now = new Date();
+  const diff = now.getTime() - d.getTime();
+  if (diff < 60_000) return 'Ahora';
+  if (diff < 3600_000) return `Hace ${Math.floor(diff / 60_000)} min`;
+  if (diff < 86400_000) return `Hace ${Math.floor(diff / 3600_000)} h`;
+  return `Hace ${Math.floor(diff / 86400_000)} d`;
 }
 
 function getTypeLetter(ot: { name: string; letter: string } | { name: string; letter: string }[] | null): string {
@@ -163,9 +173,38 @@ export function RequestsInbox({ orgId, canApprove, refreshKey = 0 }: Props) {
 
   const hasActive = filters.requestType !== '' || filters.status !== 'submitted,accepted';
   const activeCount = [filters.requestType !== '', filters.status !== 'submitted,accepted'].filter(Boolean).length;
+  const canActOn = (s: string) => canApprove && ['submitted', 'accepted'].includes(s);
 
   return (
     <div className="space-y-4">
+      {/* Quick tabs (mobile-friendly, similar al diseño) */}
+      <div className="flex items-center gap-2 overflow-x-auto rounded-xl border border-border bg-background p-2">
+        <button
+          type="button"
+          onClick={() => setFilters((f) => ({ ...f, status: 'submitted,accepted' }))}
+          className={`min-h-[36px] shrink-0 rounded-lg px-3 text-sm font-medium transition-colors ${filters.status === 'submitted,accepted' ? 'bg-primary-50 text-primary-700' : 'text-text-secondary hover:bg-subtle-bg'
+            }`}
+        >
+          Pendientes
+        </button>
+        <button
+          type="button"
+          onClick={() => setFilters((f) => ({ ...f, status: 'approved' }))}
+          className={`min-h-[36px] shrink-0 rounded-lg px-3 text-sm font-medium transition-colors ${filters.status === 'approved' ? 'bg-primary-50 text-primary-700' : 'text-text-secondary hover:bg-subtle-bg'
+            }`}
+        >
+          Aprobadas
+        </button>
+        <button
+          type="button"
+          onClick={() => setFilters((f) => ({ ...f, status: 'rejected' }))}
+          className={`min-h-[36px] shrink-0 rounded-lg px-3 text-sm font-medium transition-colors ${filters.status === 'rejected' ? 'bg-primary-50 text-primary-700' : 'text-text-secondary hover:bg-subtle-bg'
+            }`}
+        >
+          Rechazadas
+        </button>
+      </div>
+
       <div className="rounded-lg border border-border bg-background">
         <button
           type="button"
@@ -229,68 +268,107 @@ export function RequestsInbox({ orgId, canApprove, refreshKey = 0 }: Props) {
           <p className="text-sm text-muted">No hay solicitudes con los filtros seleccionados.</p>
         </div>
       ) : (
-        <div className="rounded-xl border border-border bg-background overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border bg-subtle-bg">
-                  <th className="px-4 py-3 text-left font-medium text-text-primary">Tipo</th>
-                  <th className="px-4 py-3 text-left font-medium text-text-primary">Solicitante</th>
-                  <th className="px-4 py-3 text-left font-medium text-text-primary">Turno</th>
-                  <th className="px-4 py-3 text-left font-medium text-text-primary">Estado</th>
-                  <th className="px-4 py-3 text-left font-medium text-text-primary">Fecha</th>
-                  <th className="px-4 py-3 text-right font-medium text-text-primary">Acciones</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((r) => {
-                  const shift = r.shift;
-                  const letter = shift ? getTypeLetter(shift.organization_shift_types) : '?';
-                  const range = shift ? formatRange(shift.start_at, shift.end_at) : '—';
-                  const assignedName = shift?.assigned_user_id ? (names[shift.assigned_user_id] ?? '—') : 'Sin asignar';
-                  const requesterName = names[r.requester_id] ?? r.requester_id.slice(0, 8);
-                  const targetInfo =
-                    r.request_type === 'swap' && r.target_shift
-                      ? ` ↔ ${getTypeLetter(r.target_shift.organization_shift_types)} (${r.target_shift.assigned_user_id ? names[r.target_shift.assigned_user_id] ?? '—' : '?'})`
-                      : '';
-                  const canAct = canApprove && ['submitted', 'accepted'].includes(r.status);
-
-                  return (
-                    <tr
-                      key={r.id}
-                      className="border-b border-border last:border-0 hover:bg-subtle-bg/50"
-                    >
-                      <td className="px-4 py-3 text-text-primary">{REQUEST_TYPE_LABEL[r.request_type] ?? r.request_type}</td>
-                      <td className="px-4 py-3 text-text-primary">{requesterName}</td>
-                      <td className="px-4 py-3 text-text-secondary">
-                        <span className="font-medium text-text-primary">{letter}</span> {range}
-                        {r.request_type !== 'take_open' && ` — ${assignedName}`}
-                        {targetInfo}
-                      </td>
-                      <td className="px-4 py-3">
-                        <span
-                          className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
-                            r.status === 'approved' ? 'bg-green-100 text-green-800' : r.status === 'rejected' || r.status === 'cancelled' ? 'bg-gray-100 text-gray-700' : 'bg-amber-100 text-amber-800'
-                          }`}
-                        >
-                          {STATUS_LABEL[r.status] ?? r.status}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-muted">
-                        {new Date(r.created_at).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        <Button type="button" variant="secondary" size="sm" onClick={() => setDetail(r)}>
-                          {canAct ? 'Ver / Aprobar' : 'Ver'}
-                        </Button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+        <>
+          {/* Mobile cards */}
+          <div className="grid gap-3 md:hidden">
+            {rows.map((r) => {
+              const requesterName = names[r.requester_id] ?? r.requester_id.slice(0, 8);
+              const shift = r.shift;
+              const letter = shift ? getTypeLetter(shift.organization_shift_types) : '?';
+              const range = shift ? formatRange(shift.start_at, shift.end_at) : '—';
+              const typeBadgeClass =
+                r.request_type === 'swap'
+                  ? 'bg-amber-500'
+                  : r.request_type === 'give_away'
+                    ? 'bg-green-600'
+                    : 'bg-primary-600';
+              return (
+                <div key={r.id} className="rounded-2xl border border-border bg-background p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                      <span className={`inline-flex h-6 items-center rounded-md px-2 text-xs font-semibold text-white ${typeBadgeClass}`}>
+                        {REQUEST_TYPE_LABEL[r.request_type] ?? r.request_type}
+                      </span>
+                      <span className="text-xs text-muted">{formatRelative(r.created_at)}</span>
+                    </div>
+                    <span className="text-xs font-medium text-text-secondary">{requesterName}</span>
+                  </div>
+                  <p className="mt-3 text-sm text-text-secondary">
+                    <span className="font-semibold text-text-primary">{letter}</span> {range}
+                  </p>
+                  <div className="mt-3 flex items-center justify-end">
+                    <Button type="button" variant="secondary" size="sm" onClick={() => setDetail(r)}>
+                      {canActOn(r.status) ? 'Ver / Aprobar' : 'Ver'}
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
           </div>
-        </div>
+
+          {/* Desktop table */}
+          <div className="hidden overflow-hidden rounded-xl border border-border bg-background md:block">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border bg-subtle-bg">
+                    <th className="px-4 py-3 text-left font-medium text-text-primary">Tipo</th>
+                    <th className="px-4 py-3 text-left font-medium text-text-primary">Solicitante</th>
+                    <th className="px-4 py-3 text-left font-medium text-text-primary">Turno</th>
+                    <th className="px-4 py-3 text-left font-medium text-text-primary">Estado</th>
+                    <th className="px-4 py-3 text-left font-medium text-text-primary">Fecha</th>
+                    <th className="px-4 py-3 text-right font-medium text-text-primary">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((r) => {
+                    const shift = r.shift;
+                    const letter = shift ? getTypeLetter(shift.organization_shift_types) : '?';
+                    const range = shift ? formatRange(shift.start_at, shift.end_at) : '—';
+                    const assignedName = shift?.assigned_user_id ? (names[shift.assigned_user_id] ?? '—') : 'Sin asignar';
+                    const requesterName = names[r.requester_id] ?? r.requester_id.slice(0, 8);
+                    const targetInfo =
+                      r.request_type === 'swap' && r.target_shift
+                        ? ` ↔ ${getTypeLetter(r.target_shift.organization_shift_types)} (${r.target_shift.assigned_user_id ? names[r.target_shift.assigned_user_id] ?? '—' : '?'})`
+                        : '';
+                    const canAct = canActOn(r.status);
+
+                    return (
+                      <tr
+                        key={r.id}
+                        className="border-b border-border last:border-0 hover:bg-subtle-bg/50"
+                      >
+                        <td className="px-4 py-3 text-text-primary">{REQUEST_TYPE_LABEL[r.request_type] ?? r.request_type}</td>
+                        <td className="px-4 py-3 text-text-primary">{requesterName}</td>
+                        <td className="px-4 py-3 text-text-secondary">
+                          <span className="font-medium text-text-primary">{letter}</span> {range}
+                          {r.request_type !== 'take_open' && ` — ${assignedName}`}
+                          {targetInfo}
+                        </td>
+                        <td className="px-4 py-3">
+                          <span
+                            className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${r.status === 'approved' ? 'bg-green-100 text-green-800' : r.status === 'rejected' || r.status === 'cancelled' ? 'bg-gray-100 text-gray-700' : 'bg-amber-100 text-amber-800'
+                              }`}
+                          >
+                            {STATUS_LABEL[r.status] ?? r.status}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-muted">
+                          {new Date(r.created_at).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <Button type="button" variant="secondary" size="sm" onClick={() => setDetail(r)}>
+                            {canAct ? 'Ver / Aprobar' : 'Ver'}
+                          </Button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </>
       )}
 
       <RequestDetailModal

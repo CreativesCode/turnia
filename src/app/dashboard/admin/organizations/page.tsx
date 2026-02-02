@@ -1,5 +1,6 @@
 'use client';
 
+import { DashboardDesktopHeader } from '@/components/dashboard/DashboardDesktopHeader';
 import { CreateOrganizationModal } from '@/components/organizations/CreateOrganizationModal';
 import { OrganizationList } from '@/components/organizations/OrganizationList';
 import { OrganizationSettings } from '@/components/organizations/OrganizationSettings';
@@ -40,7 +41,9 @@ function AdminOrganizationsContent() {
   if (editId) {
     return (
       <div className="space-y-6">
-        <div>
+        <DashboardDesktopHeader title="Editar organización" subtitle="Actualiza datos y configuración" />
+
+        <div className="md:hidden">
           <Link href="/dashboard/admin/organizations" className="text-sm text-primary-600 hover:text-primary-700">
             ← Organizaciones
           </Link>
@@ -68,7 +71,12 @@ function AdminOrganizationsContent() {
 
   return (
     <div className="space-y-6">
-      <div>
+      <DashboardDesktopHeader
+        title="Organizaciones"
+        subtitle={isSuperadmin ? 'Lista de todas las organizaciones' : 'Configuración de tu organización'}
+      />
+
+      <div className="md:hidden">
         <Link href="/dashboard/admin" className="text-sm text-primary-600 hover:text-primary-700">
           ← Admin
         </Link>

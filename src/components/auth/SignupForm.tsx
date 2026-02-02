@@ -1,12 +1,16 @@
 'use client';
 
+import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
 import { createClient } from '@/lib/supabase/client';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
 export function SignupForm() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -16,6 +20,16 @@ export function SignupForm() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+
+    if (password.length < 8) {
+      setError('La contraseña debe tener al menos 8 caracteres.');
+      return;
+    }
+    if (password !== confirmPassword) {
+      setError('Las contraseñas no coinciden.');
+      return;
+    }
+
     setLoading(true);
     const supabase = createClient();
     const { data, error: err } = await supabase.auth.signUp({
@@ -37,64 +51,130 @@ export function SignupForm() {
 
   if (done) {
     return (
-      <div className="rounded-xl border border-border bg-background p-6 shadow-sm">
-        <h1 className="mb-4 text-xl font-semibold text-text-primary">Cuenta creada</h1>
-        <p className="mb-4 text-sm text-text-secondary">
-          Revisa tu correo para confirmar. Si tu proyecto tiene confirmación desactivada, ya puedes
-          <a href="/login" className="ml-1 text-primary-600 underline hover:text-primary-700">iniciar sesión</a>.
+      <div className="rounded-2xl border border-border bg-background p-6 shadow-sm">
+        <h1 className="text-2xl font-bold text-text-primary">Cuenta creada</h1>
+        <p className="mt-3 text-sm text-text-secondary">
+          Revisa tu correo para confirmar. Si tu proyecto tiene confirmación desactivada, ya puedes{' '}
+          <Link href="/login" className="font-medium text-primary-600 hover:text-primary-700">
+            iniciar sesión
+          </Link>
+          .
         </p>
-        <p className="text-xs text-text-secondary">
-          Para ser <strong>Org Admin</strong> de la primera organización, ejecuta el SQL de
+        <p className="mt-4 text-xs text-text-secondary">
+          Para ser <strong>Org Admin</strong> de la primera organización, ejecuta el SQL de{' '}
           <code className="mx-1 rounded bg-subtle-bg px-1 text-text-primary">docs/first-admin.md</code> en Supabase.
         </p>
-        <p className="mt-4 text-center text-xs text-muted">
-          <a href="/login" className="text-primary-600 hover:text-primary-700">Ir a inicio de sesión</a> · <a href="/" className="text-primary-600 hover:text-primary-700">Volver</a>
-        </p>
+        <div className="mt-6 flex flex-wrap items-center justify-center gap-3 text-xs text-muted">
+          <Link href="/login" className="text-primary-600 hover:text-primary-700">
+            Ir a inicio de sesión
+          </Link>
+          <span aria-hidden>·</span>
+          <Link href="/" className="text-primary-600 hover:text-primary-700">
+            Volver
+          </Link>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="rounded-xl border border-border bg-background p-6 shadow-sm">
-      <h1 className="mb-4 text-xl font-semibold text-text-primary">Crear cuenta</h1>
-      <p className="mb-4 text-sm text-text-secondary">Regístrate para usar Turnia.</p>
-      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-        <input
-          type="text"
-          placeholder="Nombre completo"
-          value={fullName}
-          onChange={(e) => setFullName(e.target.value)}
-          className="rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-text-primary placeholder:text-muted focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-        />
-        <input
-          type="email"
-          placeholder="Correo"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
-          className="rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-text-primary placeholder:text-muted focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-        />
-        <input
-          type="password"
-          placeholder="Contraseña (mín. 6 caracteres)"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-          minLength={6}
-          className="rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-text-primary placeholder:text-muted focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-        />
-        {error && <p className="text-sm text-red-600">{error}</p>}
-        <button
-          type="submit"
-          disabled={loading}
-          className="rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50"
+    <div className="flex flex-col gap-8">
+      <div className="flex items-start gap-4">
+        <Link
+          href="/login"
+          className="mt-1 inline-flex h-10 w-10 items-center justify-center rounded-lg border border-border text-text-secondary hover:bg-subtle-bg lg:hidden"
+          aria-label="Volver"
         >
-          {loading ? 'Creando…' : 'Crear cuenta'}
-        </button>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <path d="M15 18l-6-6 6-6" />
+          </svg>
+        </Link>
+        <div className="flex-1">
+          <h1 className="text-3xl font-bold text-text-primary">Crear cuenta</h1>
+          <p className="mt-2 text-sm text-text-secondary">Completa tus datos para registrarte</p>
+        </div>
+      </div>
+
+      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        <div className="flex flex-col gap-2">
+          <label className="text-sm font-medium text-text-primary" htmlFor="signup-name">
+            Nombre completo
+          </label>
+          <Input
+            id="signup-name"
+            type="text"
+            placeholder="Juan Pérez"
+            value={fullName}
+            onChange={(e) => setFullName(e.target.value)}
+            required
+            autoComplete="name"
+          />
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <label className="text-sm font-medium text-text-primary" htmlFor="signup-email">
+            Correo electrónico
+          </label>
+          <Input
+            id="signup-email"
+            type="email"
+            placeholder="tu@email.com"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            autoComplete="email"
+          />
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <label className="text-sm font-medium text-text-primary" htmlFor="signup-password">
+            Contraseña
+          </label>
+          <Input
+            id="signup-password"
+            type="password"
+            placeholder="Mínimo 8 caracteres"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            minLength={8}
+            autoComplete="new-password"
+          />
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <label className="text-sm font-medium text-text-primary" htmlFor="signup-confirm">
+            Confirmar contraseña
+          </label>
+          <Input
+            id="signup-confirm"
+            type="password"
+            placeholder="••••••••"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            required
+            minLength={8}
+            autoComplete="new-password"
+          />
+        </div>
+
+        {error ? <p className="text-sm text-red-600">{error}</p> : null}
+
+        <Button type="submit" loading={loading} className="w-full">
+          Crear cuenta
+        </Button>
       </form>
-      <p className="mt-4 text-center text-xs text-muted">
-        ¿Ya tienes cuenta? <a href="/login" className="text-primary-600 underline hover:text-primary-700">Entrar</a> · <a href="/" className="text-primary-600 hover:text-primary-700">Volver</a>
-      </p>
+
+      <div className="flex flex-wrap items-center justify-center gap-3 text-xs text-muted">
+        <span>¿Ya tienes cuenta?</span>
+        <Link href="/login" className="text-primary-600 hover:text-primary-700">
+          Entrar
+        </Link>
+        <span aria-hidden>·</span>
+        <Link href="/" className="text-primary-600 hover:text-primary-700">
+          Volver
+        </Link>
+      </div>
     </div>
   );
 }

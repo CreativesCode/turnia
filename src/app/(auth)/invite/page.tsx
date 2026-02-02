@@ -2,6 +2,7 @@
 
 import { AcceptInvitationForm, type InvitationData } from '@/components/invitations/AcceptInvitationForm';
 import { createClient } from '@/lib/supabase/client';
+import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Suspense, useCallback, useEffect, useState } from 'react';
 
@@ -54,7 +55,7 @@ function InvitePageContent() {
 
   if (state.status === 'loading') {
     return (
-      <div className="rounded-xl border border-border bg-background p-6 shadow-sm">
+      <div className="rounded-2xl border border-border bg-background p-6 shadow-sm">
         <p className="text-center text-text-secondary">Cargando invitación…</p>
       </div>
     );
@@ -62,13 +63,13 @@ function InvitePageContent() {
 
   if (state.status === 'error') {
     return (
-      <div className="rounded-xl border border-border bg-background p-6 shadow-sm">
+      <div className="rounded-2xl border border-border bg-background p-6 shadow-sm">
         <h1 className="mb-4 text-xl font-semibold text-text-primary">Invitación no disponible</h1>
         <p className="mb-4 text-sm text-text-secondary">{state.message}</p>
         <p className="text-center text-xs text-muted">
-          <a href="/" className="text-primary-600 hover:text-primary-700">Volver al inicio</a>
+          <Link href="/" className="text-primary-600 hover:text-primary-700">Volver al inicio</Link>
           <span className="mx-2">·</span>
-          <a href="/login" className="text-primary-600 hover:text-primary-700">Iniciar sesión</a>
+          <Link href="/login" className="text-primary-600 hover:text-primary-700">Iniciar sesión</Link>
         </p>
       </div>
     );
@@ -85,8 +86,18 @@ function InvitePageContent() {
 
 export default function InvitePage() {
   return (
-    <Suspense fallback={<div className="rounded-xl border border-border bg-background p-6 shadow-sm"><p className="text-center text-text-secondary">Cargando…</p></div>}>
-      <InvitePageContent />
-    </Suspense>
+    <div className="mx-auto flex min-h-[calc(100vh-2rem)] max-w-xl items-center justify-center sm:min-h-[calc(100vh-3rem)]">
+      <div className="w-full">
+        <Suspense
+          fallback={
+            <div className="rounded-2xl border border-border bg-background p-6 shadow-sm">
+              <p className="text-center text-text-secondary">Cargando…</p>
+            </div>
+          }
+        >
+          <InvitePageContent />
+        </Suspense>
+      </div>
+    </div>
   );
 }

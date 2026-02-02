@@ -78,6 +78,11 @@ type Props = {
   filters?: ShiftCalendarFiltersState;
   onEventClick?: (shift: ShiftWithType, assignedName: string | null) => void;
   onDateClick?: (date: Date) => void;
+  /**
+   * Variante visual para mobile: el header del calendario queda más limpio
+   * para acompañarlo con acciones externas (p. ej. botón "Hoy" + filtros).
+   */
+  compactHeader?: boolean;
 };
 
 function formatEventTitle(letter: string, assignedName: string | null): string {
@@ -121,6 +126,7 @@ function ShiftCalendarInner({
   filters,
   onEventClick,
   onDateClick,
+  compactHeader = false,
 }: Props) {
   const isMobile = useIsMobile('768px');
   const { isOnline } = useOnlineStatus();
@@ -368,9 +374,11 @@ function ShiftCalendarInner({
   const headerToolbar = useMemo(
     () =>
       isMobile
-        ? { left: 'prev,next today', center: 'title', right: 'dayGridMonth,listWeek' }
+        ? compactHeader
+          ? { left: 'prev,next today', center: 'title', right: '' }
+          : { left: 'prev,next today', center: 'title', right: 'dayGridMonth,listWeek' }
         : { left: 'prev,next today', center: 'title', right: 'dayGridMonth,timeGridWeek,timeGridDay,listWeek' },
-    [isMobile]
+    [isMobile, compactHeader]
   );
 
   const buttonText = useMemo(
@@ -501,7 +509,11 @@ function ShiftCalendarInner({
           </p>
         )}
         <div
-          className="min-h-[400px] overflow-hidden rounded-xl border border-border bg-background"
+          className={[
+            'min-h-[400px] overflow-hidden rounded-xl border border-border bg-background',
+            // Cuando usamos acciones externas en mobile, ocultamos el botón "Hoy" del toolbar para evitar duplicado.
+            compactHeader && isMobile ? '[&_.fc-today-button]:hidden' : '',
+          ].join(' ')}
           onTouchStart={handleTouchStart}
           onTouchEnd={handleTouchEnd}
           onTouchCancel={handleTouchCancel}

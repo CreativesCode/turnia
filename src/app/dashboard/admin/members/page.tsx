@@ -1,5 +1,6 @@
 'use client';
 
+import { DashboardDesktopHeader } from '@/components/dashboard/DashboardDesktopHeader';
 import { MembersList } from '@/components/members/MembersList';
 import { useCurrentOrg } from '@/hooks/useCurrentOrg';
 import { createClient } from '@/lib/supabase/client';
@@ -112,7 +113,9 @@ function AdminMembersContent() {
 
   return (
     <div className="space-y-6">
-      <div>
+      <DashboardDesktopHeader title="Miembros" subtitle="Gestiona roles y membresías" />
+
+      <div className="md:hidden">
         <Link href="/dashboard/admin" className="text-sm text-primary-600 hover:text-primary-700">
           ← Admin
         </Link>

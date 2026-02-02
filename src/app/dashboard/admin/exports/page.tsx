@@ -1,5 +1,6 @@
 'use client';
 
+import { DashboardDesktopHeader } from '@/components/dashboard/DashboardDesktopHeader';
 import { ExportScheduleForm } from '@/components/exports/ExportScheduleForm';
 import { useCurrentOrg } from '@/hooks/useCurrentOrg';
 import { createClient } from '@/lib/supabase/client';
@@ -107,7 +108,9 @@ function AdminExportsContent() {
 
   return (
     <div className="space-y-6">
-      <div>
+      <DashboardDesktopHeader title="Exportar horarios" subtitle="Descarga el calendario en CSV/Excel" />
+
+      <div className="md:hidden">
         <Link href="/dashboard/admin" className="text-sm text-primary-600 hover:text-primary-700">
           ← Admin
         </Link>

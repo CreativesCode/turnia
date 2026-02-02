@@ -6,6 +6,7 @@
  * @see project-roadmap.md Módulo 9.3
  */
 
+import { DashboardDesktopHeader } from '@/components/dashboard/DashboardDesktopHeader';
 import { OrgSettingsForm } from '@/components/organizations/OrgSettingsForm';
 import { useCurrentOrg } from '@/hooks/useCurrentOrg';
 import { createClient } from '@/lib/supabase/client';
@@ -76,7 +77,9 @@ export default function AdminSettingsPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-4">
+      <DashboardDesktopHeader title="Configuración de la organización" subtitle="Aprobaciones, descanso mínimo y reglas" />
+
+      <div className="flex flex-wrap items-center gap-4 md:hidden">
         <h1 className="text-xl font-semibold text-text-primary">Configuración de la organización</h1>
         <Link href="/dashboard/admin" className="text-sm text-primary-600 hover:text-primary-700">
           ← Admin

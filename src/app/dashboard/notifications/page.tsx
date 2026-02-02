@@ -5,11 +5,12 @@
  * @see project-roadmap.md Módulo 5.4
  */
 
-import { useCallback, useEffect, useState } from 'react';
-import Link from 'next/link';
-import { createClient } from '@/lib/supabase/client';
-import { useScheduleOrg } from '@/hooks/useScheduleOrg';
+import { DashboardDesktopHeader } from '@/components/dashboard/DashboardDesktopHeader';
 import { NotificationsList, type NotificationRow } from '@/components/notifications/NotificationsList';
+import { Button } from '@/components/ui/Button';
+import { useScheduleOrg } from '@/hooks/useScheduleOrg';
+import { createClient } from '@/lib/supabase/client';
+import { useCallback, useEffect, useState } from 'react';
 
 const LIMIT = 50;
 
@@ -65,37 +66,49 @@ export default function NotificationsPage() {
   );
 
   const unreadCount = items.filter((n) => !n.read_at).length;
+  const headerActions =
+    unreadCount > 0 ? (
+      <Button
+        type="button"
+        variant="ghost"
+        onClick={markAllAsRead}
+        disabled={markAllLoading}
+        className="hidden min-h-[36px] px-0 text-sm font-medium text-primary-600 hover:bg-transparent hover:text-primary-700 md:inline-flex"
+      >
+        {markAllLoading ? 'Marcando…' : 'Marcar todas como leídas'}
+      </Button>
+    ) : null;
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-4">
-        <h1 className="text-xl font-semibold text-text-primary">Notificaciones</h1>
-        <Link href="/dashboard" className="text-sm text-primary-600 hover:text-primary-700">
-          ← Dashboard
-        </Link>
-        {unreadCount > 0 && (
-          <button
-            type="button"
-            onClick={markAllAsRead}
-            disabled={markAllLoading}
-            className="ml-auto min-h-[44px] rounded-lg border border-border px-4 py-2.5 text-sm font-medium text-text-secondary hover:bg-subtle-bg disabled:opacity-50"
-          >
-            {markAllLoading ? 'Marcando…' : 'Marcar todas como leídas'}
-          </button>
+      <DashboardDesktopHeader title="Notificaciones" subtitle="Tus avisos y actualizaciones recientes" actions={headerActions} />
+
+      <div className="overflow-hidden rounded-2xl border border-border bg-background md:rounded-xl">
+        <div className="flex items-center justify-between gap-4 border-b border-border px-5 py-4 md:hidden">
+          <h1 className="text-lg font-semibold text-text-primary md:hidden">Notificaciones</h1>
+          <div className="ml-auto">
+            {unreadCount > 0 ? (
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={markAllAsRead}
+                disabled={markAllLoading}
+                className="min-h-[36px] px-0 text-sm font-medium text-primary-600 hover:bg-transparent hover:text-primary-700"
+              >
+                {markAllLoading ? 'Marcando…' : 'Marcar todas como leídas'}
+              </Button>
+            ) : null}
+          </div>
+        </div>
+
+        {loading ? (
+          <div className="p-6">
+            <p className="text-sm text-muted">Cargando…</p>
+          </div>
+        ) : (
+          <NotificationsList items={items} onMarkAsRead={markAsRead} getHref={getHref} emptyMessage="No hay notificaciones." />
         )}
       </div>
-      <p className="text-sm text-muted">
-        Solicitudes de intercambio, aprobaciones, rechazos y novedades de tus turnos.
-      </p>
-      {loading ? (
-        <div className="rounded-xl border border-border bg-background p-6">
-          <p className="text-sm text-muted">Cargando…</p>
-        </div>
-      ) : (
-        <div className="rounded-xl border border-border bg-background overflow-hidden">
-          <NotificationsList items={items} onMarkAsRead={markAsRead} getHref={getHref} emptyMessage="No hay notificaciones." />
-        </div>
-      )}
     </div>
   );
 }

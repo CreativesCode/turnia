@@ -1,6 +1,7 @@
 import { AuthGuard } from '@/components/auth/AuthGuard';
-import { PushNotificationRegistrationLoader } from '@/components/notifications/PushNotificationRegistrationLoader';
 import { DashboardNav } from '@/components/dashboard/DashboardNav';
+import { DashboardSidebar } from '@/components/dashboard/DashboardSidebar';
+import { PushNotificationRegistrationLoader } from '@/components/notifications/PushNotificationRegistrationLoader';
 
 export default function DashboardLayout({
   children,
@@ -11,8 +12,21 @@ export default function DashboardLayout({
     <AuthGuard>
       <PushNotificationRegistrationLoader />
       <div className="min-h-screen bg-subtle-bg">
-        <DashboardNav />
-        <main className="p-4 pb-24 md:pb-4">{children}</main>
+        {/* Mobile navigation */}
+        <div className="md:hidden">
+          <DashboardNav />
+        </div>
+
+        {/* Desktop layout (inspirado en frames Desktop del .pen) */}
+        <div className="hidden min-h-screen md:flex">
+          <DashboardSidebar />
+          <div className="min-w-0 flex-1">
+            <main className="p-8">{children}</main>
+          </div>
+        </div>
+
+        {/* Mobile content */}
+        <main className="p-4 pb-24 md:hidden">{children}</main>
       </div>
     </AuthGuard>
   );

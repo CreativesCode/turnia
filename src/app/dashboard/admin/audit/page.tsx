@@ -6,11 +6,12 @@
  */
 
 import { AuditLogList } from '@/components/audit/AuditLogList';
+import { DashboardDesktopHeader } from '@/components/dashboard/DashboardDesktopHeader';
 import { useCurrentOrg } from '@/hooks/useCurrentOrg';
+import { createClient } from '@/lib/supabase/client';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useState } from 'react';
-import { createClient } from '@/lib/supabase/client';
 
 type OrgOption = { id: string; name: string };
 
@@ -112,7 +113,9 @@ function AdminAuditContent() {
 
   return (
     <div className="space-y-6">
-      <div>
+      <DashboardDesktopHeader title="Registro de auditoría" subtitle="Eventos de miembros, invitaciones y solicitudes" />
+
+      <div className="md:hidden">
         <Link href="/dashboard/admin" className="text-sm text-primary-600 hover:text-primary-700">
           ← Admin
         </Link>
