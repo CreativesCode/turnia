@@ -100,25 +100,36 @@ export function NotificationBell() {
     let active = true;
 
     void (async () => {
-      const { data } = await supabase.auth.getUser();
-      const userId = data.user?.id ?? null;
-      if (!active || !userId) return;
+      try {
+        const { data } = await supabase.auth.getUser();
+        const userId = data.user?.id ?? null;
+        if (!active || !userId) return;
 
-      channel = supabase
-        .channel(`turnia:notifications:${userId}`)
-        .on(
-          'postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
-            table: 'notifications',
-            filter: `user_id=eq.${userId}`,
-          },
-          () => {
-            scheduleRealtimeRefresh();
-          }
-        )
-        .subscribe();
+        channel = supabase
+          .channel(`turnia:notifications:${userId}`)
+          .on(
+            'postgres_changes',
+            {
+              event: '*',
+              schema: 'public',
+              table: 'notifications',
+              filter: `user_id=eq.${userId}`,
+            },
+            () => {
+              scheduleRealtimeRefresh();
+            }
+          )
+          .subscribe();
+      } catch (e) {
+        const err = e as Error & { name?: string };
+        if (err.name === 'AbortError') {
+          // Lock abortado internamente por Supabase (React Strict Mode, etc.): ignoramos.
+          return;
+        }
+        // Otros errores los dejamos visibles en consola para depurar.
+        // eslint-disable-next-line no-console
+        console.error('NotificationBell auth error', err);
+      }
     })();
 
     return () => {

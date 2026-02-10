@@ -33,28 +33,67 @@ export function useScheduleOrg(): UseScheduleOrgResult {
 
   const run = useCallback(async () => {
     setError(null);
+    setIsLoading(true);
     const supabase = createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) {
-      setOrgId(null);
-      setUserId(null);
-      setCanEdit(false);
-      setCanManageOrgFlag(false);
-      setCanCreateReqs(false);
-      setCanApproveReqs(false);
-      setIsLoading(false);
-      return;
-    }
-    const { data: memberships, error: err } = await supabase
-      .from('memberships')
-      .select('org_id, role')
-      .eq('user_id', user.id)
-      .order('org_id', { ascending: true });
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) {
+        setOrgId(null);
+        setUserId(null);
+        setCanEdit(false);
+        setCanManageOrgFlag(false);
+        setCanCreateReqs(false);
+        setCanApproveReqs(false);
+        setIsLoading(false);
+        return;
+      }
+      const { data: memberships, error: err } = await supabase
+        .from('memberships')
+        .select('org_id, role')
+        .eq('user_id', user.id)
+        .order('org_id', { ascending: true });
 
-    if (err) {
-      setError(err.message);
+      if (err) {
+        setError(err.message);
+        setOrgId(null);
+        setUserId(null);
+        setCanEdit(false);
+        setCanManageOrgFlag(false);
+        setCanCreateReqs(false);
+        setCanApproveReqs(false);
+        setIsLoading(false);
+        return;
+      }
+      const list = (memberships ?? []) as { org_id: string; role: string }[];
+      if (list.length === 0) {
+        setOrgId(null);
+        setUserId(null);
+        setCanEdit(false);
+        setCanManageOrgFlag(false);
+        setCanCreateReqs(false);
+        setCanApproveReqs(false);
+        setIsLoading(false);
+        return;
+      }
+      const first = list[0];
+      const m: MembershipRow = { org_id: first.org_id, role: first.role as MembershipRow['role'] };
+      setOrgId(first.org_id);
+      setUserId(user.id);
+      setCanEdit(canManageShifts(m));
+      setCanManageOrgFlag(canManageOrg(m));
+      setCanCreateReqs(canCreateRequests(m));
+      setCanApproveReqs(canApproveRequests(m));
+      setIsLoading(false);
+    } catch (e) {
+      const err = e as Error & { name?: string };
+      if (err.name === 'AbortError') {
+        // Supabase/goTrue lock aborted (por ejemplo, React Strict Mode): lo ignoramos.
+        setIsLoading(false);
+        return;
+      }
+      setError(err.message ?? 'No se pudo cargar la organización.');
       setOrgId(null);
       setUserId(null);
       setCanEdit(false);
@@ -62,28 +101,7 @@ export function useScheduleOrg(): UseScheduleOrgResult {
       setCanCreateReqs(false);
       setCanApproveReqs(false);
       setIsLoading(false);
-      return;
     }
-    const list = (memberships ?? []) as { org_id: string; role: string }[];
-    if (list.length === 0) {
-      setOrgId(null);
-      setUserId(null);
-      setCanEdit(false);
-      setCanManageOrgFlag(false);
-      setCanCreateReqs(false);
-      setCanApproveReqs(false);
-      setIsLoading(false);
-      return;
-    }
-    const first = list[0];
-    const m: MembershipRow = { org_id: first.org_id, role: first.role as MembershipRow['role'] };
-    setOrgId(first.org_id);
-    setUserId(user.id);
-    setCanEdit(canManageShifts(m));
-    setCanManageOrgFlag(canManageOrg(m));
-    setCanCreateReqs(canCreateRequests(m));
-    setCanApproveReqs(canApproveRequests(m));
-    setIsLoading(false);
   }, []);
 
   useEffect(() => {

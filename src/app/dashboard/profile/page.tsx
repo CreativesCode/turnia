@@ -35,8 +35,13 @@ export default function ProfilePage() {
   const [fullName, setFullName] = useState<string | null>(null);
   const [orgName, setOrgName] = useState<string | null>(null);
   const [email, setEmail] = useState<string | null>(null);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [stats, setStats] = useState<Stats>({ monthShifts: 0, monthHours: 0, approvedRequests: 0 });
   const [loadingData, setLoadingData] = useState(false);
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [profileSuccess, setProfileSuccess] = useState<string | null>(null);
+  const [profileError, setProfileError] = useState<string | null>(null);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
   const roleLabel = useMemo(() => {
     if (canManageOrg) return 'Admin';
@@ -50,12 +55,13 @@ export default function ProfilePage() {
     const supabase = createClient();
 
     const [{ data: prof }, { data: org }, { data: au }] = await Promise.all([
-      supabase.from('profiles').select('full_name').eq('id', userId).maybeSingle(),
+      supabase.from('profiles').select('full_name, avatar_url').eq('id', userId).maybeSingle(),
       supabase.from('organizations').select('name').eq('id', orgId).maybeSingle(),
       supabase.auth.getUser(),
     ]);
 
-    setFullName((prof as { full_name?: string | null } | null)?.full_name ?? null);
+    setFullName((prof as { full_name?: string | null; avatar_url?: string | null } | null)?.full_name ?? null);
+    setAvatarUrl((prof as { full_name?: string | null; avatar_url?: string | null } | null)?.avatar_url ?? null);
     setOrgName((org as { name?: string | null } | null)?.name ?? null);
     setEmail(au.user?.email ?? null);
 
@@ -89,6 +95,78 @@ export default function ProfilePage() {
     const t = window.setTimeout(() => void load(), 0);
     return () => window.clearTimeout(t);
   }, [orgId, userId, load]);
+
+  const handleSaveProfile = useCallback(
+    async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!userId) return;
+      setProfileError(null);
+      setProfileSuccess(null);
+      setSavingProfile(true);
+      const supabase = createClient();
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ full_name: (fullName ?? '').trim() || null })
+        .eq('id', userId);
+      setSavingProfile(false);
+      if (updateError) {
+        setProfileError('No se pudieron guardar los cambios. Intenta de nuevo.');
+        return;
+      }
+      setProfileSuccess('Perfil actualizado.');
+      window.setTimeout(() => setProfileSuccess(null), 2500);
+    },
+    [userId, fullName]
+  );
+
+  const handleAvatarChange = useCallback(
+    async (event: React.ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0];
+      if (!file || !userId) return;
+      setProfileError(null);
+      setProfileSuccess(null);
+      setUploadingAvatar(true);
+      const supabase = createClient();
+
+      try {
+        const fileExt = file.name.split('.').pop() ?? 'jpg';
+        const filePath = `${userId}-${Date.now()}.${fileExt}`;
+
+        // Usa el bucket "avatars" (debe existir en Supabase y ser público)
+        const bucket = 'avatars';
+
+        const { error: uploadError } = await supabase.storage.from(bucket).upload(filePath, file, {
+          upsert: true,
+        });
+        if (uploadError) {
+          setProfileError('No se pudo subir la foto. Intenta con otra imagen.');
+          setUploadingAvatar(false);
+          return;
+        }
+
+        const {
+          data: { publicUrl },
+        } = supabase.storage.from(bucket).getPublicUrl(filePath);
+
+        const { error: updateError } = await supabase
+          .from('profiles')
+          .update({ avatar_url: publicUrl })
+          .eq('id', userId);
+        if (updateError) {
+          setProfileError('No se pudo guardar la foto de perfil.');
+          setUploadingAvatar(false);
+          return;
+        }
+
+        setAvatarUrl(publicUrl);
+        setProfileSuccess('Foto de perfil actualizada.');
+        window.setTimeout(() => setProfileSuccess(null), 2500);
+      } finally {
+        setUploadingAvatar(false);
+      }
+    },
+    [userId]
+  );
 
   const handleLogout = useCallback(async () => {
     const supabase = createClient();
@@ -145,15 +223,37 @@ export default function ProfilePage() {
         <div className="space-y-4 md:space-y-6">
           <div className="rounded-2xl border border-border bg-background p-5 md:p-8">
             <div className="flex flex-col items-center text-center">
-              <div className="flex h-20 w-20 items-center justify-center rounded-full bg-primary-100 text-[28px] font-semibold text-primary-700">
-                {initials(fullName)}
+              <div className="relative">
+                {avatarUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={avatarUrl}
+                    alt={name}
+                    className="h-20 w-20 rounded-full object-cover"
+                  />
+                ) : (
+                  <div className="flex h-20 w-20 items-center justify-center rounded-full bg-primary-100 text-[28px] font-semibold text-primary-700">
+                    {initials(fullName)}
+                  </div>
+                )}
+                <label className="absolute -bottom-1 -right-1 flex h-8 w-8 cursor-pointer items-center justify-center rounded-full bg-background shadow-sm ring-1 ring-border">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleAvatarChange}
+                  />
+                  <span className="text-[0.7rem] font-medium text-text-secondary">{uploadingAvatar ? '…' : '✎'}</span>
+                </label>
               </div>
+
               <p className="mt-4 text-xl font-semibold text-text-primary">{name}</p>
               <span className="mt-3 inline-flex h-7 items-center rounded-full bg-primary-50 px-3 text-[13px] font-medium text-primary-700">
                 {roleLabel}
               </span>
               {orgName ? <p className="mt-2 text-sm text-text-secondary">{orgName}</p> : null}
               {email ? <p className="mt-2 text-xs text-muted md:hidden">{email}</p> : null}
+              <p className="mt-3 text-xs text-muted">Puedes actualizar tu foto haciendo clic en el icono sobre el avatar.</p>
             </div>
           </div>
 
@@ -179,8 +279,57 @@ export default function ProfilePage() {
         <div className="space-y-4">
           <p className="hidden text-base font-semibold text-text-secondary md:block">Configuración</p>
 
+          <form onSubmit={handleSaveProfile} className="space-y-4">
+            <div className="overflow-hidden rounded-2xl border border-border bg-background p-5 md:rounded-xl md:p-6 space-y-4">
+              <h2 className="text-sm font-semibold text-text-primary">Datos de perfil</h2>
+
+              {profileError && (
+                <div className="rounded-lg bg-red-50 px-4 py-3 text-xs text-red-700" role="alert">
+                  {profileError}
+                </div>
+              )}
+              {profileSuccess && (
+                <div className="rounded-lg bg-green-50 px-4 py-3 text-xs text-green-800" role="status">
+                  {profileSuccess}
+                </div>
+              )}
+
+              <div className="space-y-1">
+                <label htmlFor="full_name" className="text-xs font-medium text-text-secondary">
+                  Nombre completo
+                </label>
+                <input
+                  id="full_name"
+                  type="text"
+                  value={fullName ?? ''}
+                  onChange={(e) => setFullName(e.target.value)}
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-text-primary placeholder:text-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+                  placeholder="Tu nombre y apellido"
+                />
+                <p className="text-[11px] text-muted">Este nombre se muestra a tu equipo en los turnos y solicitudes.</p>
+              </div>
+
+              <div className="space-y-1">
+                <span className="text-xs font-medium text-text-secondary">Correo electrónico</span>
+                <div className="flex items-center justify-between rounded-lg border border-dashed border-border bg-subtle-bg px-3 py-2">
+                  <span className="truncate text-xs text-text-secondary">{email ?? 'Sin correo'}</span>
+                  <span className="text-[11px] text-muted">No editable desde aquí</span>
+                </div>
+              </div>
+
+              <div className="pt-2">
+                <button
+                  type="submit"
+                  disabled={savingProfile}
+                  className="inline-flex min-h-[36px] items-center justify-center rounded-lg bg-primary-600 px-4 py-2 text-xs font-medium text-white hover:bg-primary-700 disabled:opacity-60"
+                >
+                  {savingProfile ? 'Guardando…' : 'Guardar cambios'}
+                </button>
+              </div>
+            </div>
+          </form>
+
           <div className="overflow-hidden rounded-2xl border border-border bg-background md:rounded-xl">
-            <MenuLink href="/dashboard/profile" label="Editar perfil" icon="pencil" />
             <MenuLink href="/dashboard/notifications" label="Notificaciones" icon="bell" />
             <MenuLink href="/dashboard/staff/availability" label="Mi disponibilidad" icon="calendar" />
             <button
