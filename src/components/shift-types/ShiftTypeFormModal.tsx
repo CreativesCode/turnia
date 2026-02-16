@@ -4,6 +4,66 @@ import { createClient } from '@/lib/supabase/client';
 import { useCallback, useEffect, useState } from 'react';
 import { Dialog } from '@/components/ui/Dialog';
 
+/** Opciones para selector 24 h: horas 00–23 y minutos 00–59 (sin AM/PM). */
+const HOURS_24 = Array.from({ length: 24 }, (_, i) => i.toString().padStart(2, '0'));
+const MINUTES = Array.from({ length: 60 }, (_, i) => i.toString().padStart(2, '0'));
+
+function parseTime24(value: string): { hour: string; minute: string } {
+  const match = value.match(/^(\d{1,2}):(\d{1,2})$/);
+  if (!match) return { hour: '00', minute: '00' };
+  const h = Math.min(23, Math.max(0, parseInt(match[1], 10)));
+  const m = Math.min(59, Math.max(0, parseInt(match[2], 10)));
+  return { hour: h.toString().padStart(2, '0'), minute: m.toString().padStart(2, '0') };
+}
+
+function TimeSelect24({
+  value,
+  onChange,
+  id,
+  'aria-label': ariaLabel,
+}: {
+  value: string;
+  onChange: (hhmm: string) => void;
+  id?: string;
+  'aria-label'?: string;
+}) {
+  const { hour, minute } = parseTime24(value || '00:00');
+  const handleChange = (newHour: string, newMinute: string) => {
+    onChange(`${newHour}:${newMinute}`);
+  };
+  const inputClass =
+    'rounded-lg border border-border bg-background px-2 py-2 text-sm text-text-primary focus:border-primary-500 focus:outline-none';
+  return (
+    <span className="inline-flex items-center gap-1" id={id}>
+      <select
+        aria-label={ariaLabel ? `${ariaLabel} (hora)` : 'Hora'}
+        value={hour}
+        onChange={(e) => handleChange(e.target.value, minute)}
+        className={inputClass}
+      >
+        {HOURS_24.map((h) => (
+          <option key={h} value={h}>
+            {h}
+          </option>
+        ))}
+      </select>
+      <span className="text-muted">:</span>
+      <select
+        aria-label={ariaLabel ? `${ariaLabel} (minutos)` : 'Minutos'}
+        value={minute}
+        onChange={(e) => handleChange(hour, e.target.value)}
+        className={inputClass}
+      >
+        {MINUTES.map((m) => (
+          <option key={m} value={m}>
+            {m}
+          </option>
+        ))}
+      </select>
+    </span>
+  );
+}
+
 /** Paleta variada y bien diferenciada (incl. negro, amarillo, coral, etc. para combinar con tipos ya usados). */
 const PREDEFINED_COLORS = [
   '#1E293B', // negro / slate oscuro
@@ -262,24 +322,21 @@ export function ShiftTypeFormModal({
           </label>
           {!is24h && (
             <label className="block text-sm font-medium text-text-secondary">
-              Horario <span className="font-normal text-muted">(opcional; si fin &lt; inicio, cruza medianoche)</span>
-              <div className="mt-1.5 flex flex-wrap gap-3">
-                <span className="flex items-center gap-2">
-                  <input
-                    type="time"
-                    value={startTime}
-                    onChange={(e) => setStartTime(e.target.value)}
-                    className="rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-text-primary focus:border-primary-500 focus:outline-none"
-                  />
-                  <span className="text-muted">–</span>
-                  <input
-                    type="time"
-                    value={endTime}
-                    onChange={(e) => setEndTime(e.target.value)}
-                    className="rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-text-primary focus:border-primary-500 focus:outline-none"
-                  />
-                </span>
+              Horario <span className="font-normal text-muted">(formato 24 h; opcional; si fin &lt; inicio, cruza medianoche)</span>
+              <div className="mt-1.5 flex flex-wrap items-center gap-3">
+                <TimeSelect24
+                  value={startTime}
+                  onChange={setStartTime}
+                  aria-label="Hora de inicio"
+                />
+                <span className="text-muted">–</span>
+                <TimeSelect24
+                  value={endTime}
+                  onChange={setEndTime}
+                  aria-label="Hora de fin"
+                />
               </div>
+              <p className="mt-1 text-xs text-muted">Formato 24 h (00–23). Sin AM/PM.</p>
             </label>
           )}
           {error && <p className="text-sm text-red-600">{error}</p>}

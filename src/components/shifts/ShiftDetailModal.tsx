@@ -139,7 +139,7 @@ export function ShiftDetailModal({
   const timeRange =
     isNaN(start.getTime()) || isNaN(end.getTime())
       ? '—'
-      : `${start.toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' })} – ${end.toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' })}`;
+      : `${start.toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short', hour12: false })} – ${end.toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short', hour12: false })}`;
 
   return (
     <div

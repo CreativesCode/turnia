@@ -105,6 +105,7 @@ export function AuditLogDetailModal({
                 {new Date(entry.created_at).toLocaleString('es-ES', {
                   dateStyle: 'medium',
                   timeStyle: 'short',
+                  hour12: false,
                 })}
               </span>
             </div>

@@ -334,6 +334,7 @@ export function AuditLogList({ orgId }: Props) {
                       {new Date(r.created_at).toLocaleString('es-ES', {
                         dateStyle: 'short',
                         timeStyle: 'short',
+                        hour12: false,
                       })}
                     </td>
                     <td className="px-4 py-3 text-text-primary">{getEntityLabel(r.entity)}</td>
