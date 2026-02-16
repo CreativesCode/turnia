@@ -1,9 +1,26 @@
 'use client';
 
 import { createClient } from '@/lib/supabase/client';
-import { generateColorFromName } from '@/lib/utils';
 import { useCallback, useEffect, useState } from 'react';
 import { Dialog } from '@/components/ui/Dialog';
+
+/** Paleta variada y bien diferenciada (incl. negro, amarillo, coral, etc. para combinar con tipos ya usados). */
+const PREDEFINED_COLORS = [
+  '#1E293B', // negro / slate oscuro
+  '#FACC15', // amarillo
+  '#16A34A', // verde
+  '#DC2626', // rojo
+  '#EA580C', // naranja
+  '#7C3AED', // violeta
+  '#2563EB', // azul
+  '#0891B2', // cyan / teal
+  '#DB2777', // rosa / magenta
+  '#059669', // esmeralda
+  '#64748B', // gris
+  '#E11D48', // rose / coral
+  '#84CC16', // lima
+  '#0EA5E9', // azul cielo
+];
 
 export type ShiftTypeRow = {
   id: string;
@@ -37,7 +54,7 @@ export function ShiftTypeFormModal({
 }: Props) {
   const [name, setName] = useState('');
   const [letter, setLetter] = useState('');
-  const [color, setColor] = useState('#3B82F6');
+  const [color, setColor] = useState(PREDEFINED_COLORS[0]);
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
   const [is24h, setIs24h] = useState(false);
@@ -62,7 +79,7 @@ export function ShiftTypeFormModal({
       } else {
         setName('');
         setLetter('');
-        setColor('#3B82F6');
+        setColor(PREDEFINED_COLORS[0]);
         setStartTime('');
         setEndTime('');
         setIs24h(false);
@@ -73,9 +90,10 @@ export function ShiftTypeFormModal({
   }, [open, editing]);
 
   const generateColor = useCallback(() => {
-    const base = generateColorFromName(name.trim() || 'tipo', existingColors);
-    setColor(base);
-  }, [name, existingColors]);
+    const used = new Set(existingColors.map((c) => c.toUpperCase()));
+    const next = PREDEFINED_COLORS.find((c) => !used.has(c.toUpperCase()));
+    setColor(next ?? PREDEFINED_COLORS[0]);
+  }, [existingColors]);
 
   const submit = useCallback(
     async (e: React.FormEvent) => {
@@ -188,34 +206,45 @@ export function ShiftTypeFormModal({
               className="mt-1.5 block w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-text-primary placeholder:text-muted focus:border-primary-500 focus:outline-none"
             />
           </label>
-          <label className="block text-sm font-medium text-text-secondary">
-            Color
-            <div className="mt-1.5 flex gap-2">
-              <input
-                type="color"
-                value={color}
-                onChange={(e) => setColor(e.target.value)}
-                className="h-11 w-14 shrink-0 cursor-pointer rounded-lg border border-border p-1"
-              />
-              <input
-                type="text"
-                value={color}
-                onChange={(e) => setColor(e.target.value)}
-                placeholder="#3B82F6"
-                pattern="^#[0-9A-Fa-f]{6}$"
-                className="min-w-0 flex-1 rounded-lg border border-border bg-background px-3 py-2.5 font-mono text-sm text-text-primary placeholder:text-muted focus:border-primary-500 focus:outline-none"
-              />
+          <div className="block">
+            <span className="text-sm font-medium text-text-secondary">Color</span>
+            <div className="mt-1.5 flex flex-wrap items-center gap-2">
+              {PREDEFINED_COLORS.map((hex) => (
+                <button
+                  key={hex}
+                  type="button"
+                  onClick={() => setColor(hex)}
+                  title={hex}
+                  aria-label={`Color ${hex}`}
+                  className={`h-9 w-9 shrink-0 rounded-lg border-2 transition-shadow focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 ${
+                    color.toUpperCase() === hex.toUpperCase()
+                      ? 'border-primary-600 ring-2 ring-primary-200'
+                      : 'border-border hover:border-primary-400'
+                  }`}
+                  style={{ backgroundColor: hex }}
+                />
+              ))}
+              {!PREDEFINED_COLORS.some((c) => c.toUpperCase() === color.toUpperCase()) && /^#[0-9A-Fa-f]{6}$/.test(color) && (
+                <button
+                  type="button"
+                  onClick={() => setColor(color)}
+                  title={`Actual: ${color}`}
+                  aria-label="Mantener color actual"
+                  className="h-9 w-9 shrink-0 rounded-lg border-2 border-primary-600 ring-2 ring-primary-200 transition-shadow focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"
+                  style={{ backgroundColor: color }}
+                />
+              )}
               <button
                 type="button"
                 onClick={generateColor}
-                title="Generar color desde el nombre"
-                aria-label="Generar color desde el nombre"
-                className="shrink-0 cursor-pointer rounded-lg border border-border px-3 py-2.5 text-sm text-muted hover:bg-subtle-bg hover:text-primary-600"
+                title="Elegir siguiente color disponible"
+                aria-label="Auto: siguiente color no usado"
+                className="ml-1 shrink-0 cursor-pointer rounded-lg border border-border px-2.5 py-1.5 text-xs text-muted hover:bg-subtle-bg hover:text-primary-600"
               >
                 Auto
               </button>
             </div>
-          </label>
+          </div>
           <label className="flex items-center gap-2">
             <input
               type="checkbox"
