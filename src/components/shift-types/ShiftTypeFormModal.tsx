@@ -173,7 +173,7 @@ export function ShiftTypeFormModal({
               onChange={(e) => setName(e.target.value)}
               required
               placeholder="Mañana, Noche, 24h…"
-              className="mt-1.5 block w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-text-primary placeholder:text-muted focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+              className="mt-1.5 block w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-text-primary placeholder:text-muted focus:border-primary-500 focus:outline-none"
             />
           </label>
           <label className="block text-sm font-medium text-text-secondary">
@@ -185,7 +185,7 @@ export function ShiftTypeFormModal({
               required
               maxLength={5}
               placeholder="M, N, H…"
-              className="mt-1.5 block w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-text-primary placeholder:text-muted focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+              className="mt-1.5 block w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-text-primary placeholder:text-muted focus:border-primary-500 focus:outline-none"
             />
           </label>
           <label className="block text-sm font-medium text-text-secondary">
@@ -203,14 +203,14 @@ export function ShiftTypeFormModal({
                 onChange={(e) => setColor(e.target.value)}
                 placeholder="#3B82F6"
                 pattern="^#[0-9A-Fa-f]{6}$"
-                className="min-w-0 flex-1 rounded-lg border border-border bg-background px-3 py-2.5 font-mono text-sm text-text-primary placeholder:text-muted focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                className="min-w-0 flex-1 rounded-lg border border-border bg-background px-3 py-2.5 font-mono text-sm text-text-primary placeholder:text-muted focus:border-primary-500 focus:outline-none"
               />
               <button
                 type="button"
                 onClick={generateColor}
                 title="Generar color desde el nombre"
                 aria-label="Generar color desde el nombre"
-                className="shrink-0 rounded-lg border border-border px-3 py-2.5 text-sm text-muted hover:bg-subtle-bg hover:text-primary-600"
+                className="shrink-0 cursor-pointer rounded-lg border border-border px-3 py-2.5 text-sm text-muted hover:bg-subtle-bg hover:text-primary-600"
               >
                 Auto
               </button>
@@ -240,14 +240,14 @@ export function ShiftTypeFormModal({
                     type="time"
                     value={startTime}
                     onChange={(e) => setStartTime(e.target.value)}
-                    className="rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-text-primary focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                    className="rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-text-primary focus:border-primary-500 focus:outline-none"
                   />
                   <span className="text-muted">–</span>
                   <input
                     type="time"
                     value={endTime}
                     onChange={(e) => setEndTime(e.target.value)}
-                    className="rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-text-primary focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                    className="rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-text-primary focus:border-primary-500 focus:outline-none"
                   />
                 </span>
               </div>
@@ -259,14 +259,14 @@ export function ShiftTypeFormModal({
               type="button"
               onClick={onClose}
               disabled={loading}
-              className="min-h-[44px] min-w-[44px] rounded-lg border border-border px-4 py-2.5 text-sm font-medium text-text-secondary hover:bg-subtle-bg disabled:opacity-50"
+              className="min-h-[44px] min-w-[44px] cursor-pointer rounded-lg border border-border px-4 py-2.5 text-sm font-medium text-text-secondary hover:bg-subtle-bg disabled:opacity-50"
             >
               Cancelar
             </button>
             <button
               type="submit"
               disabled={loading}
-              className="min-h-[44px] min-w-[44px] rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50"
+              className="min-h-[44px] min-w-[44px] cursor-pointer rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50"
             >
               {loading ? '…' : editing ? 'Guardar' : 'Crear'}
             </button>

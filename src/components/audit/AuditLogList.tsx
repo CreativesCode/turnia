@@ -226,7 +226,7 @@ export function AuditLogList({ orgId }: Props) {
               setFilters((f) => ({ ...f, entity: e.target.value }));
               setPage(1);
             }}
-            className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-text-primary focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+            className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-text-primary focus:border-primary-500 focus:outline-none"
           >
             <option value="">Todas</option>
             {Object.entries(ENTITY_LABELS).map(([k, v]) => (
@@ -244,7 +244,7 @@ export function AuditLogList({ orgId }: Props) {
               setFilters((f) => ({ ...f, actorId: e.target.value }));
               setPage(1);
             }}
-            className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-text-primary focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+            className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-text-primary focus:border-primary-500 focus:outline-none"
           >
             <option value="">Todos</option>
             {actors.map((a) => (
@@ -262,7 +262,7 @@ export function AuditLogList({ orgId }: Props) {
               setFilters((f) => ({ ...f, action: e.target.value }));
               setPage(1);
             }}
-            className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-text-primary focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+            className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-text-primary focus:border-primary-500 focus:outline-none"
           >
             <option value="">Todas</option>
             {Object.entries(ACTION_LABELS).map(([k, v]) => (
@@ -281,7 +281,7 @@ export function AuditLogList({ orgId }: Props) {
               setFilters((f) => ({ ...f, dateFrom: e.target.value }));
               setPage(1);
             }}
-            className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-text-primary focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+            className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-text-primary focus:border-primary-500 focus:outline-none"
           />
         </label>
         <label className="flex flex-col gap-1">
@@ -293,7 +293,7 @@ export function AuditLogList({ orgId }: Props) {
               setFilters((f) => ({ ...f, dateTo: e.target.value }));
               setPage(1);
             }}
-            className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-text-primary focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+            className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-text-primary focus:border-primary-500 focus:outline-none"
           />
         </label>
       </div>

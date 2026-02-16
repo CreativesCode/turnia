@@ -104,12 +104,9 @@ export function Dialog({
       aria-labelledby={title ? titleId : undefined}
       aria-describedby={description ? descId : undefined}
     >
-      <button
-        type="button"
-        onClick={onClose}
+      <div
         className={cn('absolute inset-0 bg-black/50', overlayClassName)}
-        aria-label={closeLabel}
-        tabIndex={-1}
+        aria-hidden
       />
 
       <div
@@ -117,7 +114,7 @@ export function Dialog({
         tabIndex={-1}
         className={cn(
           panelBase,
-          'focus:outline-none focus:ring-2 focus:ring-primary-500',
+          'focus:outline-none',
           panelClassName
         )}
       >
@@ -125,7 +122,7 @@ export function Dialog({
           <button
             type="button"
             onClick={onClose}
-            className="absolute right-3 top-3 flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg text-muted hover:bg-subtle-bg hover:text-text-primary focus:outline-none focus:ring-2 focus:ring-primary-500"
+            className="absolute right-3 top-3 flex min-h-[44px] min-w-[44px] cursor-pointer items-center justify-center rounded-lg text-muted hover:bg-subtle-bg hover:text-text-primary focus:outline-none"
             aria-label={closeLabel}
           >
             <CloseIcon className="h-5 w-5" />

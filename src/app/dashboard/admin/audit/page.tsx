@@ -134,7 +134,7 @@ function AdminAuditContent() {
             id="org-select-audit"
             value={selectedOrgId ?? ''}
             onChange={(e) => setSelectedOrgId(e.target.value || null)}
-            className="mt-1.5 block w-full max-w-xs rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-text-primary focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+            className="mt-1.5 block w-full max-w-xs rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-text-primary focus:border-primary-500 focus:outline-none"
           >
             {orgs.map((o) => (
               <option key={o.id} value={o.id}>

@@ -212,7 +212,7 @@ export function RequestsInbox({ orgId, canApprove, refreshKey = 0 }: Props) {
         <button
           type="button"
           onClick={() => setFiltersVisible((v) => !v)}
-          className="flex min-h-[44px] w-full items-center justify-between px-3 py-2 text-left text-sm font-medium text-text-secondary hover:bg-subtle-bg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-inset"
+          className="flex min-h-[44px] w-full items-center justify-between px-3 py-2 text-left text-sm font-medium text-text-secondary hover:bg-subtle-bg focus:outline-none"
           aria-expanded={filtersVisible}
           aria-controls="requests-inbox-filters-panel"
         >

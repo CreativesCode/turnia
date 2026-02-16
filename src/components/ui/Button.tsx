@@ -38,8 +38,8 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(function 
       disabled={isDisabled}
       aria-busy={loading || undefined}
       className={cn(
-        'relative inline-flex min-w-[44px] items-center justify-center gap-2 rounded-lg font-medium transition-colors',
-        'focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 focus:ring-offset-background',
+        'relative inline-flex min-w-[44px] cursor-pointer items-center justify-center gap-2 rounded-lg font-medium transition-colors',
+        'focus:outline-none',
         'disabled:pointer-events-none disabled:opacity-50',
         getButtonVariantClass(variant),
         getButtonSizeClass(size),

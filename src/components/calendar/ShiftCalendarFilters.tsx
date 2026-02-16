@@ -125,7 +125,7 @@ function ShiftCalendarFiltersInner({ orgId, value, onChange, className = '' }: P
       <button
         type="button"
         onClick={() => setFiltersVisible((v) => !v)}
-        className="flex min-h-[44px] min-w-[44px] items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 text-sm font-medium text-text-secondary hover:bg-subtle-bg focus:outline-none focus:ring-2 focus:ring-primary-500"
+        className="flex min-h-[44px] min-w-[44px] items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 text-sm font-medium text-text-secondary hover:bg-subtle-bg focus:outline-none"
         aria-expanded={filtersVisible}
         aria-controls="shift-calendar-filters-panel"
         id="shift-calendar-filters-toggle"
@@ -150,7 +150,7 @@ function ShiftCalendarFiltersInner({ orgId, value, onChange, className = '' }: P
             <button
               type="button"
               onClick={() => setTypesOpen((o) => !o)}
-              className="flex min-h-[44px] min-w-[44px] items-center gap-1.5 rounded-lg border border-border bg-background px-3 py-2 text-sm text-text-secondary hover:bg-subtle-bg focus:outline-none focus:ring-2 focus:ring-primary-500"
+              className="flex min-h-[44px] min-w-[44px] items-center gap-1.5 rounded-lg border border-border bg-background px-3 py-2 text-sm text-text-secondary hover:bg-subtle-bg focus:outline-none"
               aria-haspopup="listbox"
               aria-expanded={typesOpen}
             >
@@ -212,7 +212,7 @@ function ShiftCalendarFiltersInner({ orgId, value, onChange, className = '' }: P
             <select
               value={value.userId ?? ''}
               onChange={(e) => onChange({ ...value, userId: e.target.value || null })}
-              className="min-h-[44px] rounded-lg border border-border bg-background px-3 py-2 text-sm text-text-primary focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+              className="min-h-[44px] rounded-lg border border-border bg-background px-3 py-2 text-sm text-text-primary focus:border-primary-500 focus:outline-none"
             >
               <option value="">Todos</option>
               {members.map((m) => (
@@ -231,7 +231,7 @@ function ShiftCalendarFiltersInner({ orgId, value, onChange, className = '' }: P
               onChange={(e) =>
                 onChange({ ...value, status: e.target.value as ShiftCalendarFiltersState['status'] })
               }
-              className="min-h-[44px] rounded-lg border border-border bg-background px-3 py-2 text-sm text-text-primary focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+              className="min-h-[44px] rounded-lg border border-border bg-background px-3 py-2 text-sm text-text-primary focus:border-primary-500 focus:outline-none"
             >
               <option value="all">Todos</option>
               <option value="draft">Borrador</option>

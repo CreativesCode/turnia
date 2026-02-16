@@ -263,7 +263,7 @@ export function NotificationBell() {
           role="dialog"
           aria-modal="false"
           aria-labelledby={titleId}
-          className="absolute right-0 top-full z-50 mt-1 w-[320px] overflow-hidden rounded-xl border border-border bg-background shadow-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+          className="absolute right-0 top-full z-50 mt-1 w-[320px] overflow-hidden rounded-xl border border-border bg-background shadow-lg focus:outline-none"
         >
           <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-2">
             <span id={titleId} className="font-medium text-text-primary">
@@ -273,7 +273,7 @@ export function NotificationBell() {
               ref={closeButtonRef}
               type="button"
               onClick={close}
-              className="flex min-h-[36px] min-w-[36px] items-center justify-center rounded-lg text-muted hover:bg-subtle-bg hover:text-text-primary focus:outline-none focus:ring-2 focus:ring-primary-500"
+              className="flex min-h-[36px] min-w-[36px] items-center justify-center rounded-lg text-muted hover:bg-subtle-bg hover:text-text-primary focus:outline-none"
               aria-label="Cerrar notificaciones"
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>

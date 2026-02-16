@@ -143,7 +143,7 @@ export function ThemeSelect({ className }: { className?: string }) {
       onChange={(e) => setTheme(e.target.value as ThemePreference)}
       className={
         className ??
-        'min-h-[44px] rounded-lg border border-border bg-background px-3 py-2 text-sm text-text-primary focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500'
+        'min-h-[44px] rounded-lg border border-border bg-background px-3 py-2 text-sm text-text-primary focus:border-primary-500 focus:outline-none'
       }
       aria-label="Tema"
     >

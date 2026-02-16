@@ -83,6 +83,18 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
+/* Cursor pointer en elementos clicables (en base para que no lo pise Tailwind) */
+@layer base {
+  button:not(:disabled),
+  a[href],
+  [role="button"],
+  input[type="color"],
+  input[type="checkbox"],
+  input[type="time"] {
+    cursor: pointer;
+  }
+}
+
 /* Safe area utilities para mobile (notch/status bar) */
 @utility pt-safe {
   padding-top: env(safe-area-inset-top, 0);

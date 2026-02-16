@@ -303,7 +303,7 @@ export default function ProfilePage() {
                   type="text"
                   value={fullName ?? ''}
                   onChange={(e) => setFullName(e.target.value)}
-                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-text-primary placeholder:text-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-text-primary placeholder:text-muted focus-visible:outline-none"
                   placeholder="Tu nombre y apellido"
                 />
                 <p className="text-[11px] text-muted">Este nombre se muestra a tu equipo en los turnos y solicitudes.</p>

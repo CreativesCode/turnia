@@ -198,7 +198,7 @@ export function ReportsBasicDashboard({ orgId }: Props) {
             type="date"
             value={start}
             onChange={(e) => setStart(e.target.value)}
-            className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-text-primary focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+            className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-text-primary focus:border-primary-500 focus:outline-none"
           />
         </div>
         <div>
@@ -211,7 +211,7 @@ export function ReportsBasicDashboard({ orgId }: Props) {
             value={end}
             onChange={(e) => setEnd(e.target.value)}
             min={start}
-            className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-text-primary focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+            className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-text-primary focus:border-primary-500 focus:outline-none"
           />
         </div>
       </div>

@@ -276,7 +276,7 @@ export function DashboardNav() {
             <div
               ref={morePanelRef}
               tabIndex={-1}
-              className="relative w-full max-h-[85dvh] overflow-y-auto rounded-t-2xl border-t border-border bg-background pb-[env(safe-area-inset-bottom)] focus:outline-none focus:ring-2 focus:ring-primary-500"
+              className="relative w-full max-h-[85dvh] overflow-y-auto rounded-t-2xl border-t border-border bg-background pb-[env(safe-area-inset-bottom)] focus:outline-none"
             >
               <h2 id="dashboard-more-menu-title" className="sr-only">
                 Menú de navegación
@@ -299,7 +299,7 @@ export function DashboardNav() {
                 <div className="rounded-lg border border-border bg-subtle-bg px-4 py-3">
                   <div className="flex items-center justify-between gap-3">
                     <span className="text-sm font-medium text-text-primary">Tema</span>
-                    <ThemeSelect className="min-h-[44px] w-[140px] rounded-lg border border-border bg-background px-3 py-2 text-sm text-text-primary focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500" />
+                    <ThemeSelect className="min-h-[44px] w-[140px] rounded-lg border border-border bg-background px-3 py-2 text-sm text-text-primary focus:border-primary-500 focus:outline-none" />
                   </div>
                 </div>
                 {canManageShifts && link('/dashboard/manager/shifts', 'Lista de turnos')}

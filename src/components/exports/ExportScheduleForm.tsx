@@ -107,7 +107,7 @@ export function ExportScheduleForm({ orgId }: Props) {
             type="date"
             value={start}
             onChange={(e) => setStart(e.target.value)}
-            className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-text-primary focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+            className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-text-primary focus:border-primary-500 focus:outline-none"
             required
           />
         </div>
@@ -121,7 +121,7 @@ export function ExportScheduleForm({ orgId }: Props) {
             value={end}
             onChange={(e) => setEnd(e.target.value)}
             min={start}
-            className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-text-primary focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+            className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-text-primary focus:border-primary-500 focus:outline-none"
             required
           />
         </div>
@@ -137,7 +137,7 @@ export function ExportScheduleForm({ orgId }: Props) {
               value="csv"
               checked={format === 'csv'}
               onChange={() => setFormat('csv')}
-              className="border-border text-primary-600 focus:ring-primary-500"
+              className="border-border text-primary-600 focus:outline-none"
             />
             <span className="text-sm text-text-primary">CSV</span>
           </label>
@@ -148,7 +148,7 @@ export function ExportScheduleForm({ orgId }: Props) {
               value="xlsx"
               checked={format === 'xlsx'}
               onChange={() => setFormat('xlsx')}
-              className="border-border text-primary-600 focus:ring-primary-500"
+              className="border-border text-primary-600 focus:outline-none"
             />
             <span className="text-sm text-text-primary">Excel (.xlsx)</span>
           </label>

@@ -142,7 +142,7 @@ export function OrganizationSettings({ orgId, backHref, onDeleted }: Props) {
             onChange={(e) => setName(e.target.value)}
             required
             placeholder="Mi Organización"
-            className="mt-1.5 block w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-text-primary placeholder:text-muted focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+            className="mt-1.5 block w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-text-primary placeholder:text-muted focus:border-primary-500 focus:outline-none"
           />
         </label>
         <label className="block text-sm font-medium text-text-secondary">
@@ -153,7 +153,7 @@ export function OrganizationSettings({ orgId, backHref, onDeleted }: Props) {
               value={slug}
               onChange={(e) => setSlug(e.target.value)}
               placeholder="mi-org"
-              className="min-w-0 flex-1 rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-text-primary placeholder:text-muted focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+              className="min-w-0 flex-1 rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-text-primary placeholder:text-muted focus:border-primary-500 focus:outline-none"
             />
             <button
               type="button"

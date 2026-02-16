@@ -158,7 +158,7 @@ export function ShiftDetailModal({
       <div
         ref={panelRef}
         tabIndex={-1}
-        className="relative w-full max-w-none max-h-[85dvh] overflow-y-auto rounded-t-2xl border border-b-0 border-border bg-background p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] shadow-lg focus:outline-none focus:ring-2 focus:ring-primary-500 md:max-w-sm md:max-h-[90dvh] md:rounded-xl md:border-b md:pb-6"
+        className="relative w-full max-w-none max-h-[85dvh] overflow-y-auto rounded-t-2xl border border-b-0 border-border bg-background p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] shadow-lg focus:outline-none md:max-w-sm md:max-h-[90dvh] md:rounded-xl md:border-b md:pb-6"
       >
         {/* Asa para arrastrar en móvil (bottom sheet) */}
         <div className="-mt-1 mb-2 flex justify-center md:hidden">
@@ -167,7 +167,7 @@ export function ShiftDetailModal({
         <button
           type="button"
           onClick={onClose}
-          className="absolute right-3 top-3 flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg text-muted hover:bg-subtle-bg hover:text-text-primary focus:outline-none focus:ring-2 focus:ring-primary-500"
+          className="absolute right-3 top-3 flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg text-muted hover:bg-subtle-bg hover:text-text-primary focus:outline-none"
           aria-label="Cerrar"
         >
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>

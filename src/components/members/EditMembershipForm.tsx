@@ -76,7 +76,7 @@ export function EditMembershipForm({ member, orgId, onSuccess, onClose }: Props)
             id="edit-role"
             value={role}
             onChange={(e) => setRole(e.target.value)}
-            className="mt-1.5 block w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-text-primary focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+            className="mt-1.5 block w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-text-primary focus:border-primary-500 focus:outline-none"
           >
             {ROLES_EDITABLE.map((r) => (
               <option key={r} value={r}>

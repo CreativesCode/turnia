@@ -371,7 +371,7 @@ function ShiftListInner({
         <button
           type="button"
           onClick={() => setFiltersVisible((v) => !v)}
-          className="flex min-h-[44px] w-full items-center justify-between px-3 py-2 text-left text-sm font-medium text-text-secondary hover:bg-subtle-bg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-inset"
+          className="flex min-h-[44px] w-full items-center justify-between px-3 py-2 text-left text-sm font-medium text-text-secondary hover:bg-subtle-bg focus:outline-none"
           aria-expanded={filtersVisible}
           aria-controls="shift-list-filters-panel"
         >
@@ -395,7 +395,7 @@ function ShiftListInner({
               <button
                 type="button"
                 onClick={() => setTypesOpen((o) => !o)}
-                className="flex min-h-[44px] min-w-[44px] items-center gap-1.5 rounded-lg border border-border bg-background px-3 py-2 text-sm text-text-secondary hover:bg-subtle-bg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                className="flex min-h-[44px] min-w-[44px] items-center gap-1.5 rounded-lg border border-border bg-background px-3 py-2 text-sm text-text-secondary hover:bg-subtle-bg focus:outline-none"
               >
                 <span className="font-medium text-text-primary">Tipo:</span>
                 <span>{allTypesSelected ? 'Todos' : `${filters.shiftTypeIds.length} seleccionados`}</span>
