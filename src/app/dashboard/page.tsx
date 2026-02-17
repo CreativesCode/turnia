@@ -1,13 +1,16 @@
 'use client';
 
+import { LogoutButton } from '@/components/auth/LogoutButton';
 import { DashboardDesktopHeader } from '@/components/dashboard/DashboardDesktopHeader';
 import { LinkButton } from '@/components/ui/LinkButton';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { useScheduleOrg } from '@/hooks/useScheduleOrg';
 import { getCacheEntry, setCache } from '@/lib/cache';
+import { PENDING_INVITE_TOKEN_KEY } from '@/lib/invite';
 import { createClient } from '@/lib/supabase/client';
-import { fetchProfilesMap } from '@/lib/supabase/queries';
+import { fetchMembershipStaffPositionsMap, fetchProfilesMap } from '@/lib/supabase/queries';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 type ShiftType = { id: string; name: string; letter: string; color: string } | null;
@@ -146,6 +149,7 @@ function dashboardCacheKey(orgId: string, userId: string, roleKey: 'admin' | 'ma
 }
 
 export default function DashboardPage() {
+  const router = useRouter();
   const { orgId, userId, canManageOrg, canManageShifts, isLoading, error } = useScheduleOrg();
   const [fullName, setFullName] = useState<string | null>(null);
   const [orgName, setOrgName] = useState<string | null>(null);
@@ -393,17 +397,25 @@ export default function DashboardPage() {
           organization_shift_types: normalizeShiftType(s.organization_shift_types),
         }));
         const ids = [...new Set(rawToday.map((s) => s.assigned_user_id).filter(Boolean))] as string[];
-        const namesMap = ids.length > 0 ? await fetchProfilesMap(supabase, ids) : {};
-        const todayList: ManagerCardShift[] = rawToday.map((s) => ({
+        const [namesMap, staffPositionsMap] = await Promise.all([
+          ids.length > 0 ? fetchProfilesMap(supabase, ids) : ({} as Record<string, string>),
+          fetchMembershipStaffPositionsMap(supabase, orgId),
+        ]);
+        const todayList: ManagerCardShift[] = rawToday.map((s) => {
+          const baseName = s.assigned_user_id ? (namesMap[s.assigned_user_id] ?? null) : null;
+          const pos = s.assigned_user_id ? staffPositionsMap[s.assigned_user_id] : null;
+          const assigned_name = baseName ? (pos ? `${baseName} (${pos})` : baseName) : null;
+          return {
           id: s.id,
           start_at: s.start_at,
           end_at: s.end_at,
           assigned_user_id: s.assigned_user_id,
-          assigned_name: s.assigned_user_id ? (namesMap[s.assigned_user_id] ?? null) : null,
+          assigned_name,
           type_name: s.organization_shift_types?.name ?? 'Turno',
           type_letter: s.organization_shift_types?.letter ?? '?',
           type_color: s.organization_shift_types?.color ?? null,
-        }));
+        };
+        });
         setManagerToday(todayList);
         managerTodayNext = todayList;
       }
@@ -456,6 +468,16 @@ export default function DashboardPage() {
     return () => window.clearTimeout(t);
   }, [orgId, userId, load]);
 
+  const [redirectingToInvite, setRedirectingToInvite] = useState(false);
+  useEffect(() => {
+    if (!userId || orgId || typeof window === 'undefined') return;
+    const token = sessionStorage.getItem(PENDING_INVITE_TOKEN_KEY);
+    if (token) {
+      setRedirectingToInvite(true);
+      router.replace(`/invite?token=${encodeURIComponent(token)}`);
+    }
+  }, [userId, orgId, router]);
+
   if (isLoading) {
     return (
       <div className="space-y-4">
@@ -482,15 +504,34 @@ export default function DashboardPage() {
   }
 
   if (!orgId || !userId) {
+    const isLoggedInNoOrg = !!userId && !orgId;
     return (
       <div className="rounded-xl border border-border bg-background p-6">
         <h1 className="text-xl font-semibold text-text-primary">Dashboard</h1>
-        <p className="mt-2 text-sm text-muted">Inicia sesión y asegúrate de tener una organización asignada.</p>
-        <div className="mt-4 flex flex-wrap gap-3">
-          <Link href="/login" className="text-sm font-medium text-primary-600 hover:text-primary-700">
-            Iniciar sesión
-          </Link>
-        </div>
+        {isLoggedInNoOrg ? (
+          <>
+            <p className="mt-2 text-sm text-muted">
+              No tienes una organización asignada. Si te invitaron, abre el enlace de invitación que te
+              enviamos por correo y pulsa «Aceptar invitación».
+            </p>
+            {redirectingToInvite ? (
+              <p className="mt-2 text-sm text-primary-600">Redirigiendo a la invitación…</p>
+            ) : (
+              <div className="mt-4 flex flex-wrap gap-3">
+                <LogoutButton />
+              </div>
+            )}
+          </>
+        ) : (
+          <>
+            <p className="mt-2 text-sm text-muted">Inicia sesión y asegúrate de tener una organización asignada.</p>
+            <div className="mt-4 flex flex-wrap gap-3">
+              <Link href="/login" className="text-sm font-medium text-primary-600 hover:text-primary-700">
+                Iniciar sesión
+              </Link>
+            </div>
+          </>
+        )}
       </div>
     );
   }

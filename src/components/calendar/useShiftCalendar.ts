@@ -3,7 +3,7 @@
 import { useDebounce } from '@/hooks/useDebounce';
 import { getCacheEntry, setCache } from '@/lib/cache';
 import { createClient } from '@/lib/supabase/client';
-import { fetchProfilesMap } from '@/lib/supabase/queries';
+import { fetchMembershipStaffPositionsMap, fetchProfilesMap } from '@/lib/supabase/queries';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import useSWR from 'swr';
 
@@ -36,8 +36,11 @@ function calendarMaxAgeMs(_start: Date, end: Date): number {
   return isPastRange ? 1000 * 60 * 60 * 24 : 1000 * 60 * 5; // 24h pasado, 5min futuro
 }
 
-function formatEventTitle(letter: string, assignedName: string | null): string {
-  if (assignedName?.trim()) return `${letter} – ${assignedName.trim()}`;
+function formatEventTitle(letter: string, assignedName: string | null, staffPosition: string | null): string {
+  if (assignedName?.trim()) {
+    const display = staffPosition ? `${assignedName.trim()} (${staffPosition})` : assignedName.trim();
+    return `${letter} – ${display}`;
+  }
   return `${letter} – Sin asignar`;
 }
 
@@ -148,9 +151,12 @@ export function useShiftCalendar(args: {
       });
 
       const userIds = [...new Set(shifts.map((s) => s.assigned_user_id).filter(Boolean))] as string[];
-      const profilesMap = userIds.length > 0 ? await fetchProfilesMap(supabase, userIds) : {};
+      const [profilesMap, staffPositionsMap] = await Promise.all([
+        userIds.length > 0 ? fetchProfilesMap(supabase, userIds) : {},
+        fetchMembershipStaffPositionsMap(supabase, orgIdKey),
+      ]);
 
-      const payload: ShiftCalendarCache = { shifts, profilesMap };
+      const payload: ShiftCalendarCache = { shifts, profilesMap, staffPositionsMap };
       setCache(cacheKey, payload);
       return payload;
     },
@@ -246,14 +252,16 @@ export function useShiftCalendar(args: {
   const fcEvents = useMemo(() => {
     const events = swrData?.shifts ?? [];
     const profilesMap = swrData?.profilesMap ?? {};
+    const staffPositionsMap = swrData?.staffPositionsMap ?? {};
     return events.map((s) => {
       const t = s.organization_shift_types;
       const letter = t?.letter ?? '?';
       const color = t?.color ?? '#6B7280';
       const name = s.assigned_user_id ? profilesMap[s.assigned_user_id] ?? null : null;
+      const staffPosition = s.assigned_user_id ? staffPositionsMap[s.assigned_user_id] ?? null : null;
       return {
         id: s.id,
-        title: formatEventTitle(letter, name),
+        title: formatEventTitle(letter, name, staffPosition),
         start: s.start_at,
         end: s.end_at,
         backgroundColor: color,

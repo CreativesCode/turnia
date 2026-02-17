@@ -3,6 +3,7 @@
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { PasswordInput } from '@/components/ui/PasswordInput';
+import { PENDING_INVITE_TOKEN_KEY } from '@/lib/invite';
 import { redirectAfterAuth } from '@/lib/navigation';
 import { createClient } from '@/lib/supabase/client';
 import Link from 'next/link';
@@ -73,6 +74,9 @@ export function AcceptInvitationForm({ invitation, sessionUser, token }: Props) 
       setError(json.error || 'Error al aceptar la invitación');
       return;
     }
+    if (typeof window !== 'undefined') {
+      sessionStorage.removeItem(PENDING_INVITE_TOKEN_KEY);
+    }
     redirectAfterAuth(router, '/dashboard');
   }, [token, router]);
 
@@ -81,10 +85,15 @@ export function AcceptInvitationForm({ invitation, sessionUser, token }: Props) 
     setError(null);
     setLoading(true);
     const supabase = createClient();
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    const redirectToInvite = origin ? `${origin}/invite?token=${encodeURIComponent(token)}` : undefined;
     const { data, error: err } = await supabase.auth.signUp({
       email: invitation.email,
       password,
-      options: { data: { full_name: fullName } },
+      options: {
+        data: { full_name: fullName },
+        emailRedirectTo: redirectToInvite,
+      },
     });
     setLoading(false);
     if (err) {
@@ -95,7 +104,12 @@ export function AcceptInvitationForm({ invitation, sessionUser, token }: Props) 
       await acceptInvitation();
       return;
     }
-    setError('Revisa tu correo para confirmar la cuenta. Luego inicia sesión y vuelve a esta página para aceptar la invitación.');
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem(PENDING_INVITE_TOKEN_KEY, token);
+    }
+    setError(
+      'Revisa tu correo para confirmar la cuenta. Al hacer clic en el enlace del correo llegarás aquí para aceptar la invitación.'
+    );
   };
 
   if (isLoggedIn && !emailMatches) {

@@ -63,7 +63,8 @@ function Icon({
   | 'settings'
   | 'building'
   | 'calendar-clock'
-  | 'file-text';
+  | 'file-text'
+  | 'briefcase';
 }) {
   switch (name) {
     case 'grid':
@@ -152,6 +153,13 @@ function Icon({
           <path d="M10 9H8" />
         </svg>
       );
+    case 'briefcase':
+      return (
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="2" y="7" width="20" height="14" rx="2" ry="2" />
+          <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
+        </svg>
+      );
   }
 }
 
@@ -205,6 +213,7 @@ export function DashboardSidebar() {
             <NavItem href="/dashboard/admin/members" label="Miembros" icon={<Icon name="users" />} active={pathname?.startsWith('/dashboard/admin/members')} />
             <NavItem href="/dashboard/admin/organizations" label="Equipos" icon={<Icon name="building" />} active={pathname?.startsWith('/dashboard/admin/organizations')} />
             <NavItem href="/dashboard/admin/shift-types" label="Tipos de Turno" icon={<Icon name="calendar-clock" />} active={pathname?.startsWith('/dashboard/admin/shift-types')} />
+            <NavItem href="/dashboard/admin/staff-positions" label="Puestos" icon={<Icon name="briefcase" />} active={pathname?.startsWith('/dashboard/admin/staff-positions')} />
             <NavItem href="/dashboard/admin/audit" label="Audit Log" icon={<Icon name="file-text" />} active={pathname?.startsWith('/dashboard/admin/audit')} />
           </>
         ) : canManageShifts ? (

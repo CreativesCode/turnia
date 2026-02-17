@@ -10,6 +10,15 @@ El invitado puede:
 - Recibir el correo y hacer clic en "Aceptar invitación", o
 - Recibir el enlace por otro medio (WhatsApp, Slack, etc.) y usarlo igual.
 
+### Confirmación de correo (cuenta nueva)
+
+Si el invitado **no tiene cuenta**, al rellenar el formulario y pulsar "Aceptar invitación" se le envía el **correo de confirmación de Supabase**. El enlace de ese correo está configurado para redirigir a **la misma página de invitación** (`/invite?token=...`), de modo que al hacer clic:
+1. Se confirma el correo.
+2. Se inicia sesión automáticamente.
+3. Se muestra de nuevo la página de invitación con el botón "Aceptar invitación"; al pulsarlo se asigna a la organización.
+
+**En producción**: en el dashboard de Supabase (Authentication → URL Configuration) añade a **Redirect URLs** la URL de tu app con la ruta `/invite`, por ejemplo `https://tudominio.com/invite` o un patrón como `https://tudominio.com/*`.
+
 ---
 
 ## Activar el envío por correo (Resend)

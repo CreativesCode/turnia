@@ -23,10 +23,10 @@ export default function DashboardLayout({
           <DashboardNav />
         </div>
 
-        {/* Desktop layout (inspirado en frames Desktop del .pen) */}
-        <div className="hidden min-h-screen md:flex">
+        {/* Desktop layout: barra lateral fija, solo el contenido hace scroll */}
+        <div className="hidden h-screen overflow-hidden md:flex">
           <DashboardSidebar />
-          <div className="min-w-0 flex-1">
+          <div className="min-h-0 min-w-0 flex-1 overflow-y-auto">
             <main className="p-8">{children}</main>
           </div>
         </div>

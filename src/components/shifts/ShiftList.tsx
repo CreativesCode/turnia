@@ -11,7 +11,7 @@ import { ConfirmModal } from '@/components/ui/ConfirmModal';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { getCacheEntry, setCache } from '@/lib/cache';
 import { createClient } from '@/lib/supabase/client';
-import { fetchOrgMemberIds, fetchProfilesMap, fetchShiftTypes } from '@/lib/supabase/queries';
+import { fetchMembershipStaffPositionsMap, fetchOrgMemberIds, fetchProfilesMap, fetchShiftTypes } from '@/lib/supabase/queries';
 import { isColorLight } from '@/lib/utils';
 import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import useSWR from 'swr';
@@ -19,6 +19,7 @@ import useSWR from 'swr';
 type ShiftListCache = {
   rows: ShiftWithType[];
   profilesMap: Record<string, string>;
+  staffPositionsMap: Record<string, string>;
   totalCount: number;
 };
 
@@ -213,9 +214,12 @@ function ShiftListInner({
       }));
 
       const userIds = [...new Set(rows.map((s) => s.assigned_user_id).filter(Boolean))] as string[];
-      const profilesMap = userIds.length > 0 ? await fetchProfilesMap(supabase, userIds) : {};
+      const [profilesMap, staffPositionsMap] = await Promise.all([
+        userIds.length > 0 ? fetchProfilesMap(supabase, userIds) : {},
+        fetchMembershipStaffPositionsMap(supabase, orgIdKey),
+      ]);
 
-      const payload: ShiftListCache = { rows, profilesMap, totalCount: count ?? 0 };
+      const payload: ShiftListCache = { rows, profilesMap, staffPositionsMap, totalCount: count ?? 0 };
       setCache(cacheKey, payload);
       return payload;
     },
@@ -242,6 +246,7 @@ function ShiftListInner({
 
   const rows = swrData?.rows ?? [];
   const profilesMap = swrData?.profilesMap ?? {};
+  const staffPositionsMap = swrData?.staffPositionsMap ?? {};
   const totalCount = swrData?.totalCount ?? 0;
   const error = swrError ? String((swrError as Error).message ?? swrError) : null;
 
@@ -586,7 +591,13 @@ function ShiftListInner({
                     const letter = ot?.letter ?? '?';
                     const color = ot?.color ?? '#6B7280';
                     const typeName = ot?.name ?? '—';
-                    const assignedName = s.assigned_user_id ? (profilesMap[s.assigned_user_id] ?? '—') : null;
+                    const baseName = s.assigned_user_id ? (profilesMap[s.assigned_user_id] ?? '—') : null;
+                    const pos = s.assigned_user_id ? staffPositionsMap[s.assigned_user_id] : null;
+                    const assignedName = baseName
+                      ? pos
+                        ? `${baseName} (${pos})`
+                        : baseName
+                      : null;
                     const start = new Date(s.start_at);
 
                     return (

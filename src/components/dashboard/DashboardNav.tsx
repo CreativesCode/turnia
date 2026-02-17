@@ -310,6 +310,7 @@ export function DashboardNav() {
                     {link('/dashboard/admin/members', 'Miembros')}
                     {link('/dashboard/admin/invite', 'Invitar')}
                     {link('/dashboard/admin/shift-types', 'Tipos de turno')}
+                    {link('/dashboard/admin/staff-positions', 'Puestos de personal')}
                     {link('/dashboard/admin/settings', 'Configuración')}
                     {link('/dashboard/admin/exports', 'Exportar')}
                     {link('/dashboard/admin/reports', 'Reportes')}
@@ -342,6 +343,7 @@ export function DashboardNav() {
         <Link href="/dashboard/admin/members" className="text-text-secondary hover:text-primary-600">Miembros</Link>
         <Link href="/dashboard/admin/invite" className="text-text-secondary hover:text-primary-600">Invitar</Link>
         <Link href="/dashboard/admin/shift-types" className="text-text-secondary hover:text-primary-600">Tipos de turno</Link>
+        <Link href="/dashboard/admin/staff-positions" className="text-text-secondary hover:text-primary-600">Puestos</Link>
         <Link href="/dashboard/admin/settings" className="text-text-secondary hover:text-primary-600">Configuración</Link>
         <Link href="/dashboard/admin/exports" className="text-text-secondary hover:text-primary-600">Exportar</Link>
         <Link href="/dashboard/admin/reports" className="text-text-secondary hover:text-primary-600">Reportes</Link>

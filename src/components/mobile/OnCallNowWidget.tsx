@@ -4,6 +4,7 @@ import type { ShiftWithType } from '@/components/calendar/ShiftCalendar';
 import { Button } from '@/components/ui/Button';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { createClient } from '@/lib/supabase/client';
+import { fetchMembershipStaffPositionsMap, fetchProfilesMap } from '@/lib/supabase/queries';
 import { getCacheEntry, setCache } from '@/lib/cache';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -11,6 +12,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 type OnCallCache = {
   shifts: ShiftWithType[];
   profilesMap: Record<string, string>;
+  staffPositionsMap: Record<string, string>;
 };
 
 function normalizeShiftType(ot: unknown): ShiftWithType['organization_shift_types'] {
@@ -39,6 +41,7 @@ export function OnCallNowWidget({
   const { isOnline } = useOnlineStatus();
   const [rows, setRows] = useState<ShiftWithType[]>([]);
   const [profilesMap, setProfilesMap] = useState<Record<string, string>>({});
+  const [staffPositionsMap, setStaffPositionsMap] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -58,6 +61,7 @@ export function OnCallNowWidget({
       if (cached) {
         setRows(cached.data.shifts);
         setProfilesMap(cached.data.profilesMap);
+        setStaffPositionsMap(cached.data.staffPositionsMap ?? {});
         setUsingCache(true);
         setNotice(`Sin conexión. Mostrando datos guardados (${new Date(cached.savedAt).toLocaleString('es-ES')}).`);
         setLoading(false);
@@ -65,6 +69,7 @@ export function OnCallNowWidget({
       }
       setRows([]);
       setProfilesMap({});
+      setStaffPositionsMap({});
       setError('Sin conexión y sin datos guardados.');
       setLoading(false);
       return;
@@ -89,6 +94,7 @@ export function OnCallNowWidget({
       if (cached) {
         setRows(cached.data.shifts);
         setProfilesMap(cached.data.profilesMap);
+        setStaffPositionsMap(cached.data.staffPositionsMap ?? {});
         setUsingCache(true);
         setNotice(`No se pudo actualizar. Mostrando datos guardados (${new Date(cached.savedAt).toLocaleString('es-ES')}).`);
         setLoading(false);
@@ -96,6 +102,7 @@ export function OnCallNowWidget({
       }
       setRows([]);
       setProfilesMap({});
+      setStaffPositionsMap({});
       setError(err.message);
       setLoading(false);
       return;
@@ -109,21 +116,14 @@ export function OnCallNowWidget({
     setRows(list);
 
     const userIds = [...new Set(list.map((s) => s.assigned_user_id).filter(Boolean))] as string[];
-    let nextProfilesMap: Record<string, string> = {};
-    if (userIds.length > 0) {
-      const { data: profs } = await supabase.from('profiles').select('id, full_name').in('id', userIds);
-      const map: Record<string, string> = {};
-      (profs ?? []).forEach((p: { id: string; full_name: string | null }) => {
-        map[p.id] = p.full_name?.trim() ?? '';
-      });
-      nextProfilesMap = map;
-      setProfilesMap(map);
-    } else {
-      nextProfilesMap = {};
-      setProfilesMap({});
-    }
+    const [nextProfilesMap, nextStaffPositionsMap] = await Promise.all([
+      userIds.length > 0 ? fetchProfilesMap(supabase, userIds) : {},
+      fetchMembershipStaffPositionsMap(supabase, orgId),
+    ]);
+    setProfilesMap(nextProfilesMap);
+    setStaffPositionsMap(nextStaffPositionsMap);
 
-    setCache(key, { shifts: list, profilesMap: nextProfilesMap });
+    setCache(key, { shifts: list, profilesMap: nextProfilesMap, staffPositionsMap: nextStaffPositionsMap });
     setLoading(false);
   }, [orgId, isOnline]);
 
@@ -135,11 +135,13 @@ export function OnCallNowWidget({
   }, [orgId, isOnline, load]);
 
   const display = useMemo(() => {
-    return rows.map((s) => ({
-      shift: s,
-      assignedName: s.assigned_user_id ? profilesMap[s.assigned_user_id] ?? null : null,
-    }));
-  }, [rows, profilesMap]);
+    return rows.map((s) => {
+      const baseName = s.assigned_user_id ? profilesMap[s.assigned_user_id] ?? null : null;
+      const pos = s.assigned_user_id ? staffPositionsMap[s.assigned_user_id] : null;
+      const assignedName = baseName ? (pos ? `${baseName} (${pos})` : baseName) : null;
+      return { shift: s, assignedName };
+    });
+  }, [rows, profilesMap, staffPositionsMap]);
 
   return (
     <section className="rounded-xl border border-border bg-background p-4" id="on-call-now">

@@ -22,6 +22,7 @@ export type ShiftWithType = {
 export type ShiftCalendarCache = {
   shifts: ShiftWithType[];
   profilesMap: Record<string, string>;
+  staffPositionsMap: Record<string, string>;
 };
 
 export type ShiftCalendarRange = { start: Date; end: Date } | null;

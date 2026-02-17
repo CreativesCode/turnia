@@ -39,7 +39,10 @@ export function MembersList({ orgId, refreshKey = 0, onRefresh }: Props) {
     const fromIdx = (page - 1) * PAGE_SIZE;
     const { data: memberships, error: mErr, count } = await supabase
       .from('memberships')
-      .select('id, user_id, role, created_at, updated_at', { count: 'exact' })
+      .select(
+        'id, user_id, role, staff_position_id, created_at, updated_at, organization_staff_positions(name)',
+        { count: 'exact' }
+      )
       .eq('org_id', orgId)
       .order('created_at', { ascending: false })
       .range(fromIdx, fromIdx + PAGE_SIZE - 1);
@@ -52,8 +55,10 @@ export function MembersList({ orgId, refreshKey = 0, onRefresh }: Props) {
       id: string;
       user_id: string;
       role: string;
+      staff_position_id: string | null;
       created_at: string;
       updated_at: string | null;
+      organization_staff_positions: { name: string } | { name: string }[] | null;
     }[];
     if (list.length === 0) {
       return { rows: [], total: count ?? 0 };
@@ -68,8 +73,15 @@ export function MembersList({ orgId, refreshKey = 0, onRefresh }: Props) {
 
     const merged: MemberForDetails[] = list.map((m) => {
       const p = profileMap[m.user_id];
+      const sp = m.organization_staff_positions;
+      const staffPositionName = sp ? (Array.isArray(sp) ? sp[0]?.name : sp?.name) : null;
       return {
-        ...m,
+        id: m.id,
+        user_id: m.user_id,
+        role: m.role,
+        staff_position_id: m.staff_position_id,
+        staff_position_name: staffPositionName?.trim() ?? null,
+        created_at: m.created_at,
         updated_at: m.updated_at ?? undefined,
         full_name: p?.full_name ?? null,
         email: p?.email ?? null,
@@ -197,6 +209,7 @@ export function MembersList({ orgId, refreshKey = 0, onRefresh }: Props) {
               <th className="px-3 py-2.5 text-left font-medium text-text-primary">Usuario</th>
               <th className="px-3 py-2.5 text-left font-medium text-text-primary">Correo</th>
               <th className="px-3 py-2.5 text-left font-medium text-text-primary">Rol</th>
+              <th className="px-3 py-2.5 text-left font-medium text-text-primary">Puesto</th>
               <th className="px-3 py-2.5 text-left font-medium text-text-primary">Alta</th>
               <th className="px-3 py-2.5 text-right font-medium text-text-primary">Acciones</th>
             </tr>
@@ -215,6 +228,7 @@ export function MembersList({ orgId, refreshKey = 0, onRefresh }: Props) {
                 </td>
                 <td className="px-3 py-2.5 text-muted">{r.email || '—'}</td>
                 <td className="px-3 py-2.5 text-muted">{ROLE_LABELS[r.role] || r.role}</td>
+                <td className="px-3 py-2.5 text-muted">{r.staff_position_name || '—'}</td>
                 <td className="px-3 py-2.5 text-muted">
                   {new Date(r.created_at).toLocaleDateString()}
                 </td>

@@ -7,6 +7,8 @@ export type MemberForDetails = {
   id: string;
   user_id: string;
   role: string;
+  staff_position_id: string | null;
+  staff_position_name: string | null;
   created_at: string;
   updated_at?: string;
   full_name: string | null;
@@ -39,6 +41,12 @@ export function MemberDetails({ member, onClose, onEditRole }: Props) {
             <dt className="text-text-secondary">Rol</dt>
             <dd className="text-text-primary">{ROLE_LABELS[member.role] || member.role}</dd>
           </div>
+          {member.staff_position_name && (
+            <div>
+              <dt className="text-text-secondary">Puesto</dt>
+              <dd className="text-text-primary">{member.staff_position_name}</dd>
+            </div>
+          )}
           <div>
             <dt className="text-text-secondary">Alta</dt>
             <dd className="text-text-primary">{new Date(member.created_at).toLocaleDateString()}</dd>
@@ -63,7 +71,7 @@ export function MemberDetails({ member, onClose, onEditRole }: Props) {
             onClick={onEditRole}
             className="min-h-[44px] min-w-[44px] rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-700"
           >
-            Editar rol
+            Editar rol y puesto
           </button>
         </div>
     </Dialog>
