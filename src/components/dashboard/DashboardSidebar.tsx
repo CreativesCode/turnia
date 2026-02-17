@@ -249,6 +249,12 @@ export function DashboardSidebar() {
           icon={<Icon name="activity" />}
           active={pathname?.startsWith('/dashboard/active-now')}
         />
+        <NavItem
+          href="/dashboard/transactions"
+          label="Transacciones"
+          icon={<Icon name="repeat" />}
+          active={pathname?.startsWith('/dashboard/transactions')}
+        />
 
         {canManageOrg ? (
           <>
@@ -259,6 +265,7 @@ export function DashboardSidebar() {
               icon={<Icon name="calendar" />}
               active={pathname?.startsWith('/dashboard/manager') && !pathname?.startsWith('/dashboard/manager/requests') && !pathname?.startsWith('/dashboard/manager/availability')}
             />
+            <NavItem href="/dashboard/manager/requests" label="Solicitudes" icon={<Icon name="inbox" />} active={pathname?.startsWith('/dashboard/manager/requests')} />
             <NavItem href="/dashboard/admin/members" label="Miembros" icon={<Icon name="users" />} active={pathname?.startsWith('/dashboard/admin/members')} />
             <NavItem href="/dashboard/admin/organizations" label="Equipos" icon={<Icon name="building" />} active={pathname?.startsWith('/dashboard/admin/organizations')} />
             <NavItem href="/dashboard/admin/shift-types" label="Tipos de Turno" icon={<Icon name="calendar-clock" />} active={pathname?.startsWith('/dashboard/admin/shift-types')} />
@@ -281,7 +288,7 @@ export function DashboardSidebar() {
           <>
             <NavItem href="/dashboard" label="Dashboard" icon={<Icon name="grid" />} active={pathname === '/dashboard'} />
             <NavItem href="/dashboard/manager" label="Calendario" icon={<Icon name="calendar" />} active={pathname?.startsWith('/dashboard/manager')} />
-            <NavItem href="/dashboard/staff/my-requests" label="Solicitudes" icon={<Icon name="repeat" />} active={pathname?.startsWith('/dashboard/staff/my-requests')} />
+            <NavItem href="/dashboard/staff/my-requests" label="Solicitudes" icon={<Icon name="inbox" />} active={pathname?.startsWith('/dashboard/staff/my-requests')} />
             <NavItem href="/dashboard/staff" label="Equipo" icon={<Icon name="users" />} active={pathname?.startsWith('/dashboard/staff')} />
             <NavItem href="/dashboard/profile" label="Configuración" icon={<Icon name="settings" />} active={pathname?.startsWith('/dashboard/profile')} />
           </>

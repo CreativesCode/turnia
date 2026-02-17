@@ -28,7 +28,7 @@ begin
     values (
       NEW.target_user_id,
       'Nueva solicitud de intercambio',
-      'Alguien te ha propuesto intercambiar turnos. Revisa en Mis solicitudes.',
+      'Alguien te ha propuesto intercambiar turnos. Revisa en Transacciones para aceptar o rechazar.',
       'request',
       'shift_request',
       NEW.id

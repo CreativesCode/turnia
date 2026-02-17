@@ -83,6 +83,15 @@ const BellIcon = () => (
   </svg>
 );
 
+const TransactionsIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <path d="M17 2l4 4-4 4" />
+    <path d="M3 11V9a4 4 0 0 1 4-4h14" />
+    <path d="M7 22l-4-4 4-4" />
+    <path d="M21 13v2a4 4 0 0 1-4 4H3" />
+  </svg>
+);
+
 const MoreIcon = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
     <circle cx="6" cy="12" r="1.5" />
@@ -111,6 +120,7 @@ export function DashboardNav() {
 
   const homeHref = isLoading ? '/dashboard' : canManageShifts ? '/dashboard/manager' : '/dashboard/staff';
   const requestsHref = canManageShifts ? '/dashboard/manager/requests' : '/dashboard/staff/my-requests';
+  const transactionsHref = '/dashboard/transactions';
   const availabilityHref = canManageShifts ? '/dashboard/manager/availability' : '/dashboard/staff/availability';
 
   const closeMore = useCallback(() => setMoreOpen(false), []);
@@ -240,6 +250,12 @@ export function DashboardNav() {
           <div className="flex w-full">
             <NavIcon icon={<HomeIcon />} label="Inicio" href={homeHref} isActive={pathname === homeHref || (homeHref === '/dashboard/manager' && pathname?.startsWith('/dashboard/manager') && !pathname.includes('/requests') && !pathname.includes('/availability') && !pathname.includes('/shifts'))} />
             <NavIcon icon={<InboxIcon />} label="Solicitudes" href={requestsHref} isActive={pathname === requestsHref} />
+            <NavIcon
+              icon={<TransactionsIcon />}
+              label="Transacciones"
+              href={transactionsHref}
+              isActive={pathname === transactionsHref}
+            />
             <NavIcon icon={<CalendarIcon />} label="Disponibilidad" href={availabilityHref} isActive={pathname === availabilityHref} />
             <NavIcon icon={<BellIcon />} label="Notificaciones" href="/dashboard/notifications" isActive={pathname === '/dashboard/notifications'} />
             <button
@@ -304,6 +320,7 @@ export function DashboardNav() {
                 </div>
                 {link('/dashboard/daily-schedule', 'Turnos por día')}
                 {link('/dashboard/active-now', 'De turno ahora')}
+                {link('/dashboard/transactions', 'Transacciones')}
                 {canManageShifts && link('/dashboard/manager/shifts', 'Lista de turnos')}
                 {link('/dashboard/profile', 'Mi perfil')}
                 {canManageOrg && (
@@ -358,6 +375,7 @@ export function DashboardNav() {
         <Link href="/dashboard/manager/availability" className="text-text-secondary hover:text-primary-600">Disponibilidad</Link>
         <Link href="/dashboard/staff" className="text-text-secondary hover:text-primary-600">Staff</Link>
         <Link href="/dashboard/staff/my-requests" className="text-text-secondary hover:text-primary-600">Mis solicitudes</Link>
+        <Link href="/dashboard/transactions" className="text-text-secondary hover:text-primary-600">Transacciones</Link>
         <Link href="/dashboard/staff/availability" className="text-text-secondary hover:text-primary-600">Disponibilidad</Link>
         <Link href="/dashboard/viewer" className="text-text-secondary hover:text-primary-600">Viewer</Link>
         <Link href="/dashboard/notifications" className="text-text-secondary hover:text-primary-600">Notificaciones</Link>

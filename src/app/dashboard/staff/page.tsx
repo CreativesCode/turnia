@@ -101,6 +101,9 @@ export default function StaffPage() {
         <LinkButton href="/dashboard/staff/my-requests" variant="primary">
           Mis solicitudes
         </LinkButton>
+        <LinkButton href="/dashboard/transactions" variant="primary">
+          Transacciones
+        </LinkButton>
         <LinkButton href="/dashboard/staff/availability" variant="secondary">
           Mi disponibilidad
         </LinkButton>

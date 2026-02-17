@@ -2,6 +2,7 @@
 
 import { LogoutButton } from '@/components/auth/LogoutButton';
 import { DashboardDesktopHeader } from '@/components/dashboard/DashboardDesktopHeader';
+import { PendingSwapsForYou } from '@/components/requests/PendingSwapsForYou';
 import { LinkButton } from '@/components/ui/LinkButton';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { useScheduleOrg } from '@/hooks/useScheduleOrg';
@@ -167,6 +168,7 @@ export default function DashboardPage() {
   const [adminInvitesPending, setAdminInvitesPending] = useState<number>(0);
   const [adminShiftTypesCount, setAdminShiftTypesCount] = useState<number>(0);
   const [loadingData, setLoadingData] = useState(false);
+  const [swapsRefreshKey, setSwapsRefreshKey] = useState(0);
 
   const greeting = useMemo(() => {
     const name = fullName?.trim();
@@ -559,6 +561,14 @@ export default function DashboardPage() {
           </svg>
         </Link>
       </div>
+
+      {/* Intercambios pendientes de aceptación - visible para todos los usuarios */}
+      <PendingSwapsForYou
+        orgId={orgId}
+        userId={userId}
+        refreshKey={swapsRefreshKey}
+        onResolved={() => setSwapsRefreshKey((k) => k + 1)}
+      />
 
       {canManageOrg ? (
         <AdminHome

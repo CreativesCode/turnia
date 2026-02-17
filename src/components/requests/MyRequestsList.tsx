@@ -184,6 +184,19 @@ export function MyRequestsList({ orgId, userId, refreshKey = 0 }: Props) {
       {error && (
         <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</p>
       )}
+      {/* Tabs siempre visibles para poder cambiar de filtro */}
+      <div className="flex items-center gap-2 overflow-x-auto rounded-xl border border-border bg-background p-2">
+        <TabButton active={tab === 'all'} onClick={() => setTab('all')}>
+          Todas
+        </TabButton>
+        <TabButton active={tab === 'pending'} onClick={() => setTab('pending')}>
+          Pendientes
+        </TabButton>
+        <TabButton active={tab === 'approved'} onClick={() => setTab('approved')}>
+          Aprobadas
+        </TabButton>
+      </div>
+
       {filteredRows.length === 0 ? (
         <div className="rounded-xl border border-border bg-background p-6">
           <p className="text-sm text-muted">
@@ -195,19 +208,6 @@ export function MyRequestsList({ orgId, userId, refreshKey = 0 }: Props) {
         </div>
       ) : (
         <div className="space-y-4">
-          {/* Tabs (mobile-first, similar al diseño de Solicitudes - Mobile) */}
-          <div className="flex items-center gap-2 overflow-x-auto rounded-xl border border-border bg-background p-2">
-            <TabButton active={tab === 'all'} onClick={() => setTab('all')}>
-              Todas
-            </TabButton>
-            <TabButton active={tab === 'pending'} onClick={() => setTab('pending')}>
-              Pendientes
-            </TabButton>
-            <TabButton active={tab === 'approved'} onClick={() => setTab('approved')}>
-              Aprobadas
-            </TabButton>
-          </div>
-
           {/* Mobile cards */}
           <div className="grid gap-3 md:hidden">
             {filteredRows.map((r) => {
