@@ -1,53 +1,51 @@
 'use client';
 
 /**
- * Lista de personas con sus turnos del día actual.
- * Agrupa los turnos por persona y muestra una lista limpia.
+ * Lista de turnos activos en todas las organizaciones del usuario.
+ * Muestra los turnos que están en curso ahora (start_at <= now <= end_at).
+ * Reutiliza ShiftCard con organizationName para mantener estilo único.
  */
 
 import type { ShiftWithType } from '@/components/calendar/ShiftCalendar';
 import { ShiftCard } from '@/components/daily/ShiftCard';
 import { createClient } from '@/lib/supabase/client';
 import { fetchMembershipStaffPositionsMap } from '@/lib/supabase/queries';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect } from 'react';
 import useSWR from 'swr';
+
+type ShiftWithOrg = ShiftWithType & { organizationName: string };
 
 type PersonWithShifts = {
   userId: string;
   fullName: string;
   staffPosition: string | null;
-  shifts: ShiftWithType[];
+  shifts: ShiftWithOrg[];
 };
 
-type DailyShiftsData = {
+type ActiveShiftsData = {
   people: PersonWithShifts[];
-  unassignedShifts: ShiftWithType[];
+  unassignedShifts: ShiftWithOrg[];
 };
 
-function formatDate(date: Date): string {
-  return date.toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-}
+async function fetchActiveShifts(orgIds: string[]): Promise<ActiveShiftsData> {
+  if (orgIds.length === 0) return { people: [], unassignedShifts: [] };
 
-async function fetchDailyShifts(orgId: string, date: Date): Promise<DailyShiftsData> {
   const supabase = createClient();
-  
-  // Obtener inicio y fin del día en UTC
-  const startOfDay = new Date(date);
-  startOfDay.setHours(0, 0, 0, 0);
-  const endOfDay = new Date(date);
-  endOfDay.setHours(23, 59, 59, 999);
+  const now = new Date().toISOString();
 
   const { data: shiftsData, error: shiftsErr } = await supabase
     .from('shifts')
     .select(
       `
       id, org_id, shift_type_id, status, start_at, end_at, assigned_user_id, location,
-      organization_shift_types (id, name, letter, color, start_time, end_time)
+      organization_shift_types (id, name, letter, color, start_time, end_time),
+      organizations (name)
     `
     )
-    .eq('org_id', orgId)
-    .gte('start_at', startOfDay.toISOString())
-    .lte('start_at', endOfDay.toISOString())
+    .in('org_id', orgIds)
+    .eq('status', 'published')
+    .lte('start_at', now)
+    .gte('end_at', now)
     .order('start_at', { ascending: true });
 
   if (shiftsErr) {
@@ -57,13 +55,20 @@ async function fetchDailyShifts(orgId: string, date: Date): Promise<DailyShiftsD
   const raw = (shiftsData ?? []) as Array<
     ShiftWithType & {
       organization_shift_types?: ShiftWithType['organization_shift_types'] | ShiftWithType['organization_shift_types'][];
+      organizations?: { name: string } | { name: string }[];
     }
   >;
 
-  const shifts: ShiftWithType[] = raw.map((s) => {
+  const shifts: ShiftWithOrg[] = raw.map((s) => {
     const ot = s.organization_shift_types;
-    const single = Array.isArray(ot) ? (ot[0] ?? null) : ot ?? null;
-    return { ...s, organization_shift_types: single } as ShiftWithType;
+    const singleOt = Array.isArray(ot) ? (ot[0] ?? null) : ot ?? null;
+    const orgs = s.organizations;
+    const orgName = Array.isArray(orgs) ? (orgs[0]?.name ?? '') : (orgs?.name ?? '');
+    return {
+      ...s,
+      organization_shift_types: singleOt,
+      organizationName: orgName,
+    } as ShiftWithOrg;
   });
 
   // Obtener perfiles de usuarios asignados
@@ -83,12 +88,18 @@ async function fetchDailyShifts(orgId: string, date: Date): Promise<DailyShiftsD
     }
   }
 
-  // Obtener puestos de personal
-  const staffPositionsMap = await fetchMembershipStaffPositionsMap(supabase, orgId);
+  // Obtener puestos de personal (un org por usuario, tomamos el primero donde aparecen)
+  const staffPositionsMap: Record<string, string> = {};
+  for (const orgId of orgIds) {
+    const map = await fetchMembershipStaffPositionsMap(supabase, orgId);
+    for (const [uid, pos] of Object.entries(map)) {
+      if (!staffPositionsMap[uid]) staffPositionsMap[uid] = pos;
+    }
+  }
 
   // Agrupar por persona
   const peopleMap = new Map<string, PersonWithShifts>();
-  const unassignedShifts: ShiftWithType[] = [];
+  const unassignedShifts: ShiftWithOrg[] = [];
 
   for (const shift of shifts) {
     if (!shift.assigned_user_id) {
@@ -110,85 +121,58 @@ async function fetchDailyShifts(orgId: string, date: Date): Promise<DailyShiftsD
     peopleMap.get(shift.assigned_user_id)!.shifts.push(shift);
   }
 
-  // Ordenar personas por nombre
   const people = Array.from(peopleMap.values()).sort((a, b) => a.fullName.localeCompare(b.fullName));
 
   return { people, unassignedShifts };
 }
 
 type Props = {
-  orgId: string;
-  date?: Date;
+  orgIds: string[];
   onShiftClick?: (shift: ShiftWithType, assignedName: string | null) => void;
 };
 
-export function DailyShiftsList({ orgId, date = new Date(), onShiftClick }: Props) {
-  const [selectedDate, setSelectedDate] = useState(date);
+export function ActiveShiftsList({ orgIds, onShiftClick }: Props) {
+  const swrKey = orgIds.length > 0 ? ['activeShifts', ...orgIds.sort()] : null;
+  const { data, error, isLoading, mutate } = useSWR<ActiveShiftsData>(
+    swrKey,
+    () => fetchActiveShifts(orgIds),
+    {
+      revalidateOnFocus: true,
+      revalidateOnReconnect: true,
+      refreshInterval: 60 * 1000, // refrescar cada minuto para mantener actualizados los turnos activos
+    }
+  );
 
-  const dateKey = useMemo(() => {
-    const d = selectedDate;
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-  }, [selectedDate]);
-
-  const swrKey = orgId ? ['dailyShifts', orgId, dateKey] : null;
-  const { data, error, isLoading, mutate } = useSWR<DailyShiftsData>(swrKey, () => fetchDailyShifts(orgId, selectedDate), {
-    revalidateOnFocus: true,
-    revalidateOnReconnect: true,
-  });
-
-  const goToToday = useCallback(() => {
-    setSelectedDate(new Date());
-  }, []);
-
-  const goToPreviousDay = useCallback(() => {
-    const newDate = new Date(selectedDate);
-    newDate.setDate(newDate.getDate() - 1);
-    setSelectedDate(newDate);
-  }, [selectedDate]);
-
-  const goToNextDay = useCallback(() => {
-    const newDate = new Date(selectedDate);
-    newDate.setDate(newDate.getDate() + 1);
-    setSelectedDate(newDate);
-  }, [selectedDate]);
-
-  const isToday = useMemo(() => {
-    const today = new Date();
-    return (
-      selectedDate.getDate() === today.getDate() &&
-      selectedDate.getMonth() === today.getMonth() &&
-      selectedDate.getFullYear() === today.getFullYear()
-    );
-  }, [selectedDate]);
-
+  // Suscripción a cambios en shifts de las orgs
   useEffect(() => {
-    if (!orgId) return;
+    if (orgIds.length === 0) return;
     const supabase = createClient();
-    const channel = supabase
-      .channel(`daily-shifts:${orgId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'shifts',
-          filter: `org_id=eq.${orgId}`,
-        },
-        () => {
-          setTimeout(() => void mutate(), 500);
-        }
-      )
-      .subscribe();
-
+    const channelRefs: ReturnType<ReturnType<typeof createClient>['channel']>[] = [];
+    for (const orgId of orgIds) {
+      const ch = supabase
+        .channel(`active-shifts:${orgId}`)
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'shifts',
+            filter: `org_id=eq.${orgId}`,
+          },
+          () => setTimeout(() => void mutate(), 500)
+        )
+        .subscribe();
+      channelRefs.push(ch);
+    }
     return () => {
-      void supabase.removeChannel(channel);
+      channelRefs.forEach((ch) => void supabase.removeChannel(ch));
     };
-  }, [orgId, mutate]);
+  }, [orgIds, mutate]);
 
   if (isLoading) {
     return (
       <div className="rounded-xl border border-border bg-background p-6">
-        <p className="text-muted">Cargando turnos del día...</p>
+        <p className="text-muted">Cargando turnos activos...</p>
       </div>
     );
   }
@@ -217,52 +201,17 @@ export function DailyShiftsList({ orgId, date = new Date(), onShiftClick }: Prop
 
   return (
     <div className="space-y-4">
-      {/* Controles de fecha */}
-      <div className="flex items-center justify-between gap-4 rounded-xl border border-border bg-background p-4">
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={goToPreviousDay}
-            className="flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-background text-text-secondary hover:bg-subtle-bg hover:text-text-primary"
-            aria-label="Día anterior"
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M15 18l-6-6 6-6" />
-            </svg>
-          </button>
-          <div className="min-w-0 flex-1 text-center">
-            <p className="text-sm font-semibold text-text-primary">{formatDate(selectedDate)}</p>
-            {!isToday && (
-              <button
-                type="button"
-                onClick={goToToday}
-                className="mt-1 text-xs text-primary-600 hover:underline"
-              >
-                Ir a hoy
-              </button>
-            )}
-          </div>
-          <button
-            type="button"
-            onClick={goToNextDay}
-            className="flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-background text-text-secondary hover:bg-subtle-bg hover:text-text-primary"
-            aria-label="Día siguiente"
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M9 18l6-6-6-6" />
-            </svg>
-          </button>
-        </div>
-      </div>
-
       {/* Resumen */}
       <div className="rounded-xl border border-border bg-background p-4">
         <p className="text-sm text-text-secondary">
           {totalShifts === 0 ? (
-            'No hay turnos programados para este día'
+            'No hay turnos activos ahora'
           ) : (
             <>
-              {totalShifts} {totalShifts === 1 ? 'turno' : 'turnos'} • {people.length} {people.length === 1 ? 'persona' : 'personas'}
+              {totalShifts} {totalShifts === 1 ? 'turno activo' : 'turnos activos'}
+              {people.length > 0 && (
+                <> • {people.length} {people.length === 1 ? 'persona' : 'personas'}</>
+              )}
               {unassignedShifts.length > 0 && ` • ${unassignedShifts.length} sin asignar`}
             </>
           )}
@@ -294,7 +243,7 @@ export function DailyShiftsList({ orgId, date = new Date(), onShiftClick }: Prop
                       <span className="text-xs font-medium text-primary-600">{person.staffPosition}</span>
                     )}
                     <span className="text-xs text-muted">
-                      {person.shifts.length} {person.shifts.length === 1 ? 'turno' : 'turnos'}
+                      {person.shifts.length} {person.shifts.length === 1 ? 'turno activo' : 'turnos activos'}
                     </span>
                   </div>
                 </div>
@@ -305,6 +254,7 @@ export function DailyShiftsList({ orgId, date = new Date(), onShiftClick }: Prop
                   <ShiftCard
                     key={shift.id}
                     shift={shift}
+                    organizationName={shift.organizationName}
                     onClick={() => onShiftClick?.(shift, person.fullName)}
                   />
                 ))}
@@ -322,6 +272,7 @@ export function DailyShiftsList({ orgId, date = new Date(), onShiftClick }: Prop
             <ShiftCard
               key={shift.id}
               shift={shift}
+              organizationName={shift.organizationName}
               onClick={() => onShiftClick?.(shift, null)}
             />
           ))}

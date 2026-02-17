@@ -66,7 +66,8 @@ function Icon({
   | 'calendar-clock'
   | 'file-text'
   | 'briefcase'
-  | 'calendar-day';
+  | 'calendar-day'
+  | 'activity';
 }) {
   switch (name) {
     case 'grid':
@@ -177,6 +178,12 @@ function Icon({
           <path d="M16 18h.01" />
         </svg>
       );
+    case 'activity':
+      return (
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
+        </svg>
+      );
   }
 }
 
@@ -235,6 +242,12 @@ export function DashboardSidebar() {
           label="Turnos por día"
           icon={<Icon name="calendar-day" />}
           active={pathname?.startsWith('/dashboard/daily-schedule')}
+        />
+        <NavItem
+          href="/dashboard/active-now"
+          label="De turno ahora"
+          icon={<Icon name="activity" />}
+          active={pathname?.startsWith('/dashboard/active-now')}
         />
 
         {canManageOrg ? (

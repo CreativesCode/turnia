@@ -302,6 +302,8 @@ export function DashboardNav() {
                     <ThemeSelect className="min-h-[44px] w-[140px] rounded-lg border border-border bg-background px-3 py-2 text-sm text-text-primary focus:border-primary-500 focus:outline-none" />
                   </div>
                 </div>
+                {link('/dashboard/daily-schedule', 'Turnos por día')}
+                {link('/dashboard/active-now', 'De turno ahora')}
                 {canManageShifts && link('/dashboard/manager/shifts', 'Lista de turnos')}
                 {link('/dashboard/profile', 'Mi perfil')}
                 {canManageOrg && (
@@ -337,6 +339,8 @@ export function DashboardNav() {
     <header className="border-b border-border bg-background px-4 py-3">
       <nav className="flex flex-wrap items-center gap-4 text-sm">
         <Link href="/dashboard" className="font-medium text-text-primary hover:text-primary-600">Dashboard</Link>
+        <Link href="/dashboard/daily-schedule" className="text-text-secondary hover:text-primary-600">Turnos por día</Link>
+        <Link href="/dashboard/active-now" className="text-text-secondary hover:text-primary-600">De turno ahora</Link>
         <Link href="/dashboard/profile" className="text-text-secondary hover:text-primary-600">Perfil</Link>
         <Link href="/dashboard/admin" className="text-text-secondary hover:text-primary-600">Admin</Link>
         <Link href="/dashboard/admin/organizations" className="text-text-secondary hover:text-primary-600">Organizaciones</Link>
