@@ -129,7 +129,14 @@ export function useShiftCalendar(args: {
 
       if (filters) {
         if (filters.shiftTypeIds.length > 0) query = query.in('shift_type_id', filters.shiftTypeIds);
-        if (filters.userId) query = query.eq('assigned_user_id', filters.userId);
+        if (filters.userId) {
+          // Valor especial '__unassigned__' para filtrar turnos sin asignación
+          if (filters.userId === '__unassigned__') {
+            query = query.is('assigned_user_id', null);
+          } else {
+            query = query.eq('assigned_user_id', filters.userId);
+          }
+        }
         if (filters.status !== 'all') query = query.eq('status', filters.status);
       }
 

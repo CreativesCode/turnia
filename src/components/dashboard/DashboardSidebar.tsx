@@ -275,6 +275,12 @@ export function DashboardSidebar() {
           icon={<Icon name="calendar" />}
           active={pathname?.startsWith('/dashboard/my-shifts')}
         />
+        <NavItem
+          href="/dashboard/open-shifts"
+          label="Turnos vacantes"
+          icon={<Icon name="calendar-clock" />}
+          active={pathname?.startsWith('/dashboard/open-shifts')}
+        />
 
         {canManageOrg ? (
           <>
