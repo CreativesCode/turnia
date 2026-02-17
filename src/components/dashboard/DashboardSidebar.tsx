@@ -4,6 +4,7 @@ import { LogoutButton } from '@/components/auth/LogoutButton';
 import { NotificationBell } from '@/components/notifications/NotificationBell';
 import { OfflinePill } from '@/components/offline/OfflinePill';
 import { ThemeToggleButton } from '@/components/theme/theme';
+import { OrganizationSelector } from '@/components/dashboard/OrganizationSelector';
 import { useScheduleOrg } from '@/hooks/useScheduleOrg';
 import { createClient } from '@/lib/supabase/client';
 import Link from 'next/link';
@@ -64,7 +65,8 @@ function Icon({
   | 'building'
   | 'calendar-clock'
   | 'file-text'
-  | 'briefcase';
+  | 'briefcase'
+  | 'calendar-day';
 }) {
   switch (name) {
     case 'grid':
@@ -160,6 +162,21 @@ function Icon({
           <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
         </svg>
       );
+    case 'calendar-day':
+      return (
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="3" y="4" width="18" height="18" rx="2" />
+          <path d="M16 2v4" />
+          <path d="M8 2v4" />
+          <path d="M3 10h18" />
+          <path d="M8 14h.01" />
+          <path d="M12 14h.01" />
+          <path d="M16 14h.01" />
+          <path d="M8 18h.01" />
+          <path d="M12 18h.01" />
+          <path d="M16 18h.01" />
+        </svg>
+      );
   }
 }
 
@@ -206,10 +223,29 @@ export function DashboardSidebar() {
         <span className="text-2xl font-bold text-primary-600">Turnia</span>
       </div>
 
+      {/* Selector de organización */}
+      <div className="px-3 pb-2">
+        <OrganizationSelector />
+      </div>
+
       <div className="flex-1 space-y-1 px-3 py-2">
+        {/* Turnos por día - visible para todos los usuarios */}
+        <NavItem
+          href="/dashboard/daily-schedule"
+          label="Turnos por día"
+          icon={<Icon name="calendar-day" />}
+          active={pathname?.startsWith('/dashboard/daily-schedule')}
+        />
+
         {canManageOrg ? (
           <>
             <NavItem href="/dashboard" label="Dashboard" icon={<Icon name="grid" />} active={pathname === '/dashboard' || pathname === '/dashboard/admin'} />
+            <NavItem
+              href="/dashboard/manager"
+              label="Calendario"
+              icon={<Icon name="calendar" />}
+              active={pathname?.startsWith('/dashboard/manager') && !pathname?.startsWith('/dashboard/manager/requests') && !pathname?.startsWith('/dashboard/manager/availability')}
+            />
             <NavItem href="/dashboard/admin/members" label="Miembros" icon={<Icon name="users" />} active={pathname?.startsWith('/dashboard/admin/members')} />
             <NavItem href="/dashboard/admin/organizations" label="Equipos" icon={<Icon name="building" />} active={pathname?.startsWith('/dashboard/admin/organizations')} />
             <NavItem href="/dashboard/admin/shift-types" label="Tipos de Turno" icon={<Icon name="calendar-clock" />} active={pathname?.startsWith('/dashboard/admin/shift-types')} />
@@ -221,7 +257,7 @@ export function DashboardSidebar() {
             <NavItem href="/dashboard" label="Dashboard" icon={<Icon name="grid" />} active={pathname === '/dashboard'} />
             <NavItem
               href="/dashboard/manager"
-              label="Turnos"
+              label="Calendario"
               icon={<Icon name="calendar" />}
               active={pathname?.startsWith('/dashboard/manager') && !pathname?.startsWith('/dashboard/manager/requests') && !pathname?.startsWith('/dashboard/manager/availability')}
             />

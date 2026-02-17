@@ -43,6 +43,10 @@ type Props = {
    * para acompañarlo con acciones externas (p. ej. botón "Hoy" + filtros).
    */
   compactHeader?: boolean;
+  /**
+   * Vista inicial del calendario. Por defecto usa 'dayGridMonth'.
+   */
+  initialView?: 'dayGridMonth' | 'timeGridWeek' | 'timeGridDay' | 'listWeek';
 };
 
 function ShiftCalendarInner({
@@ -53,6 +57,7 @@ function ShiftCalendarInner({
   onEventClick,
   onDateClick,
   compactHeader = false,
+  initialView = 'dayGridMonth',
 }: Props) {
   const isMobile = useIsMobile('768px');
   const { isOnline } = useOnlineStatus();
@@ -250,7 +255,7 @@ function ShiftCalendarInner({
           <FullCalendar
             ref={calendarRef}
             plugins={plugins}
-            initialView="dayGridMonth"
+            initialView={initialView}
             headerToolbar={headerToolbar}
             buttonText={buttonText}
             buttonHints={buttonHints as any}

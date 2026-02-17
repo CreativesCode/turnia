@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase/client';
 import { canManageShifts, canManageOrg, canCreateRequests, canApproveRequests, type MembershipRow } from '@/lib/rbac';
+import { useSelectedOrg } from './useSelectedOrg';
 import { useCallback, useEffect, useState } from 'react';
 
 export type UseScheduleOrgResult = {
@@ -18,10 +19,12 @@ export type UseScheduleOrgResult = {
 
 /**
  * Obtiene la organización a usar para el calendario/lista de turnos.
- * - Cualquier usuario con membership: primera org de sus memberships.
+ * Usa la organización seleccionada por el usuario (desde useSelectedOrg).
+ * - Cualquier usuario con membership: organización seleccionada o primera org de sus memberships.
  * - canManageShifts: si el usuario puede crear/editar/eliminar turnos (team_manager, org_admin, superadmin).
  */
 export function useScheduleOrg(): UseScheduleOrgResult {
+  const { selectedOrgId, isLoading: isLoadingSelectedOrg } = useSelectedOrg();
   const [orgId, setOrgId] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [canEdit, setCanEdit] = useState(false);
@@ -77,9 +80,25 @@ export function useScheduleOrg(): UseScheduleOrgResult {
         setIsLoading(false);
         return;
       }
-      const first = list[0];
-      const m: MembershipRow = { org_id: first.org_id, role: first.role as MembershipRow['role'] };
-      setOrgId(first.org_id);
+
+      // Usar la organización seleccionada si existe y el usuario tiene membership en ella,
+      // de lo contrario usar la primera organización disponible
+      const targetOrgId = selectedOrgId && list.some((m) => m.org_id === selectedOrgId) ? selectedOrgId : list[0]?.org_id;
+      const targetMembership = list.find((m) => m.org_id === targetOrgId) ?? list[0];
+      
+      if (!targetMembership) {
+        setOrgId(null);
+        setUserId(null);
+        setCanEdit(false);
+        setCanManageOrgFlag(false);
+        setCanCreateReqs(false);
+        setCanApproveReqs(false);
+        setIsLoading(false);
+        return;
+      }
+
+      const m: MembershipRow = { org_id: targetMembership.org_id, role: targetMembership.role as MembershipRow['role'] };
+      setOrgId(targetMembership.org_id);
       setUserId(user.id);
       setCanEdit(canManageShifts(m));
       setCanManageOrgFlag(canManageOrg(m));
@@ -102,11 +121,13 @@ export function useScheduleOrg(): UseScheduleOrgResult {
       setCanApproveReqs(false);
       setIsLoading(false);
     }
-  }, []);
+  }, [selectedOrgId]);
 
   useEffect(() => {
+    // Esperar a que useSelectedOrg termine de cargar antes de ejecutar
+    if (isLoadingSelectedOrg) return;
     run();
-  }, [run]);
+  }, [run, isLoadingSelectedOrg]);
 
   return { orgId, userId, canManageShifts: canEdit, canManageOrg: canManageOrgFlag, canCreateRequests: canCreateReqs, canApproveRequests: canApproveReqs, isLoading, error, refetch: run };
 }
