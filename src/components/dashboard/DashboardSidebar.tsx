@@ -269,6 +269,12 @@ export function DashboardSidebar() {
           icon={<Icon name="bell" />}
           active={pathname?.startsWith('/dashboard/notifications')}
         />
+        <NavItem
+          href="/dashboard/my-shifts"
+          label="Mis turnos"
+          icon={<Icon name="calendar" />}
+          active={pathname?.startsWith('/dashboard/my-shifts')}
+        />
 
         {canManageOrg ? (
           <>
