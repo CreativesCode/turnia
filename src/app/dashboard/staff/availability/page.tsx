@@ -10,6 +10,7 @@ import { AvailabilityCalendar } from '@/components/availability/AvailabilityCale
 import type { AvailabilityEvent } from '@/components/availability/AvailabilityEventModal';
 import { AvailabilityEventModal } from '@/components/availability/AvailabilityEventModal';
 import { DashboardDesktopHeader } from '@/components/dashboard/DashboardDesktopHeader';
+import { PermissionRequestModal } from '@/components/permissions/PermissionRequestModal';
 import { Button } from '@/components/ui/Button';
 import { useScheduleOrg } from '@/hooks/useScheduleOrg';
 import Link from 'next/link';
@@ -21,12 +22,17 @@ export default function StaffAvailabilityPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editEvent, setEditEvent] = useState<AvailabilityEvent | null>(null);
   const [initialStart, setInitialStart] = useState<Date | undefined>(undefined);
+  const [permissionModalOpen, setPermissionModalOpen] = useState(false);
 
   const onRefresh = useCallback(() => {
     setRefreshKey((k) => k + 1);
   }, []);
 
   const onSuccess = useCallback(() => {
+    setRefreshKey((k) => k + 1);
+  }, []);
+
+  const onPermissionSuccess = useCallback(() => {
     setRefreshKey((k) => k + 1);
   }, []);
 
@@ -86,6 +92,9 @@ export default function StaffAvailabilityPage() {
           <Button type="button" variant="secondary" size="sm" onClick={onRefresh}>
             Actualizar
           </Button>
+          <Button type="button" variant="secondary" size="sm" onClick={() => setPermissionModalOpen(true)}>
+            Solicitar permiso
+          </Button>
           <Button type="button" size="sm" onClick={() => openAdd()}>
             Agregar
           </Button>
@@ -94,6 +103,9 @@ export default function StaffAvailabilityPage() {
 
       {/* Acciones (desktop) */}
       <div className="hidden flex-wrap items-center justify-end gap-3 md:flex">
+        <Button type="button" variant="secondary" onClick={() => setPermissionModalOpen(true)}>
+          Solicitar permiso
+        </Button>
         <Button type="button" onClick={() => openAdd()}>
           Agregar
         </Button>
@@ -128,6 +140,14 @@ export default function StaffAvailabilityPage() {
           userId={userId}
           editEvent={editEvent}
           initialStart={initialStart}
+        />
+      )}
+      {userId && (
+        <PermissionRequestModal
+          open={permissionModalOpen}
+          onClose={() => setPermissionModalOpen(false)}
+          onSuccess={onPermissionSuccess}
+          currentUserId={userId}
         />
       )}
     </div>

@@ -19,10 +19,21 @@ export type ShiftWithType = {
   } | null;
 };
 
+export type AvailabilityEventForCalendar = {
+  id: string;
+  org_id: string;
+  user_id: string;
+  type: string;
+  start_at: string;
+  end_at: string;
+  note: string | null;
+};
+
 export type ShiftCalendarCache = {
   shifts: ShiftWithType[];
   profilesMap: Record<string, string>;
   staffPositionsMap: Record<string, string>;
+  availabilityEvents?: AvailabilityEventForCalendar[];
 };
 
 export type ShiftCalendarRange = { start: Date; end: Date } | null;

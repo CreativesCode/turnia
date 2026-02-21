@@ -32,15 +32,40 @@ export const AVAILABILITY_TYPE_OPTIONS: { value: AvailabilityEventType; label: s
   { value: 'unavailable', label: 'No disponible' },
 ];
 
+/** Incluye tipos de disponibilidad directa y tipos de permiso aprobado */
+export const ALL_AVAILABILITY_TYPE_OPTIONS: { value: string; label: string }[] = [
+  ...AVAILABILITY_TYPE_OPTIONS,
+  { value: 'administrativo', label: 'Administrativo' },
+  { value: 'capacitacion', label: 'Capacitación (permiso)' },
+  { value: 'descanso_compensatorio', label: 'Descanso compensatorio' },
+  { value: 'descanso_reparatorio', label: 'Descanso reparatorio' },
+  { value: 'licencia_medica', label: 'Licencia médica (permiso)' },
+  { value: 'no_disponible', label: 'No disponible (permiso)' },
+  { value: 'permisos_especiales', label: 'Permisos especiales' },
+  { value: 'vacaciones', label: 'Vacaciones (permiso)' },
+];
+
 const TYPE_COLORS: Record<string, string> = {
   vacation: '#22c55e',
   sick_leave: '#ef4444',
   training: '#3b82f6',
   unavailable: '#6b7280',
+  administrativo: '#8b5cf6',
+  capacitacion: '#0ea5e9',
+  descanso_compensatorio: '#14b8a6',
+  descanso_reparatorio: '#06b6d4',
+  licencia_medica: '#f43f5e',
+  no_disponible: '#64748b',
+  permisos_especiales: '#a855f7',
+  vacaciones: '#10b981',
 };
 
 export function getTypeLabel(t: string): string {
-  return AVAILABILITY_TYPE_OPTIONS.find((o) => o.value === t)?.label ?? t;
+  return (
+    AVAILABILITY_TYPE_OPTIONS.find((o) => o.value === t)?.label ??
+    ALL_AVAILABILITY_TYPE_OPTIONS.find((o) => o.value === t)?.label ??
+    t
+  );
 }
 
 export function getTypeColor(t: string): string {

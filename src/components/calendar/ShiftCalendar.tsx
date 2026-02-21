@@ -119,14 +119,15 @@ function ShiftCalendarInner({
 
   const handleEventClick = useCallback(
     (arg: EventClickArg) => {
-      // Evitar que un swipe abra el detalle por error (tap fantasma post-swipe).
       if (Date.now() - lastSwipeAtRef.current < 350) return;
       arg.jsEvent.preventDefault();
-      const { shift, assignedName } = arg.event.extendedProps as {
-        shift: ShiftWithType;
-        assignedName: string | null;
+      const props = arg.event.extendedProps as {
+        shift?: ShiftWithType;
+        assignedName?: string | null;
+        isAvailability?: boolean;
       };
-      onEventClick?.(shift, assignedName);
+      if (props.isAvailability) return;
+      onEventClick?.(props.shift!, props.assignedName ?? null);
     },
     [onEventClick]
   );
@@ -179,10 +180,18 @@ function ShiftCalendarInner({
   );
 
   const renderEventContent = useCallback((arg: EventContentArg) => {
-    const props = (arg.event.extendedProps ?? {}) as { shift?: ShiftWithType; assignedName?: string | null };
-    const shift = props.shift;
-    const letter = shift?.organization_shift_types?.letter ?? '?';
+    const props = (arg.event.extendedProps ?? {}) as {
+      shift?: ShiftWithType;
+      assignedName?: string | null;
+      isAvailability?: boolean;
+      userName?: string | null;
+    };
     const color = arg.event.backgroundColor ?? '#6B7280';
+    if (props.isAvailability) {
+      const name = props.userName?.trim() || arg.event.title;
+      return <CalendarEventContent title={arg.event.title} letter="∅" color={color} name={name} />;
+    }
+    const letter = props.shift?.organization_shift_types?.letter ?? '?';
     const name = props.assignedName?.trim() || 'Sin asignar';
     return <CalendarEventContent title={arg.event.title} letter={letter} color={color} name={name} />;
   }, []);

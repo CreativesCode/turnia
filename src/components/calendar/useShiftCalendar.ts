@@ -1,5 +1,6 @@
 'use client';
 
+import { getTypeLabel, getTypeColor } from '@/components/availability/AvailabilityEventModal';
 import { useDebounce } from '@/hooks/useDebounce';
 import { getCacheEntry, setCache } from '@/lib/cache';
 import { createClient } from '@/lib/supabase/client';
@@ -108,7 +109,10 @@ export function useShiftCalendar(args: {
       const cached = getCacheEntry<ShiftCalendarCache>(cacheKey, { maxAgeMs: calendarMaxAgeMs(start, end) });
 
       if (!isOnline) {
-        if (cached) return cached.data;
+        if (cached) {
+          const d = cached.data;
+          return { ...d, availabilityEvents: d.availabilityEvents ?? [] };
+        }
         throw new Error('Sin conexión y sin datos guardados para este rango.');
       }
 
@@ -142,7 +146,10 @@ export function useShiftCalendar(args: {
 
       const { data: shiftsData, error: shiftsErr } = await query;
       if (shiftsErr) {
-        if (cached) return cached.data;
+        if (cached) {
+          const d = cached.data;
+          return { ...d, availabilityEvents: d.availabilityEvents ?? [] };
+        }
         throw new Error(shiftsErr.message);
       }
 
@@ -157,13 +164,41 @@ export function useShiftCalendar(args: {
         return { ...s, organization_shift_types: single } as ShiftWithType;
       });
 
-      const userIds = [...new Set(shifts.map((s) => s.assigned_user_id).filter(Boolean))] as string[];
+      const { data: availData } = await supabase
+        .from('availability_events')
+        .select('id, org_id, user_id, type, start_at, end_at, note')
+        .eq('org_id', orgIdKey)
+        .gte('end_at', startIso)
+        .lte('start_at', endIso)
+        .order('start_at', { ascending: true });
+
+      const availEvents = (availData ?? []) as Array<{
+        id: string;
+        org_id: string;
+        user_id: string;
+        type: string;
+        start_at: string;
+        end_at: string;
+        note: string | null;
+      }>;
+
+      const userIds = [
+        ...new Set([
+          ...shifts.map((s) => s.assigned_user_id).filter(Boolean),
+          ...availEvents.map((a) => a.user_id),
+        ]),
+      ] as string[];
       const [profilesMap, staffPositionsMap] = await Promise.all([
         userIds.length > 0 ? fetchProfilesMap(supabase, userIds) : {},
         fetchMembershipStaffPositionsMap(supabase, orgIdKey),
       ]);
 
-      const payload: ShiftCalendarCache = { shifts, profilesMap, staffPositionsMap };
+      const payload: ShiftCalendarCache = {
+        shifts,
+        profilesMap,
+        staffPositionsMap,
+        availabilityEvents: availEvents,
+      };
       setCache(cacheKey, payload);
       return payload;
     },
@@ -204,22 +239,25 @@ export function useShiftCalendar(args: {
     if (!orgId) return;
 
     const supabase = createClient();
-    const channel = supabase
+    const chShifts = supabase
       .channel(`turnia:realtime:shifts:${orgId}`)
       .on(
         'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'shifts',
-          filter: `org_id=eq.${orgId}`,
-        },
+        { event: '*', schema: 'public', table: 'shifts', filter: `org_id=eq.${orgId}` },
         () => {
-          // Evitar ráfagas de mutate en bulk updates: debounce corto.
           if (realtimeDebounceRef.current != null) window.clearTimeout(realtimeDebounceRef.current);
-          realtimeDebounceRef.current = window.setTimeout(() => {
-            void mutate();
-          }, 300);
+          realtimeDebounceRef.current = window.setTimeout(() => void mutate(), 300);
+        }
+      )
+      .subscribe();
+    const chAvail = supabase
+      .channel(`turnia:realtime:availability:${orgId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'availability_events', filter: `org_id=eq.${orgId}` },
+        () => {
+          if (realtimeDebounceRef.current != null) window.clearTimeout(realtimeDebounceRef.current);
+          realtimeDebounceRef.current = window.setTimeout(() => void mutate(), 300);
         }
       )
       .subscribe();
@@ -229,7 +267,8 @@ export function useShiftCalendar(args: {
         window.clearTimeout(realtimeDebounceRef.current);
         realtimeDebounceRef.current = null;
       }
-      void supabase.removeChannel(channel);
+      void supabase.removeChannel(chShifts);
+      void supabase.removeChannel(chAvail);
     };
   }, [orgId, mutate]);
 
@@ -257,10 +296,11 @@ export function useShiftCalendar(args: {
   );
 
   const fcEvents = useMemo(() => {
-    const events = swrData?.shifts ?? [];
+    const shifts = swrData?.shifts ?? [];
+    const availEvents = swrData?.availabilityEvents ?? [];
     const profilesMap = swrData?.profilesMap ?? {};
     const staffPositionsMap = swrData?.staffPositionsMap ?? {};
-    return events.map((s) => {
+    const shiftEvents = shifts.map((s) => {
       const t = s.organization_shift_types;
       const letter = t?.letter ?? '?';
       const color = t?.color ?? '#6B7280';
@@ -273,9 +313,30 @@ export function useShiftCalendar(args: {
         end: s.end_at,
         backgroundColor: color,
         borderColor: color,
-        extendedProps: { shift: s, assignedName: name ?? null },
+        extendedProps: { shift: s, assignedName: name ?? null, isAvailability: false },
       };
     });
+    const availabilityEvents = availEvents.map((a) => {
+      const label = getTypeLabel(a.type);
+      const name = profilesMap[a.user_id] ?? null;
+      const title = name ? `${name}: ${label}` : label;
+      const color = getTypeColor(a.type);
+      return {
+        id: `avail-${a.id}`,
+        title,
+        start: a.start_at,
+        end: a.end_at,
+        backgroundColor: color,
+        borderColor: color,
+        classNames: ['fc-availability-event'],
+        extendedProps: {
+          isAvailability: true,
+          availabilityEvent: a,
+          userName: name,
+        },
+      };
+    });
+    return [...shiftEvents, ...availabilityEvents];
   }, [swrData]);
 
   const error = swrError ? String((swrError as Error).message ?? swrError) : null;

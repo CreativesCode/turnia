@@ -111,3 +111,9 @@ body {
 @utility pr-safe {
   padding-right: env(safe-area-inset-right, 0);
 }
+
+/* Eventos de disponibilidad/permisos en calendario (borde punteado para distinguir de turnos) */
+.fc-availability-event {
+  border-style: dashed !important;
+  opacity: 0.9;
+}

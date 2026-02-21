@@ -291,6 +291,12 @@ export function DashboardSidebar() {
           active={pathname?.startsWith('/dashboard/open-shifts')}
         />
         <NavItem
+          href="/dashboard/permissions"
+          label="Solicitar permiso"
+          icon={<Icon name="file-text" />}
+          active={pathname?.startsWith('/dashboard/permissions')}
+        />
+        <NavItem
           href="/dashboard/statistics"
           label="Estadísticas"
           icon={<Icon name="bar-chart" />}

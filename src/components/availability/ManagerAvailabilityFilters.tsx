@@ -8,9 +8,8 @@
 import { createClient } from '@/lib/supabase/client';
 import { useCallback, useEffect, useState } from 'react';
 import {
-  AVAILABILITY_TYPE_OPTIONS,
+  ALL_AVAILABILITY_TYPE_OPTIONS,
   getTypeColor,
-  type AvailabilityEventType,
 } from './AvailabilityEventModal';
 
 function ChevronDown() {
@@ -30,7 +29,7 @@ function ChevronUp() {
 
 export type ManagerAvailabilityFiltersState = {
   userId: string | null;
-  types: AvailabilityEventType[];
+  types: string[];
 };
 
 const defaultFilters: ManagerAvailabilityFiltersState = {
@@ -94,7 +93,7 @@ export function ManagerAvailabilityFilters({
   }, [load]);
 
   const toggleType = useCallback(
-    (t: AvailabilityEventType) => {
+    (t: string) => {
       const next = value.types.includes(t)
         ? value.types.filter((x) => x !== t)
         : [...value.types, t];
@@ -194,7 +193,7 @@ export function ManagerAvailabilityFilters({
                 </button>
               </div>
               <div className="mt-2 flex flex-col gap-0.5 px-2" role="listbox">
-                {AVAILABILITY_TYPE_OPTIONS.map((o) => {
+                {ALL_AVAILABILITY_TYPE_OPTIONS.map((o) => {
                   const checked = allTypesSelected || value.types.includes(o.value);
                   const color = getTypeColor(o.value);
                   return (

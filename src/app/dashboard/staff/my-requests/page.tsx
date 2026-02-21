@@ -7,10 +7,11 @@
  */
 
 import { DashboardDesktopHeader } from '@/components/dashboard/DashboardDesktopHeader';
+import { MyPermissionRequestsList } from '@/components/permissions/MyPermissionRequestsList';
+import { PermissionRequestModal } from '@/components/permissions/PermissionRequestModal';
 import { MyRequestsList } from '@/components/requests/MyRequestsList';
 import { PendingSwapsForYou } from '@/components/requests/PendingSwapsForYou';
 import { Button } from '@/components/ui/Button';
-import { LinkButton } from '@/components/ui/LinkButton';
 import { useToast } from '@/components/ui/toast/ToastProvider';
 import { useScheduleOrg } from '@/hooks/useScheduleOrg';
 import { useCallback, useState } from 'react';
@@ -18,6 +19,7 @@ import { useCallback, useState } from 'react';
 export default function StaffMyRequestsPage() {
   const { orgId, userId, isLoading, error } = useScheduleOrg();
   const [refreshKey, setRefreshKey] = useState(0);
+  const [permissionModalOpen, setPermissionModalOpen] = useState(false);
   const { toast } = useToast();
 
   const onRefresh = useCallback(() => {
@@ -53,9 +55,9 @@ export default function StaffMyRequestsPage() {
       <div className="flex items-center justify-between gap-3 md:hidden">
         <h1 className="text-lg font-semibold text-text-primary">Mis Solicitudes</h1>
         <div className="flex items-center gap-2">
-          <LinkButton href="/dashboard/manager" variant="primary" size="sm">
-            Nueva
-          </LinkButton>
+          <Button type="button" variant="secondary" size="sm" onClick={() => setPermissionModalOpen(true)}>
+            Solicitar permiso
+          </Button>
           <Button type="button" variant="secondary" size="sm" onClick={onRefresh}>
             Actualizar
           </Button>
@@ -64,6 +66,9 @@ export default function StaffMyRequestsPage() {
 
       {/* Acciones desktop */}
       <div className="hidden flex-wrap items-center gap-3 md:flex">
+        <Button type="button" variant="secondary" onClick={() => setPermissionModalOpen(true)}>
+          Solicitar permiso
+        </Button>
         <Button type="button" variant="secondary" onClick={onRefresh} className="ml-auto">
           Actualizar
         </Button>
@@ -78,7 +83,17 @@ export default function StaffMyRequestsPage() {
         refreshKey={refreshKey}
         onResolved={onResolved}
       />
+      <h2 className="text-base font-semibold text-text-primary">Solicitudes de turnos</h2>
       <MyRequestsList orgId={orgId} userId={userId} refreshKey={refreshKey} />
+      <MyPermissionRequestsList orgId={orgId} userId={userId} refreshKey={refreshKey} />
+      {userId && (
+        <PermissionRequestModal
+          open={permissionModalOpen}
+          onClose={() => setPermissionModalOpen(false)}
+          onSuccess={onResolved}
+          currentUserId={userId}
+        />
+      )}
     </div>
   );
 }
