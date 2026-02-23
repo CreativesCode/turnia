@@ -277,7 +277,7 @@ export function DashboardSidebar() {
 
       <div className="sidebar-nav-scroll flex-1 min-h-0 overflow-y-auto space-y-1 px-3 py-2">
         {/* Turnos por día - visible para todos los usuarios */}
-        <NavItem href="/dashboard" label="Dashboard" icon={<Icon name="grid" />} active={pathname === '/dashboard'} />
+        <NavItem href="/dashboard" label="Dashboard" icon={<Icon name="grid" />} active={pathname === '/dashboard' || pathname === '/dashboard/admin'} />
         <NavItem
           href="/dashboard/daily-schedule"
           label="Turnos por día"
@@ -335,7 +335,6 @@ export function DashboardSidebar() {
 
         {canManageOrg ? (
           <>
-            <NavItem href="/dashboard" label="Dashboard" icon={<Icon name="grid" />} active={pathname === '/dashboard' || pathname === '/dashboard/admin'} />
             <NavItem
               href="/dashboard/manager"
               label="Calendario"
@@ -352,7 +351,6 @@ export function DashboardSidebar() {
           </>
         ) : canManageShifts ? (
           <>
-            <NavItem href="/dashboard" label="Dashboard" icon={<Icon name="grid" />} active={pathname === '/dashboard'} />
             <NavItem
               href="/dashboard/manager"
               label="Calendario"
