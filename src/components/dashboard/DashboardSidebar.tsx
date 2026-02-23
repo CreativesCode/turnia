@@ -1,15 +1,15 @@
 'use client';
 
 import { LogoutButton } from '@/components/auth/LogoutButton';
+import { OrganizationSelector } from '@/components/dashboard/OrganizationSelector';
 import { NotificationBell } from '@/components/notifications/NotificationBell';
 import { OfflinePill } from '@/components/offline/OfflinePill';
 import { ThemeToggleButton } from '@/components/theme/theme';
-import { OrganizationSelector } from '@/components/dashboard/OrganizationSelector';
 import { useScheduleOrg } from '@/hooks/useScheduleOrg';
 import { createClient } from '@/lib/supabase/client';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 function cn(...v: Array<string | false | null | undefined>) {
   return v.filter(Boolean).join(' ');
@@ -246,6 +246,21 @@ export function DashboardSidebar() {
   }, [canManageOrg, canManageShifts]);
 
   const initials = useMemo(() => getInitials(fullName), [fullName]);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const userMenuRef = useRef<HTMLDivElement>(null);
+
+  const closeUserMenu = useCallback(() => setUserMenuOpen(false), []);
+
+  useEffect(() => {
+    if (!userMenuOpen) return;
+    function handleClickOutside(e: MouseEvent) {
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
+        setUserMenuOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [userMenuOpen]);
 
   return (
     <aside className="flex h-screen w-[260px] flex-col border-r border-border bg-background">
@@ -262,6 +277,7 @@ export function DashboardSidebar() {
 
       <div className="sidebar-nav-scroll flex-1 min-h-0 overflow-y-auto space-y-1 px-3 py-2">
         {/* Turnos por día - visible para todos los usuarios */}
+        <NavItem href="/dashboard" label="Dashboard" icon={<Icon name="grid" />} active={pathname === '/dashboard'} />
         <NavItem
           href="/dashboard/daily-schedule"
           label="Turnos por día"
@@ -348,7 +364,6 @@ export function DashboardSidebar() {
           </>
         ) : (
           <>
-            <NavItem href="/dashboard" label="Dashboard" icon={<Icon name="grid" />} active={pathname === '/dashboard'} />
             <NavItem href="/dashboard/manager" label="Calendario" icon={<Icon name="calendar" />} active={pathname?.startsWith('/dashboard/manager')} />
             <NavItem href="/dashboard/staff/my-requests" label="Solicitudes" icon={<Icon name="inbox" />} active={pathname?.startsWith('/dashboard/staff/my-requests')} />
             <NavItem href="/dashboard/staff" label="Equipo" icon={<Icon name="users" />} active={pathname?.startsWith('/dashboard/staff')} />
@@ -356,16 +371,19 @@ export function DashboardSidebar() {
         )}
       </div>
 
-      <div className="shrink-0 border-t border-border p-4">
-        <Link
-          href="/dashboard/profile"
+      <div className="relative shrink-0 border-t border-border px-3 py-2" ref={userMenuRef}>
+        <button
+          type="button"
+          onClick={() => setUserMenuOpen((o) => !o)}
           className={cn(
-            'flex items-center gap-3 rounded-lg px-2 py-1.5 transition-colors',
+            'flex w-full items-center gap-3 rounded-lg px-2 py-1.5 text-left transition-colors',
             pathname?.startsWith('/dashboard/profile')
               ? 'bg-primary-50 text-primary-700'
               : 'text-text-secondary hover:bg-subtle-bg hover:text-text-primary'
           )}
-          aria-current={pathname?.startsWith('/dashboard/profile') ? 'page' : undefined}
+          aria-expanded={userMenuOpen}
+          aria-haspopup="true"
+          aria-label="Menú de usuario"
         >
           <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary-100 text-xs font-semibold text-primary-700" aria-hidden>
             {initials}
@@ -375,18 +393,50 @@ export function DashboardSidebar() {
             <p className="truncate text-xs text-muted">{orgName ? orgName : roleLabel}</p>
             <p className="text-[11px] font-medium text-primary-600 mt-0.5">Preferencia y perfil</p>
           </div>
-          <span className="shrink-0 text-muted" aria-hidden>
-            <Icon name="user" />
+          <span className={cn('shrink-0 text-muted transition-transform', userMenuOpen && 'rotate-180')} aria-hidden>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="m6 9 6 6 6-6" />
+            </svg>
           </span>
-        </Link>
+        </button>
 
-        <div className="mt-3 flex items-center justify-between gap-2 rounded-xl bg-subtle-bg p-3">
-          <OfflinePill variant="dot" />
-          <div className="flex items-center gap-1">
-            <ThemeToggleButton ariaLabel="Cambiar tema" />
-            <NotificationBell />
-            <LogoutButton />
+        {userMenuOpen && (
+          <div
+            className="absolute bottom-full left-3 right-3 mb-1 rounded-lg border border-border bg-background py-1 shadow-lg"
+            role="menu"
+          >
+            <Link
+              href="/dashboard/profile"
+              role="menuitem"
+              onClick={closeUserMenu}
+              className={cn(
+                'flex items-center gap-3 px-3 py-2 text-sm transition-colors',
+                pathname?.startsWith('/dashboard/profile')
+                  ? 'bg-primary-50 text-primary-700'
+                  : 'text-text-secondary hover:bg-subtle-bg hover:text-text-primary'
+              )}
+            >
+              <Icon name="user" />
+              <span>Preferencia y perfil</span>
+            </Link>
+            <div className="my-1 border-t border-border" />
+            <div className="flex items-center justify-between gap-2 px-3 py-2" role="menuitem">
+              <span className="text-sm text-text-secondary">Tema</span>
+              <ThemeToggleButton ariaLabel="Cambiar tema" />
+            </div>
+            <div className="flex items-center justify-between gap-2 px-3 py-2" role="menuitem">
+              <span className="text-sm text-text-secondary">Notificaciones</span>
+              <NotificationBell />
+            </div>
+            <div className="border-t border-border" />
+            <div className="px-3 py-2" role="menuitem">
+              <LogoutButton />
+            </div>
           </div>
+        )}
+
+        <div className="mt-1.5 flex items-center justify-center">
+          <OfflinePill variant="dot" />
         </div>
       </div>
     </aside>
