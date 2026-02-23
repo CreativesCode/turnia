@@ -534,7 +534,9 @@ export function DashboardNav() {
         <Link href="/dashboard/admin/settings" className="text-text-secondary hover:text-primary-600">Configuración</Link>
         <Link href="/dashboard/admin/exports" className="text-text-secondary hover:text-primary-600">Exportar</Link>
         <Link href="/dashboard/admin/reports" className="text-text-secondary hover:text-primary-600">Reportes</Link>
-        <Link href="/dashboard/admin/audit" className="text-text-secondary hover:text-primary-600">Auditoría</Link>
+        {canManageOrg && (
+          <Link href="/dashboard/admin/audit" className="text-text-secondary hover:text-primary-600">Auditoría</Link>
+        )}
         <Link href="/dashboard/manager" className="text-text-secondary hover:text-primary-600">Calendario</Link>
         <Link href="/dashboard/manager/shifts" className="text-text-secondary hover:text-primary-600">Lista de turnos</Link>
         <Link href="/dashboard/manager/requests" className="text-text-secondary hover:text-primary-600">Solicitudes</Link>
