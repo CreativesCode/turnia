@@ -62,8 +62,8 @@ export function DashboardDesktopHeader({
             <Link
               href="/dashboard/profile"
               className="flex h-10 w-10 items-center justify-center rounded-full bg-primary-100 text-sm font-semibold text-primary-700"
-              aria-label="Mi perfil"
-              title="Mi perfil"
+              aria-label="Preferencia y perfil"
+              title="Preferencia y perfil"
             >
               {initials}
             </Link>

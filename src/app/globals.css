@@ -117,3 +117,25 @@ body {
   border-style: dashed !important;
   opacity: 0.9;
 }
+
+/* Scrollbar fina y clara en el sidebar */
+.sidebar-nav-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--muted) transparent;
+}
+.sidebar-nav-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+.sidebar-nav-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.sidebar-nav-scroll::-webkit-scrollbar-thumb {
+  background: var(--muted);
+  border-radius: 3px;
+}
+.sidebar-nav-scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--text-secondary);
+}
+.dark .sidebar-nav-scroll {
+  scrollbar-color: var(--muted) transparent;
+}

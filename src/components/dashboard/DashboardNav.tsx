@@ -322,7 +322,7 @@ export function DashboardNav() {
                 {link('/dashboard/active-now', 'De turno ahora')}
                 {link('/dashboard/transactions', 'Transacciones')}
                 {canManageShifts && link('/dashboard/manager/shifts', 'Lista de turnos')}
-                {link('/dashboard/profile', 'Mi perfil')}
+                {link('/dashboard/profile', 'Preferencia y perfil')}
                 {canManageOrg && (
                   <>
                     {link('/dashboard/admin/organizations', 'Organizaciones')}
@@ -358,7 +358,7 @@ export function DashboardNav() {
         <Link href="/dashboard" className="font-medium text-text-primary hover:text-primary-600">Dashboard</Link>
         <Link href="/dashboard/daily-schedule" className="text-text-secondary hover:text-primary-600">Turnos por día</Link>
         <Link href="/dashboard/active-now" className="text-text-secondary hover:text-primary-600">De turno ahora</Link>
-        <Link href="/dashboard/profile" className="text-text-secondary hover:text-primary-600">Perfil</Link>
+        <Link href="/dashboard/profile" className="text-text-secondary hover:text-primary-600">Preferencia y perfil</Link>
         <Link href="/dashboard/admin" className="text-text-secondary hover:text-primary-600">Admin</Link>
         <Link href="/dashboard/admin/organizations" className="text-text-secondary hover:text-primary-600">Organizaciones</Link>
         <Link href="/dashboard/admin/members" className="text-text-secondary hover:text-primary-600">Miembros</Link>

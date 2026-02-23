@@ -69,7 +69,8 @@ function Icon({
   | 'calendar-day'
   | 'activity'
   | 'bell'
-  | 'bar-chart';
+  | 'bar-chart'
+  | 'user';
 }) {
   switch (name) {
     case 'grid':
@@ -201,6 +202,13 @@ function Icon({
           <line x1="6" y1="20" x2="6" y2="16" />
         </svg>
       );
+    case 'user':
+      return (
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
+          <circle cx="12" cy="7" r="4" />
+        </svg>
+      );
   }
 }
 
@@ -252,7 +260,7 @@ export function DashboardSidebar() {
         <OrganizationSelector />
       </div>
 
-      <div className="flex-1 space-y-1 px-3 py-2">
+      <div className="sidebar-nav-scroll flex-1 min-h-0 overflow-y-auto space-y-1 px-3 py-2">
         {/* Turnos por día - visible para todos los usuarios */}
         <NavItem
           href="/dashboard/daily-schedule"
@@ -302,6 +310,12 @@ export function DashboardSidebar() {
           icon={<Icon name="bar-chart" />}
           active={pathname?.startsWith('/dashboard/statistics')}
         />
+        <NavItem
+          href="/dashboard/profile"
+          label="Preferencia y perfil"
+          icon={<Icon name="user" />}
+          active={pathname?.startsWith('/dashboard/profile')}
+        />
 
         {canManageOrg ? (
           <>
@@ -338,21 +352,33 @@ export function DashboardSidebar() {
             <NavItem href="/dashboard/manager" label="Calendario" icon={<Icon name="calendar" />} active={pathname?.startsWith('/dashboard/manager')} />
             <NavItem href="/dashboard/staff/my-requests" label="Solicitudes" icon={<Icon name="inbox" />} active={pathname?.startsWith('/dashboard/staff/my-requests')} />
             <NavItem href="/dashboard/staff" label="Equipo" icon={<Icon name="users" />} active={pathname?.startsWith('/dashboard/staff')} />
-            <NavItem href="/dashboard/profile" label="Configuración" icon={<Icon name="settings" />} active={pathname?.startsWith('/dashboard/profile')} />
           </>
         )}
       </div>
 
-      <div className="border-t border-border p-4">
-        <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary-100 text-xs font-semibold text-primary-700" aria-hidden>
+      <div className="shrink-0 border-t border-border p-4">
+        <Link
+          href="/dashboard/profile"
+          className={cn(
+            'flex items-center gap-3 rounded-lg px-2 py-1.5 transition-colors',
+            pathname?.startsWith('/dashboard/profile')
+              ? 'bg-primary-50 text-primary-700'
+              : 'text-text-secondary hover:bg-subtle-bg hover:text-text-primary'
+          )}
+          aria-current={pathname?.startsWith('/dashboard/profile') ? 'page' : undefined}
+        >
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary-100 text-xs font-semibold text-primary-700" aria-hidden>
             {initials}
-          </div>
+          </span>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium text-text-primary">{fullName?.trim() || roleLabel}</p>
+            <p className="truncate text-sm font-medium">{fullName?.trim() || roleLabel}</p>
             <p className="truncate text-xs text-muted">{orgName ? orgName : roleLabel}</p>
+            <p className="text-[11px] font-medium text-primary-600 mt-0.5">Preferencia y perfil</p>
           </div>
-        </div>
+          <span className="shrink-0 text-muted" aria-hidden>
+            <Icon name="user" />
+          </span>
+        </Link>
 
         <div className="mt-3 flex items-center justify-between gap-2 rounded-xl bg-subtle-bg p-3">
           <OfflinePill variant="dot" />

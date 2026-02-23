@@ -2,6 +2,7 @@
 
 import { DashboardDesktopHeader } from '@/components/dashboard/DashboardDesktopHeader';
 import { Skeleton } from '@/components/ui/Skeleton';
+import { ThemeSelect } from '@/components/theme/theme';
 import { useScheduleOrg } from '@/hooks/useScheduleOrg';
 import { createClient } from '@/lib/supabase/client';
 import Link from 'next/link';
@@ -13,6 +14,29 @@ type Stats = {
   monthHours: number;
   approvedRequests: number;
 };
+
+type UserOrg = {
+  id: string;
+  name: string;
+  role: string;
+};
+
+function roleToLabel(role: string): string {
+  switch (role) {
+    case 'superadmin':
+      return 'Superadmin';
+    case 'org_admin':
+      return 'Admin';
+    case 'team_manager':
+      return 'Manager';
+    case 'user':
+      return 'Staff';
+    case 'viewer':
+      return 'Viewer';
+    default:
+      return role;
+  }
+}
 
 function initials(name: string | null): string {
   const n = (name ?? '').trim();
@@ -37,6 +61,7 @@ export default function ProfilePage() {
   const [email, setEmail] = useState<string | null>(null);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [stats, setStats] = useState<Stats>({ monthShifts: 0, monthHours: 0, approvedRequests: 0 });
+  const [userOrganizations, setUserOrganizations] = useState<UserOrg[]>([]);
   const [loadingData, setLoadingData] = useState(false);
   const [savingProfile, setSavingProfile] = useState(false);
   const [profileSuccess, setProfileSuccess] = useState<string | null>(null);
@@ -54,16 +79,27 @@ export default function ProfilePage() {
     setLoadingData(true);
     const supabase = createClient();
 
-    const [{ data: prof }, { data: org }, { data: au }] = await Promise.all([
+    const [{ data: prof }, { data: org }, { data: au }, { data: memberships }] = await Promise.all([
       supabase.from('profiles').select('full_name, avatar_url').eq('id', userId).maybeSingle(),
       supabase.from('organizations').select('name').eq('id', orgId).maybeSingle(),
       supabase.auth.getUser(),
+      supabase.from('memberships').select('org_id, role, organizations(id, name)').eq('user_id', userId).order('org_id', { ascending: true }),
     ]);
 
     setFullName((prof as { full_name?: string | null; avatar_url?: string | null } | null)?.full_name ?? null);
     setAvatarUrl((prof as { full_name?: string | null; avatar_url?: string | null } | null)?.avatar_url ?? null);
     setOrgName((org as { name?: string | null } | null)?.name ?? null);
     setEmail(au.user?.email ?? null);
+
+    const orgs: UserOrg[] = (memberships ?? [])
+      .map((m: { org_id: string; role: string; organizations: { id: string; name: string } | { id: string; name: string }[] | null }) => {
+        const orgData = Array.isArray(m.organizations) ? m.organizations[0] : m.organizations;
+        const o = orgData as { id: string; name: string } | null | undefined;
+        if (!o?.id || !o?.name) return null;
+        return { id: o.id, name: o.name, role: m.role };
+      })
+      .filter((o): o is UserOrg => o !== null);
+    setUserOrganizations(orgs);
 
     const now = new Date();
     const from = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
@@ -196,7 +232,7 @@ export default function ProfilePage() {
   if (!orgId || !userId) {
     return (
       <div className="rounded-xl border border-border bg-background p-6">
-        <h1 className="text-xl font-semibold text-text-primary">Mi perfil</h1>
+        <h1 className="text-xl font-semibold text-text-primary">Preferencia y perfil</h1>
         <p className="mt-2 text-sm text-muted">Inicia sesión y asegúrate de tener una organización asignada.</p>
         <div className="mt-4">
           <Link href="/login" className="text-sm font-medium text-primary-600 hover:text-primary-700">
@@ -211,11 +247,11 @@ export default function ProfilePage() {
 
   return (
     <div className="space-y-4">
-      <DashboardDesktopHeader title="Mi Perfil" subtitle={orgName ? `${orgName} • ${roleLabel}` : roleLabel} />
+      <DashboardDesktopHeader title="Preferencia y perfil" subtitle={orgName ? `${orgName} • ${roleLabel}` : roleLabel} />
 
       {/* Header (móvil) */}
       <div className="flex items-center justify-center md:hidden">
-        <h1 className="text-lg font-semibold text-text-primary">Mi Perfil</h1>
+        <h1 className="text-lg font-semibold text-text-primary">Preferencia y perfil</h1>
       </div>
 
       <div className="grid gap-4 md:grid-cols-[320px_1fr] md:gap-8">
@@ -273,6 +309,26 @@ export default function ProfilePage() {
               </div>
             </div>
           </div>
+
+          <div className="rounded-2xl border border-border bg-background p-5 md:rounded-xl md:p-5">
+            <h3 className="text-sm font-semibold text-text-primary mb-3">Organizaciones</h3>
+            {loadingData ? (
+              <p className="text-sm text-muted">Cargando…</p>
+            ) : userOrganizations.length === 0 ? (
+              <p className="text-sm text-muted">No perteneces a ninguna organización.</p>
+            ) : (
+              <ul className="space-y-2">
+                {userOrganizations.map((o) => (
+                  <li key={o.id} className="flex items-center justify-between gap-2 rounded-lg border border-border bg-subtle-bg/50 px-3 py-2">
+                    <span className="truncate text-sm font-medium text-text-primary">{o.name}</span>
+                    <span className="shrink-0 rounded-full bg-primary-50 px-2 py-0.5 text-[11px] font-medium text-primary-700">
+                      {roleToLabel(o.role)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
         </div>
 
         {/* Right */}
@@ -329,9 +385,18 @@ export default function ProfilePage() {
             </div>
           </form>
 
+          <div className="overflow-hidden rounded-2xl border border-border bg-background p-5 md:rounded-xl md:p-5 space-y-4">
+            <h2 className="text-sm font-semibold text-text-primary">Preferencias</h2>
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="text-sm text-text-secondary">Apariencia</span>
+              <ThemeSelect className="min-h-[36px] w-[140px] rounded-lg border border-border bg-background px-3 py-2 text-sm text-text-primary focus:border-primary-500 focus:outline-none" />
+            </div>
+          </div>
+
           <div className="overflow-hidden rounded-2xl border border-border bg-background md:rounded-xl">
             <MenuLink href="/dashboard/notifications" label="Notificaciones" icon="bell" />
             <MenuLink href="/dashboard/staff/availability" label="Mi disponibilidad" icon="calendar" />
+            <MenuLink href="/forgot-password" label="Cambiar contraseña" icon="lock" />
             <button
               type="button"
               onClick={handleLogout}
@@ -349,7 +414,7 @@ export default function ProfilePage() {
   );
 }
 
-function Icon({ name }: { name: 'pencil' | 'bell' | 'calendar' | 'log-out' }) {
+function Icon({ name }: { name: 'pencil' | 'bell' | 'calendar' | 'log-out' | 'lock' }) {
   switch (name) {
     case 'pencil':
       return (
@@ -380,6 +445,13 @@ function Icon({ name }: { name: 'pencil' | 'bell' | 'calendar' | 'log-out' }) {
           <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
           <path d="M16 17l5-5-5-5" />
           <path d="M21 12H9" />
+        </svg>
+      );
+    case 'lock':
+      return (
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+          <path d="M7 11V7a5 5 0 0 1 10 0v4" />
         </svg>
       );
   }
