@@ -40,8 +40,7 @@ export function CreateOrganizationModal({ open, onClose, onCreated }: Props) {
       setParentId(null);
       const supabase = createClient();
       setLoadingParents(true);
-      supabase
-        .rpc('get_my_accessible_organizations')
+      Promise.resolve(supabase.rpc('get_my_accessible_organizations'))
         .then(({ data: rows }) => {
           const list = (rows ?? []) as { id: string; name: string; parent_id: string | null; role: string }[];
           const roots = list.filter((r) => !r.parent_id && ['org_admin', 'superadmin'].includes(r.role ?? ''));

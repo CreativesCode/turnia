@@ -32,7 +32,7 @@ export function ShiftsByDateChart({ data }: Props) {
         <CartesianGrid strokeDasharray="3 3" />
         <XAxis dataKey="fecha" angle={-45} textAnchor="end" height={100} />
         <YAxis />
-        <Tooltip formatter={(value: number) => `${value.toFixed(1)}`} />
+        <Tooltip formatter={(value: number | undefined) => (value != null ? `${value.toFixed(1)}` : '')} />
         <Legend />
         <Line type="monotone" dataKey="turnos" stroke="#8884d8" name="Turnos" strokeWidth={2} />
         <Line type="monotone" dataKey="horas" stroke="#82ca9d" name="Horas" strokeWidth={2} />

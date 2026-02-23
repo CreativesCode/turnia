@@ -10,7 +10,12 @@ import useSWR from 'swr';
 
 import type { DatesSetArg } from '@fullcalendar/core';
 import type { ShiftCalendarFiltersState } from './ShiftCalendarFilters';
-import type { ShiftCalendarCache, ShiftCalendarRange, ShiftWithType } from './shiftCalendarTypes';
+import type {
+  AvailabilityEventForCalendar,
+  ShiftCalendarCache,
+  ShiftCalendarRange,
+  ShiftWithType,
+} from './shiftCalendarTypes';
 
 function ymd(d: Date): string {
   const yyyy = d.getFullYear();
@@ -45,21 +50,38 @@ function formatEventTitle(letter: string, assignedName: string | null, staffPosi
   return `${letter} – Sin asignar`;
 }
 
+export type ShiftFcEvent = {
+  id: string;
+  title: string;
+  start: string;
+  end: string;
+  backgroundColor: string;
+  borderColor: string;
+  extendedProps: { shift: ShiftWithType; assignedName: string | null; isAvailability: false };
+};
+
+export type AvailabilityFcEvent = {
+  id: string;
+  title: string;
+  start: string;
+  end: string;
+  backgroundColor: string;
+  borderColor: string;
+  classNames: string[];
+  extendedProps: {
+    isAvailability: true;
+    availabilityEvent: AvailabilityEventForCalendar;
+    userName: string | null;
+  };
+};
+
 export type UseShiftCalendarResult = {
   loading: boolean;
   error: string | null;
   notice: string | null;
   usingCache: boolean;
   range: ShiftCalendarRange;
-  fcEvents: Array<{
-    id: string;
-    title: string;
-    start: string;
-    end: string;
-    backgroundColor: string;
-    borderColor: string;
-    extendedProps: { shift: ShiftWithType; assignedName: string | null };
-  }>;
+  fcEvents: Array<ShiftFcEvent | AvailabilityFcEvent>;
   fetchShifts: (start: Date, end: Date) => Promise<void>;
   handleDatesSet: (arg: DatesSetArg) => void;
 };
@@ -313,7 +335,7 @@ export function useShiftCalendar(args: {
         end: s.end_at,
         backgroundColor: color,
         borderColor: color,
-        extendedProps: { shift: s, assignedName: name ?? null, isAvailability: false },
+        extendedProps: { shift: s, assignedName: name ?? null, isAvailability: false as const },
       };
     });
     const availabilityEvents = availEvents.map((a) => {
@@ -330,7 +352,7 @@ export function useShiftCalendar(args: {
         borderColor: color,
         classNames: ['fc-availability-event'],
         extendedProps: {
-          isAvailability: true,
+          isAvailability: true as const,
           availabilityEvent: a,
           userName: name,
         },

@@ -68,8 +68,8 @@ export function useSelectedOrg(): UseSelectedOrgResult {
             parentId: r.parent_id ?? null,
           };
         })
-        .filter((o): o is OrganizationInfo => o !== null)
-        .sort((a, b) => {
+        .filter((o: OrganizationInfo | null): o is OrganizationInfo => o !== null)
+        .sort((a: OrganizationInfo, b: OrganizationInfo) => {
           // Raíces primero, luego por nombre; hijas después de su padre
           if (a.parentId && !b.parentId) return 1;
           if (!a.parentId && b.parentId) return -1;

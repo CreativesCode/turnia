@@ -71,20 +71,27 @@ export function useStatistics(orgId: string | null, startDate: Date, endDate: Da
         throw new Error(shiftsError.message);
       }
 
-      const shiftsList = (shifts ?? []) as Array<{
+      type ShiftType = { id: string; name: string; letter: string; color: string };
+      const raw = (shifts ?? []) as Array<{
         id: string;
         start_at: string;
         end_at: string;
         assigned_user_id: string | null;
         status: string;
         shift_type_id: string;
-        organization_shift_types: {
-          id: string;
-          name: string;
-          letter: string;
-          color: string;
-        } | null;
+        organization_shift_types: ShiftType | ShiftType[] | null;
       }>;
+      const shiftsList = raw.map((s) => ({
+        id: s.id,
+        start_at: s.start_at,
+        end_at: s.end_at,
+        assigned_user_id: s.assigned_user_id,
+        status: s.status,
+        shift_type_id: s.shift_type_id,
+        organization_shift_types: Array.isArray(s.organization_shift_types)
+          ? s.organization_shift_types[0] ?? null
+          : s.organization_shift_types,
+      }));
 
       // Calcular horas totales
       let totalHours = 0;

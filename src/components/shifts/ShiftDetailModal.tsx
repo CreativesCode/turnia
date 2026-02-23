@@ -24,7 +24,7 @@ type RequestModalType = 'give_away' | 'take_open' | 'swap' | null;
 type Props = {
   open: boolean;
   onClose: () => void;
-  onEdit: () => void;
+  onEdit?: () => void;
   onDeleted: () => void;
   onRequestCreated?: () => void;
   shift: ShiftWithType | null;
@@ -225,7 +225,7 @@ export function ShiftDetailModal({
               >
                 Eliminar
               </Button>
-              <Button type="button" onClick={onEdit}>
+              <Button type="button" onClick={onEdit ?? undefined}>
                 Editar
               </Button>
             </>

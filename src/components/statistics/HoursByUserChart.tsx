@@ -30,7 +30,7 @@ export function HoursByUserChart({ data }: Props) {
         <CartesianGrid strokeDasharray="3 3" />
         <XAxis dataKey="name" angle={-45} textAnchor="end" height={100} />
         <YAxis />
-        <Tooltip formatter={(value: number) => `${value.toFixed(1)}`} />
+        <Tooltip formatter={(value: number | undefined) => (value != null ? `${value.toFixed(1)}` : '')} />
         <Legend />
         <Bar dataKey="horas" fill="#8884d8" name="Horas" />
         <Bar dataKey="turnos" fill="#82ca9d" name="Turnos" />

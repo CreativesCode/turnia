@@ -93,11 +93,10 @@ export default function ProfilePage() {
     setEmail(au.user?.email ?? null);
 
     const orgs: UserOrg[] = ((accessibleOrgs ?? []) as { id: string; name: string; parent_id: string | null; role: string }[])
-      .map((r) => {
-        if (!r?.id || !r?.name) return null;
-        return { id: r.id, name: r.name, role: r.role ?? 'viewer', parentId: r.parent_id ?? null };
+      .flatMap((r) => {
+        if (!r?.id || !r?.name) return [];
+        return [{ id: r.id, name: r.name, role: r.role ?? 'viewer', parentId: r.parent_id ?? null }];
       })
-      .filter((o): o is UserOrg => o !== null)
       .sort((a, b) => {
         if (a.parentId && !b.parentId) return 1;
         if (!a.parentId && b.parentId) return -1;

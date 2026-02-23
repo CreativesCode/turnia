@@ -29,7 +29,7 @@ export function ShiftsByDayChart({ data }: Props) {
         <CartesianGrid strokeDasharray="3 3" />
         <XAxis dataKey="día" />
         <YAxis />
-        <Tooltip formatter={(value: number) => `${value.toFixed(1)}`} />
+        <Tooltip formatter={(value: number | undefined) => (value != null ? `${value.toFixed(1)}` : '')} />
         <Legend />
         <Bar dataKey="turnos" fill="#8884d8" name="Turnos" />
         <Bar dataKey="horas" fill="#82ca9d" name="Horas" />

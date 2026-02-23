@@ -33,7 +33,7 @@ export function ShiftsByTypeChart({ data }: Props) {
           cx="50%"
           cy="50%"
           labelLine={false}
-          label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+          label={({ name, percent }) => `${name}: ${((percent ?? 0) * 100).toFixed(0)}%`}
           outerRadius={80}
           fill="#8884d8"
           dataKey="value"
@@ -43,8 +43,8 @@ export function ShiftsByTypeChart({ data }: Props) {
           ))}
         </Pie>
         <Tooltip
-          formatter={(value: number, name: string, props: any) => [
-            `${value} turnos (${props.payload.hours} horas)`,
+          formatter={(value: number | undefined, name: string | undefined, props: any) => [
+            `${value ?? 0} turnos (${props?.payload?.hours ?? 0} horas)`,
             'Cantidad',
           ]}
         />
