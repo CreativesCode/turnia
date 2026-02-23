@@ -19,6 +19,7 @@ type UserOrg = {
   id: string;
   name: string;
   role: string;
+  parentId?: string | null;
 };
 
 function roleToLabel(role: string): string {
@@ -79,11 +80,11 @@ export default function ProfilePage() {
     setLoadingData(true);
     const supabase = createClient();
 
-    const [{ data: prof }, { data: org }, { data: au }, { data: memberships }] = await Promise.all([
+    const [{ data: prof }, { data: org }, { data: au }, { data: accessibleOrgs }] = await Promise.all([
       supabase.from('profiles').select('full_name, avatar_url').eq('id', userId).maybeSingle(),
       supabase.from('organizations').select('name').eq('id', orgId).maybeSingle(),
       supabase.auth.getUser(),
-      supabase.from('memberships').select('org_id, role, organizations(id, name)').eq('user_id', userId).order('org_id', { ascending: true }),
+      supabase.rpc('get_my_accessible_organizations'),
     ]);
 
     setFullName((prof as { full_name?: string | null; avatar_url?: string | null } | null)?.full_name ?? null);
@@ -91,14 +92,18 @@ export default function ProfilePage() {
     setOrgName((org as { name?: string | null } | null)?.name ?? null);
     setEmail(au.user?.email ?? null);
 
-    const orgs: UserOrg[] = (memberships ?? [])
-      .map((m: { org_id: string; role: string; organizations: { id: string; name: string } | { id: string; name: string }[] | null }) => {
-        const orgData = Array.isArray(m.organizations) ? m.organizations[0] : m.organizations;
-        const o = orgData as { id: string; name: string } | null | undefined;
-        if (!o?.id || !o?.name) return null;
-        return { id: o.id, name: o.name, role: m.role };
+    const orgs: UserOrg[] = ((accessibleOrgs ?? []) as { id: string; name: string; parent_id: string | null; role: string }[])
+      .map((r) => {
+        if (!r?.id || !r?.name) return null;
+        return { id: r.id, name: r.name, role: r.role ?? 'viewer', parentId: r.parent_id ?? null };
       })
-      .filter((o): o is UserOrg => o !== null);
+      .filter((o): o is UserOrg => o !== null)
+      .sort((a, b) => {
+        if (a.parentId && !b.parentId) return 1;
+        if (!a.parentId && b.parentId) return -1;
+        if (a.parentId && b.parentId && a.parentId !== b.parentId) return a.parentId.localeCompare(b.parentId) || a.name.localeCompare(b.name);
+        return a.name.localeCompare(b.name);
+      });
     setUserOrganizations(orgs);
 
     const now = new Date();
@@ -319,8 +324,12 @@ export default function ProfilePage() {
             ) : (
               <ul className="space-y-2">
                 {userOrganizations.map((o) => (
-                  <li key={o.id} className="flex items-center justify-between gap-2 rounded-lg border border-border bg-subtle-bg/50 px-3 py-2">
-                    <span className="truncate text-sm font-medium text-text-primary">{o.name}</span>
+                  <li
+                    key={o.id}
+                    className={`flex items-center justify-between gap-2 rounded-lg border border-border bg-subtle-bg/50 px-3 py-2 ${o.parentId ? 'pl-5' : ''}`}
+                  >
+                    {o.parentId ? <span className="text-muted mr-1 shrink-0">↳</span> : null}
+                    <span className="min-w-0 truncate text-sm font-medium text-text-primary">{o.name}</span>
                     <span className="shrink-0 rounded-full bg-primary-50 px-2 py-0.5 text-[11px] font-medium text-primary-700">
                       {roleToLabel(o.role)}
                     </span>

@@ -108,6 +108,7 @@ export function OrganizationSelector() {
         <div className="absolute left-0 right-0 top-full z-50 mt-1 max-h-[300px] overflow-y-auto rounded-lg border border-border bg-background shadow-lg">
           {organizations.map((org) => {
             const isSelected = org.id === selectedOrgId;
+            const isChild = !!org.parentId;
             return (
               <button
                 key={org.id}
@@ -115,16 +116,21 @@ export function OrganizationSelector() {
                 onClick={() => {
                   setSelectedOrgId(org.id);
                   setIsOpen(false);
-                  // Recargar la página para actualizar el contexto con la nueva organización
                   router.refresh();
                 }}
                 className={cn(
                   'flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors',
+                  isChild && 'pl-6',
                   isSelected
                     ? 'bg-primary-50 text-primary-700 font-medium'
                     : 'text-text-secondary hover:bg-subtle-bg hover:text-text-primary'
                 )}
               >
+                {isChild && (
+                  <span className="text-muted" aria-hidden>
+                    ↳
+                  </span>
+                )}
                 <span className="min-w-0 flex-1 truncate">{org.name}</span>
                 {isSelected && (
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

@@ -52,7 +52,7 @@ export async function checkCanApproveRequests(
   return checkCanManageShifts(supabase, userId, orgId);
 }
 
-/** org_admin o superadmin en la org (invitar, gestionar miembros, etc.). */
+/** org_admin o superadmin en la org, o org_admin en la org padre (jerarquía 2 niveles). */
 export async function checkCanManageOrg(
   supabase: SupabaseClient,
   userId: string,
@@ -73,7 +73,23 @@ export async function checkCanManageOrg(
     .eq('role', 'superadmin')
     .limit(1)
     .maybeSingle();
-  return !!sa;
+  if (sa) return true;
+  const { data: org } = await supabase
+    .from('organizations')
+    .select('parent_id')
+    .eq('id', orgId)
+    .maybeSingle();
+  if (org?.parent_id) {
+    const { data: parentM } = await supabase
+      .from('memberships')
+      .select('id')
+      .eq('org_id', org.parent_id)
+      .eq('user_id', userId)
+      .in('role', ['org_admin', 'superadmin'])
+      .maybeSingle();
+    if (parentM) return true;
+  }
+  return false;
 }
 
 /** Solo org_admin o superadmin (team_manager NO puede eliminar turnos). */

@@ -9,6 +9,8 @@ import { createClient } from '@/lib/supabase/client';
 import { generateSlug } from '@/lib/utils';
 import { useCallback, useEffect, useState } from 'react';
 
+type ParentOption = { id: string; name: string };
+
 type Props = {
   open: boolean;
   onClose: () => void;
@@ -16,13 +18,17 @@ type Props = {
 };
 
 /**
- * Modal para crear organización. Solo superadmin (RLS: orgs_insert_superadmin).
- * Compatible con SPA + Capacitor.
+ * Modal para crear organización. Superadmin puede crear raíz o suborganización;
+ * org_admin puede crear suborganización bajo una org que administra (2 niveles).
  */
 export function CreateOrganizationModal({ open, onClose, onCreated }: Props) {
   const { toast } = useToast();
   const [name, setName] = useState('');
   const [slug, setSlug] = useState('');
+  const [parentId, setParentId] = useState<string | null>(null);
+  const [parentOptions, setParentOptions] = useState<ParentOption[]>([]);
+  const [canCreateRoot, setCanCreateRoot] = useState(false);
+  const [loadingParents, setLoadingParents] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -31,6 +37,19 @@ export function CreateOrganizationModal({ open, onClose, onCreated }: Props) {
       setName('');
       setSlug('');
       setError(null);
+      setParentId(null);
+      const supabase = createClient();
+      setLoadingParents(true);
+      supabase
+        .rpc('get_my_accessible_organizations')
+        .then(({ data: rows }) => {
+          const list = (rows ?? []) as { id: string; name: string; parent_id: string | null; role: string }[];
+          const roots = list.filter((r) => !r.parent_id && ['org_admin', 'superadmin'].includes(r.role ?? ''));
+          setParentOptions(roots.map((r) => ({ id: r.id, name: r.name })));
+          setCanCreateRoot(list.some((r) => ['org_admin', 'superadmin'].includes(r.role ?? '')));
+          if (roots.length > 0 && !list.some((r) => ['org_admin', 'superadmin'].includes(r.role ?? ''))) setParentId(roots[0]?.id ?? null);
+        })
+        .finally(() => setLoadingParents(false));
     }
   }, [open]);
 
@@ -43,6 +62,7 @@ export function CreateOrganizationModal({ open, onClose, onCreated }: Props) {
       const { error: err } = await supabase.from('organizations').insert({
         name: name.trim(),
         slug: (slug.trim() || null) as string | null,
+        parent_id: parentId || null,
       });
       setLoading(false);
       if (err) {
@@ -54,7 +74,7 @@ export function CreateOrganizationModal({ open, onClose, onCreated }: Props) {
       onClose();
       toast({ variant: 'success', title: 'Organización creada', message: 'La organización se creó correctamente.' });
     },
-    [name, slug, onCreated, onClose, toast]
+    [name, slug, parentId, onCreated, onClose, toast]
   );
 
   if (!open) return null;
@@ -78,6 +98,27 @@ export function CreateOrganizationModal({ open, onClose, onCreated }: Props) {
             className="mt-1.5"
           />
         </label>
+        {(parentOptions.length > 0 || canCreateRoot) && (
+          <label className="block text-sm font-medium text-text-secondary">
+            Organización padre
+            <select
+              value={parentId ?? ''}
+              onChange={(e) => setParentId(e.target.value || null)}
+              disabled={loadingParents}
+              className="mt-1.5 block w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-text-primary disabled:opacity-50"
+            >
+              {canCreateRoot && <option value="">Ninguna (organización raíz)</option>}
+              {parentOptions.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+            <span className="mt-1 block text-xs text-muted">
+              Ninguna = organización raíz. O elige una para crear una suborganización.
+            </span>
+          </label>
+        )}
         <label className="block text-sm font-medium text-text-secondary">
           Slug <span className="font-normal text-muted">(opcional, único)</span>
           <div className="mt-1.5 flex gap-2">

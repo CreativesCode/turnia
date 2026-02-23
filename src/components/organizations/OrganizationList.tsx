@@ -10,6 +10,7 @@ type Row = {
   id: string;
   name: string;
   slug: string | null;
+  parent_id: string | null;
   created_at: string;
 };
 
@@ -26,16 +27,25 @@ export function OrganizationList({ refreshKey = 0 }: Props) {
 
   const swrKey = useMemo(() => ['organizationList', page] as const, [page]);
 
-  const fetcher = useCallback(async (): Promise<{ rows: Row[]; total: number }> => {
+  const fetcher = useCallback(async (): Promise<{ rows: Row[]; total: number; parentNames: Record<string, string> }> => {
     const supabase = createClient();
     const fromIdx = (page - 1) * PAGE_SIZE;
     const { data, error: err, count } = await supabase
       .from('organizations')
-      .select('id, name, slug, created_at', { count: 'exact' })
+      .select('id, name, slug, parent_id, created_at', { count: 'exact' })
       .order('name')
       .range(fromIdx, fromIdx + PAGE_SIZE - 1);
     if (err) throw new Error(err.message);
-    return { rows: (data ?? []) as Row[], total: count ?? 0 };
+    const rows = (data ?? []) as Row[];
+    const parentIds = [...new Set(rows.map((r) => r.parent_id).filter(Boolean))] as string[];
+    const parentNames: Record<string, string> = {};
+    if (parentIds.length > 0) {
+      const { data: parents } = await supabase.from('organizations').select('id, name').in('id', parentIds);
+      (parents ?? []).forEach((p: { id: string; name: string }) => {
+        parentNames[p.id] = p.name;
+      });
+    }
+    return { rows, total: count ?? 0, parentNames };
   }, [page]);
 
   const { data, error: swrError, isLoading, isValidating, mutate } = useSWR(swrKey, fetcher, {
@@ -92,6 +102,7 @@ export function OrganizationList({ refreshKey = 0 }: Props) {
 
   const rows = data?.rows ?? [];
   const total = data?.total ?? 0;
+  const parentNames = data?.parentNames ?? {};
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const loading = isLoading || (isValidating && !data);
   const error = swrError ? String((swrError as Error).message ?? swrError) : null;
@@ -139,6 +150,7 @@ export function OrganizationList({ refreshKey = 0 }: Props) {
           <thead>
             <tr className="bg-subtle-bg">
               <th className="px-4 py-3 text-left text-sm font-medium text-text-secondary">Nombre</th>
+              <th className="px-4 py-3 text-left text-sm font-medium text-text-secondary">Padre</th>
               <th className="px-4 py-3 text-left text-sm font-medium text-text-secondary">Slug</th>
               <th className="px-4 py-3 text-left text-sm font-medium text-text-secondary">Creada</th>
               <th className="px-4 py-3 text-right text-sm font-medium text-text-secondary">Acciones</th>
@@ -148,6 +160,9 @@ export function OrganizationList({ refreshKey = 0 }: Props) {
             {rows.map((r) => (
               <tr key={r.id} className="bg-background">
                 <td className="px-4 py-3 text-sm text-text-primary">{r.name}</td>
+                <td className="px-4 py-3 text-sm text-muted">
+                  {r.parent_id ? (parentNames[r.parent_id] ?? r.parent_id) : '—'}
+                </td>
                 <td className="px-4 py-3 text-sm text-muted">{r.slug ?? '—'}</td>
                 <td className="px-4 py-3 text-sm text-muted">
                   {new Date(r.created_at).toLocaleDateString()}

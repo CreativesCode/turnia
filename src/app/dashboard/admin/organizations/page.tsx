@@ -69,11 +69,17 @@ function AdminOrganizationsContent() {
     );
   }
 
+  const canManageOrgs = isSuperadmin || !!orgId;
+
   return (
     <div className="space-y-6">
       <DashboardDesktopHeader
         title="Organizaciones"
-        subtitle={isSuperadmin ? 'Lista de todas las organizaciones' : 'Configuración de tu organización'}
+        subtitle={
+          isSuperadmin
+            ? 'Lista de todas las organizaciones'
+            : 'Tu organización y sus suborganizaciones. Puedes crear hijas y editar desde aquí.'
+        }
       />
 
       <div className="md:hidden">
@@ -84,11 +90,11 @@ function AdminOrganizationsContent() {
         <p className="mt-1 text-sm text-text-secondary">
           {isSuperadmin
             ? 'Lista de todas las organizaciones. Edita o elimina desde aquí.'
-            : 'Configuración de tu organización.'}
+            : 'Tu organización y suborganizaciones. Crear suborganización para añadir una hija.'}
         </p>
       </div>
 
-      {isSuperadmin ? (
+      {canManageOrgs ? (
         <>
           <div className="flex flex-wrap items-center gap-3">
             <button
@@ -96,7 +102,7 @@ function AdminOrganizationsContent() {
               onClick={() => setShowCreateModal(true)}
               className="min-h-[44px] rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-700"
             >
-              Crear organización
+              {isSuperadmin ? 'Crear organización' : 'Crear suborganización'}
             </button>
           </div>
           <OrganizationList refreshKey={listRefreshKey} />
@@ -106,14 +112,7 @@ function AdminOrganizationsContent() {
             onCreated={() => setListRefreshKey((k) => k + 1)}
           />
         </>
-      ) : (
-        orgId && (
-          <OrganizationSettings
-            orgId={orgId}
-            onDeleted={() => router.push('/dashboard/admin')}
-          />
-        )
-      )}
+      ) : null}
     </div>
   );
 }

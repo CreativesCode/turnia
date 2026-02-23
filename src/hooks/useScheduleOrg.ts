@@ -52,11 +52,7 @@ export function useScheduleOrg(): UseScheduleOrgResult {
         setIsLoading(false);
         return;
       }
-      const { data: memberships, error: err } = await supabase
-        .from('memberships')
-        .select('org_id, role')
-        .eq('user_id', user.id)
-        .order('org_id', { ascending: true });
+      const { data: accessible, error: err } = await supabase.rpc('get_my_accessible_organizations');
 
       if (err) {
         setError(err.message);
@@ -69,7 +65,7 @@ export function useScheduleOrg(): UseScheduleOrgResult {
         setIsLoading(false);
         return;
       }
-      const list = (memberships ?? []) as { org_id: string; role: string }[];
+      const list = (accessible ?? []) as { id: string; role: string }[];
       if (list.length === 0) {
         setOrgId(null);
         setUserId(null);
@@ -81,12 +77,11 @@ export function useScheduleOrg(): UseScheduleOrgResult {
         return;
       }
 
-      // Usar la organización seleccionada si existe y el usuario tiene membership en ella,
-      // de lo contrario usar la primera organización disponible
-      const targetOrgId = selectedOrgId && list.some((m) => m.org_id === selectedOrgId) ? selectedOrgId : list[0]?.org_id;
-      const targetMembership = list.find((m) => m.org_id === targetOrgId) ?? list[0];
-      
-      if (!targetMembership) {
+      // Usar la organización seleccionada si está en las accesibles (directa o hija), si no la primera
+      const targetOrgId = selectedOrgId && list.some((o) => o.id === selectedOrgId) ? selectedOrgId : list[0]?.id;
+      const targetRow = list.find((o) => o.id === targetOrgId) ?? list[0];
+
+      if (!targetRow) {
         setOrgId(null);
         setUserId(null);
         setCanEdit(false);
@@ -97,8 +92,8 @@ export function useScheduleOrg(): UseScheduleOrgResult {
         return;
       }
 
-      const m: MembershipRow = { org_id: targetMembership.org_id, role: targetMembership.role as MembershipRow['role'] };
-      setOrgId(targetMembership.org_id);
+      const m: MembershipRow = { org_id: targetRow.id, role: (targetRow.role ?? 'viewer') as MembershipRow['role'] };
+      setOrgId(targetRow.id);
       setUserId(user.id);
       setCanEdit(canManageShifts(m));
       setCanManageOrgFlag(canManageOrg(m));

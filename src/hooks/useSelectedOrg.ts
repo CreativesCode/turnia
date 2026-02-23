@@ -9,6 +9,8 @@ export type OrganizationInfo = {
   id: string;
   name: string;
   role: string;
+  /** Si existe, esta org es hija de otra (jerarquía 2 niveles). */
+  parentId?: string | null;
 };
 
 export type UseSelectedOrgResult = {
@@ -45,12 +47,8 @@ export function useSelectedOrg(): UseSelectedOrgResult {
         return;
       }
 
-      // Obtener todas las memberships del usuario con información de la organización
-      const { data: memberships, error: err } = await supabase
-        .from('memberships')
-        .select('org_id, role, organizations(id, name)')
-        .eq('user_id', user.id)
-        .order('org_id', { ascending: true });
+      // RPC: organizaciones accesibles (membership directa + hijas de esas orgs)
+      const { data: rows, error: err } = await supabase.rpc('get_my_accessible_organizations');
 
       if (err) {
         setError(err.message);
@@ -60,19 +58,24 @@ export function useSelectedOrg(): UseSelectedOrgResult {
         return;
       }
 
-      const orgs: OrganizationInfo[] = (memberships ?? [])
-        .map((m) => {
-          // Supabase puede devolver organizations como objeto o array dependiendo de la relación
-          const orgData = Array.isArray(m.organizations) ? m.organizations[0] : m.organizations;
-          const org = orgData as { id: string; name: string } | null | undefined;
-          if (!org || !org.id || !org.name) return null;
+      const orgs: OrganizationInfo[] = (rows ?? [])
+        .map((r: { id: string; name: string; parent_id: string | null; role: string }) => {
+          if (!r?.id || !r?.name) return null;
           return {
-            id: org.id,
-            name: org.name,
-            role: m.role,
+            id: r.id,
+            name: r.name,
+            role: r.role ?? 'viewer',
+            parentId: r.parent_id ?? null,
           };
         })
-        .filter((o): o is OrganizationInfo => o !== null);
+        .filter((o): o is OrganizationInfo => o !== null)
+        .sort((a, b) => {
+          // Raíces primero, luego por nombre; hijas después de su padre
+          if (a.parentId && !b.parentId) return 1;
+          if (!a.parentId && b.parentId) return -1;
+          if (a.parentId && b.parentId && a.parentId !== b.parentId) return a.parentId.localeCompare(b.parentId) || a.name.localeCompare(b.name);
+          return a.name.localeCompare(b.name);
+        });
 
       setOrganizations(orgs);
 
