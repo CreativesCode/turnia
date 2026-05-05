@@ -85,31 +85,45 @@ export function AcceptInvitationForm({ invitation, sessionUser, token }: Props) 
     setError(null);
     setLoading(true);
     const supabase = createClient();
-    const origin = typeof window !== 'undefined' ? window.location.origin : '';
-    const redirectToInvite = origin ? `${origin}/invite?token=${encodeURIComponent(token)}` : undefined;
-    const { data, error: err } = await supabase.auth.signUp({
+
+    // Crear usuario + aceptar invitación en una sola llamada (sin email de
+    // confirmación: la invitación ya validó el correo).
+    const url = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/signup-and-accept-invitation`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '',
+      },
+      body: JSON.stringify({ token, password, full_name: fullName }),
+    });
+    const json = (await res.json().catch(() => ({}))) as { error?: string; message?: string };
+
+    if (!res.ok) {
+      setLoading(false);
+      if (res.status === 409 && json.error === 'user_exists') {
+        setError(json.message ?? 'Ya tienes cuenta con este correo. Inicia sesión.');
+        return;
+      }
+      setError(json.message ?? json.error ?? 'Error al aceptar la invitación');
+      return;
+    }
+
+    // Login inmediato con las credenciales recién creadas.
+    const { error: signInErr } = await supabase.auth.signInWithPassword({
       email: invitation.email,
       password,
-      options: {
-        data: { full_name: fullName },
-        emailRedirectTo: redirectToInvite,
-      },
     });
     setLoading(false);
-    if (err) {
-      setError(err.message);
+    if (signInErr) {
+      setError(`Cuenta creada, pero no pude iniciar sesión: ${signInErr.message}. Ve a iniciar sesión.`);
       return;
     }
-    if (data.session) {
-      await acceptInvitation();
-      return;
-    }
+
     if (typeof window !== 'undefined') {
-      sessionStorage.setItem(PENDING_INVITE_TOKEN_KEY, token);
+      sessionStorage.removeItem(PENDING_INVITE_TOKEN_KEY);
     }
-    setError(
-      'Revisa tu correo para confirmar la cuenta. Al hacer clic en el enlace del correo llegarás aquí para aceptar la invitación.'
-    );
+    redirectAfterAuth(router, '/dashboard');
   };
 
   if (isLoggedIn && !emailMatches) {

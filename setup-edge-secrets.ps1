@@ -65,6 +65,8 @@ Write-Host "Ahora redesplegando las Edge Functions..." -ForegroundColor Cyan
 npx supabase functions deploy invite-user
 npx supabase functions deploy accept-invitation
 npx supabase functions deploy validate-invitation
+npx supabase functions deploy resend-invitation
+npx supabase functions deploy signup-and-accept-invitation
 
 Write-Host "`n========================================" -ForegroundColor Cyan
 Write-Host "¡Listo! Ahora puedes probar la funcionalidad de invitaciones" -ForegroundColor Green

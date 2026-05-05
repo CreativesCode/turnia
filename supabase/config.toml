@@ -62,6 +62,9 @@ verify_jwt = false
 [functions.resend-invitation]
 verify_jwt = false
 
+[functions.signup-and-accept-invitation]
+verify_jwt = false
+
 [functions.export-schedule]
 verify_jwt = false
 
