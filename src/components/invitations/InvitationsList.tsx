@@ -105,8 +105,9 @@ export function InvitationsList({ orgId, refreshKey = 0 }: Props) {
   );
 
   const copyLink = useCallback(async (t: string, id: string) => {
-    const url = typeof window !== 'undefined' ? `${window.location.origin}/invite?token=${encodeURIComponent(t)}` : '';
-    if (!url) return;
+    if (typeof window === 'undefined') return;
+    const base = (process.env.NEXT_PUBLIC_APP_URL || window.location.origin).replace(/\/$/, '');
+    const url = `${base}/invite?token=${encodeURIComponent(t)}`;
     try {
       await navigator.clipboard.writeText(url);
       setCopiedId(id);

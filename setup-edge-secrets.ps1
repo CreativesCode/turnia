@@ -15,9 +15,18 @@ if (-not (Test-Path $envFile)) {
 $envContent = Get-Content $envFile
 $supabaseUrl = ($envContent | Select-String "NEXT_PUBLIC_SUPABASE_URL=(.+)").Matches.Groups[1].Value
 $anonKey = ($envContent | Select-String "NEXT_PUBLIC_SUPABASE_ANON_KEY=(.+)").Matches.Groups[1].Value
+$appUrlMatch = $envContent | Select-String "^APP_URL=(.+)"
+$appUrl = if ($appUrlMatch) { $appUrlMatch.Matches.Groups[1].Value.Trim() } else { "" }
+
+if ([string]::IsNullOrWhiteSpace($appUrl)) {
+    Write-Host "Error: APP_URL no está definida en .env" -ForegroundColor Red
+    Write-Host "Añade una línea como: APP_URL=https://turnia-mu.vercel.app" -ForegroundColor Yellow
+    exit 1
+}
 
 Write-Host "URL de Supabase: $supabaseUrl" -ForegroundColor Green
 Write-Host "Anon Key encontrada: $($anonKey.Substring(0, 20))..." -ForegroundColor Green
+Write-Host "APP_URL (enlaces de invitación): $appUrl" -ForegroundColor Green
 
 # Solicitar el Service Role Key
 Write-Host "`nPor favor, copia tu SERVICE_ROLE_KEY desde:" -ForegroundColor Yellow
@@ -45,7 +54,7 @@ npx supabase secrets set "SUPABASE_SERVICE_ROLE_KEY=$serviceRoleKey"
 
 # Configurar APP_URL (para los links de invitación)
 Write-Host "Configurando APP_URL..." -ForegroundColor Yellow
-npx supabase secrets set "APP_URL=https://turnia.app"
+npx supabase secrets set "APP_URL=$appUrl"
 
 Write-Host "`n========================================" -ForegroundColor Cyan
 Write-Host "Secretos configurados correctamente!" -ForegroundColor Green
