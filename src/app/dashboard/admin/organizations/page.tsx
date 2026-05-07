@@ -72,39 +72,29 @@ function AdminOrganizationsContent() {
   const canManageOrgs = isSuperadmin || !!orgId;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <DashboardDesktopHeader
         title="Organizaciones"
         subtitle={
           isSuperadmin
             ? 'Lista de todas las organizaciones'
-            : 'Tu organización y sus suborganizaciones. Puedes crear hijas y editar desde aquí.'
+            : 'Tu organización y sus suborganizaciones'
         }
-      />
-
-      <div className="md:hidden">
-        <Link href="/dashboard/admin" className="text-sm text-primary-600 hover:text-primary-700">
-          ← Admin
-        </Link>
-        <h1 className="mt-2 text-xl font-semibold text-text-primary">Organizaciones</h1>
-        <p className="mt-1 text-sm text-text-secondary">
-          {isSuperadmin
-            ? 'Lista de todas las organizaciones. Edita o elimina desde aquí.'
-            : 'Tu organización y suborganizaciones. Crear suborganización para añadir una hija.'}
-        </p>
-      </div>
-
-      {canManageOrgs ? (
-        <>
-          <div className="flex flex-wrap items-center gap-3">
+        actions={
+          canManageOrgs ? (
             <button
               type="button"
               onClick={() => setShowCreateModal(true)}
-              className="min-h-[44px] rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-700"
+              className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-primary px-3 text-[13px] font-semibold text-white shadow-[0_4px_12px_-6px_var(--color-primary)]"
             >
-              {isSuperadmin ? 'Crear organización' : 'Crear suborganización'}
+              + {isSuperadmin ? 'Nueva organización' : 'Nueva suborganización'}
             </button>
-          </div>
+          ) : null
+        }
+      />
+
+      {canManageOrgs ? (
+        <>
           <OrganizationList refreshKey={listRefreshKey} />
           <CreateOrganizationModal
             open={showCreateModal}

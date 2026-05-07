@@ -43,12 +43,14 @@ export type RequestDetailRow = {
     start_at: string;
     end_at: string;
     assigned_user_id: string | null;
+    location?: string | null;
     organization_shift_types: { name: string; letter: string } | { name: string; letter: string }[] | null;
   } | null;
   target_shift: {
     start_at: string;
     end_at: string;
     assigned_user_id: string | null;
+    location?: string | null;
     organization_shift_types: { name: string; letter: string } | { name: string; letter: string }[] | null;
   } | null;
 };

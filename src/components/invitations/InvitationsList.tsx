@@ -1,5 +1,7 @@
 'use client';
 
+import { Pill, type PillTone } from '@/components/ui/Pill';
+import { CheckIcon, CopyIcon, MailIcon, RefreshIcon, XIcon } from '@/components/ui/icons';
 import { createClient } from '@/lib/supabase/client';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import useSWR from 'swr';
@@ -10,6 +12,8 @@ const ROLE_LABELS: Record<string, string> = {
   user: 'Usuario',
   viewer: 'Solo lectura',
 };
+
+type Status = 'pending' | 'accepted' | 'expired' | 'cancelled';
 
 type Row = {
   id: string;
@@ -26,6 +30,20 @@ type Props = {
   refreshKey?: number;
 };
 
+const STATUS_TONES: Record<string, PillTone> = {
+  pending: 'amber',
+  accepted: 'green',
+  expired: 'muted',
+  cancelled: 'muted',
+};
+
+const STATUS_LABELS: Record<string, string> = {
+  pending: 'Pendiente',
+  accepted: 'Aceptada',
+  expired: 'Expirada',
+  cancelled: 'Cancelada',
+};
+
 async function fetchInvitations(orgId: string): Promise<Row[]> {
   const supabase = createClient();
   const { data, error } = await supabase
@@ -38,22 +56,48 @@ async function fetchInvitations(orgId: string): Promise<Row[]> {
   return (data ?? []) as Row[];
 }
 
+function timeAgo(iso: string, now: number): string {
+  const diff = now - new Date(iso).getTime();
+  const min = Math.floor(diff / 60_000);
+  if (min < 1) return 'ahora';
+  if (min < 60) return `hace ${min} min`;
+  const h = Math.floor(min / 60);
+  if (h < 24) return `hace ${h}h`;
+  const d = Math.floor(h / 24);
+  if (d < 7) return `hace ${d}d`;
+  const w = Math.floor(d / 7);
+  if (w < 4) return `hace ${w} sem`;
+  return new Date(iso).toLocaleDateString('es-ES', { day: '2-digit', month: 'short' });
+}
+
+function expiresIn(iso: string, now: number): { text: string; soon: boolean; expired: boolean } {
+  const diff = new Date(iso).getTime() - now;
+  if (diff <= 0) return { text: 'expirada', soon: false, expired: true };
+  const d = Math.floor(diff / (24 * 60 * 60 * 1000));
+  if (d < 1) {
+    const h = Math.floor(diff / (60 * 60 * 1000));
+    return { text: `expira en ${h}h`, soon: true, expired: false };
+  }
+  return { text: `expira en ${d}d`, soon: d <= 2, expired: false };
+}
+
 export function InvitationsList({ orgId, refreshKey = 0 }: Props) {
   const [cancelling, setCancelling] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [resending, setResending] = useState<string | null>(null);
   const [extending, setExtending] = useState<string | null>(null);
-  const [filterStatus, setFilterStatus] = useState<string>('');
-  const [filterRole, setFilterRole] = useState<string>('');
-  const [filterExpires, setFilterExpires] = useState<string>('');
+  const [filterStatus, setFilterStatus] = useState<Status | 'all'>('pending');
   const realtimeTimerRef = useRef<number | null>(null);
 
-  const swrKey = useMemo(() => (orgId ? ['invitations', orgId, refreshKey] as const : null), [orgId, refreshKey]);
-  const { data: rows = [], error: swrError, isLoading, mutate } = useSWR(swrKey, () => fetchInvitations(orgId!), {
-    revalidateOnFocus: true,
-    revalidateOnReconnect: true,
-    dedupingInterval: 2000,
-  });
+  const swrKey = useMemo(
+    () => (orgId ? (['invitations', orgId, refreshKey] as const) : null),
+    [orgId, refreshKey],
+  );
+  const { data: rows = [], error: swrError, isLoading, mutate } = useSWR(
+    swrKey,
+    () => fetchInvitations(orgId!),
+    { revalidateOnFocus: true, revalidateOnReconnect: true, dedupingInterval: 2000 },
+  );
 
   useEffect(() => {
     if (realtimeTimerRef.current !== null) window.clearTimeout(realtimeTimerRef.current);
@@ -67,11 +111,16 @@ export function InvitationsList({ orgId, refreshKey = 0 }: Props) {
       .channel(`invitations:${orgId}`)
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'organization_invitations', filter: `org_id=eq.${orgId}` },
+        {
+          event: '*',
+          schema: 'public',
+          table: 'organization_invitations',
+          filter: `org_id=eq.${orgId}`,
+        },
         () => {
           if (realtimeTimerRef.current !== null) window.clearTimeout(realtimeTimerRef.current);
           realtimeTimerRef.current = window.setTimeout(() => void mutate(), 250);
-        }
+        },
       )
       .subscribe();
     return () => {
@@ -80,18 +129,25 @@ export function InvitationsList({ orgId, refreshKey = 0 }: Props) {
     };
   }, [orgId, mutate]);
 
+  const counts = useMemo(() => {
+    const c: Record<Status | 'all', number> = {
+      all: rows.length,
+      pending: 0,
+      accepted: 0,
+      expired: 0,
+      cancelled: 0,
+    };
+    for (const r of rows) {
+      const k = r.status as Status;
+      if (k in c) c[k]++;
+    }
+    return c;
+  }, [rows]);
+
   const filteredRows = useMemo(() => {
-    const now = Date.now();
-    const in7 = now + 7 * 24 * 60 * 60 * 1000;
-    return rows.filter((r) => {
-      if (filterStatus && r.status !== filterStatus) return false;
-      if (filterRole && r.role !== filterRole) return false;
-      const exp = new Date(r.expires_at).getTime();
-      if (filterExpires === 'soon' && (exp < now || exp > in7)) return false;
-      if (filterExpires === 'expired' && exp >= now) return false;
-      return true;
-    });
-  }, [rows, filterStatus, filterRole, filterExpires]);
+    if (filterStatus === 'all') return rows;
+    return rows.filter((r) => r.status === filterStatus);
+  }, [rows, filterStatus]);
 
   const cancel = useCallback(
     async (id: string) => {
@@ -101,7 +157,7 @@ export function InvitationsList({ orgId, refreshKey = 0 }: Props) {
       setCancelling(null);
       void mutate();
     },
-    [mutate]
+    [mutate],
   );
 
   const copyLink = useCallback(async (t: string, id: string) => {
@@ -113,14 +169,14 @@ export function InvitationsList({ orgId, refreshKey = 0 }: Props) {
       setCopiedId(id);
       setTimeout(() => setCopiedId(null), 2000);
     } catch {
-      const textarea = document.createElement('textarea');
-      textarea.value = url;
-      textarea.style.position = 'fixed';
-      textarea.style.opacity = '0';
-      document.body.appendChild(textarea);
-      textarea.select();
+      const ta = document.createElement('textarea');
+      ta.value = url;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
       document.execCommand('copy');
-      document.body.removeChild(textarea);
+      document.body.removeChild(ta);
       setCopiedId(id);
       setTimeout(() => setCopiedId(null), 2000);
     }
@@ -141,7 +197,7 @@ export function InvitationsList({ orgId, refreshKey = 0 }: Props) {
       setResending(null);
       if (!error && data?.ok) void mutate();
     },
-    [mutate]
+    [mutate],
   );
 
   const extend = useCallback(
@@ -157,129 +213,182 @@ export function InvitationsList({ orgId, refreshKey = 0 }: Props) {
       setExtending(null);
       void mutate();
     },
-    [mutate]
+    [mutate],
   );
 
-  if (swrError) return <p className="text-sm text-red-600">Error al cargar invitaciones.</p>;
-  if (isLoading) return <p className="text-sm text-muted">Cargando invitaciones…</p>;
-  if (rows.length === 0) return <p className="text-sm text-muted">No hay invitaciones.</p>;
+  const tabs: ReadonlyArray<{ key: Status | 'all'; label: string }> = [
+    { key: 'pending', label: 'Pendientes' },
+    { key: 'accepted', label: 'Aceptadas' },
+    { key: 'expired', label: 'Expiradas' },
+    { key: 'cancelled', label: 'Canceladas' },
+    { key: 'all', label: 'Todas' },
+  ];
+
+  if (swrError) {
+    return (
+      <div className="rounded-2xl border border-border bg-bg p-6 text-sm text-red">
+        Error al cargar invitaciones.
+      </div>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <div className="rounded-2xl border border-border bg-bg p-6 text-sm text-text-sec">
+        Cargando invitaciones…
+      </div>
+    );
+  }
+
+  if (rows.length === 0) {
+    return (
+      <div className="flex flex-col items-center gap-2 rounded-2xl border border-border bg-bg p-8 text-center">
+        <div
+          className="flex h-12 w-12 items-center justify-center rounded-2xl"
+          style={{
+            background: 'color-mix(in oklab, var(--amber) 18%, transparent)',
+            color: 'var(--amber)',
+          }}
+          aria-hidden
+        >
+          <MailIcon size={22} />
+        </div>
+        <p className="text-[13.5px] font-semibold text-text">Sin invitaciones todavía</p>
+        <p className="text-[12.5px] text-muted">
+          Las invitaciones que envíes aparecerán aquí con su estado.
+        </p>
+      </div>
+    );
+  }
+
+  const now = Date.now();
 
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap items-center gap-2 text-sm">
-        <span className="text-text-secondary">Filtrar:</span>
-        <select
-          value={filterStatus}
-          onChange={(e) => setFilterStatus(e.target.value)}
-          className="rounded-lg border border-border bg-background px-2.5 py-1.5 text-text-primary"
-        >
-          <option value="">Todos los estados</option>
-          <option value="pending">Pendiente</option>
-          <option value="accepted">Aceptada</option>
-          <option value="expired">Expirada</option>
-          <option value="cancelled">Cancelada</option>
-        </select>
-        <select
-          value={filterRole}
-          onChange={(e) => setFilterRole(e.target.value)}
-          className="rounded-lg border border-border bg-background px-2.5 py-1.5 text-text-primary"
-        >
-          <option value="">Todos los roles</option>
-          {Object.entries(ROLE_LABELS).map(([v, l]) => (
-            <option key={v} value={v}>{l}</option>
-          ))}
-        </select>
-        <select
-          value={filterExpires}
-          onChange={(e) => setFilterExpires(e.target.value)}
-          className="rounded-lg border border-border bg-background px-2.5 py-1.5 text-text-primary"
-        >
-          <option value="">Cualquier fecha</option>
-          <option value="soon">Expira en 7 días</option>
-          <option value="expired">Ya expiradas</option>
-        </select>
+      <div className="flex flex-wrap gap-1.5">
+        {tabs.map((t) => {
+          const active = filterStatus === t.key;
+          const n = counts[t.key];
+          return (
+            <button
+              key={t.key}
+              type="button"
+              onClick={() => setFilterStatus(t.key)}
+              className={
+                'inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12px] font-semibold transition-colors ' +
+                (active ? 'bg-text text-bg' : 'bg-subtle-2 text-text-sec hover:bg-subtle')
+              }
+            >
+              {t.label}
+              {n > 0 ? <span className="text-[10px] font-bold opacity-70">·{n}</span> : null}
+            </button>
+          );
+        })}
       </div>
-      <div className="overflow-x-auto rounded-xl border border-border bg-background shadow-sm">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="border-b border-border bg-subtle-bg">
-            <th className="px-3 py-2.5 text-left font-medium text-text-primary">Correo</th>
-            <th className="px-3 py-2.5 text-left font-medium text-text-primary">Rol</th>
-            <th className="px-3 py-2.5 text-left font-medium text-text-primary">Estado</th>
-            <th className="px-3 py-2.5 text-left font-medium text-text-primary">Expira</th>
-            <th className="px-3 py-2.5 text-right font-medium text-text-primary">Acciones</th>
-          </tr>
-        </thead>
-        <tbody>
-          {filteredRows.length === 0 ? (
-            <tr><td colSpan={5} className="px-3 py-6 text-center text-muted">Ninguna invitación coincide con los filtros.</td></tr>
-          ) : (
-            filteredRows.map((r) => (
-              <tr key={r.id} className="border-b border-border last:border-0">
-                <td className="px-3 py-2.5 text-text-secondary">{r.email}</td>
-                <td className="px-3 py-2.5 text-text-secondary">{ROLE_LABELS[r.role] || r.role}</td>
-                <td className="px-3 py-2.5">
+
+      {filteredRows.length === 0 ? (
+        <div className="rounded-2xl border border-border bg-bg p-6 text-center text-sm text-muted">
+          No hay invitaciones en este estado.
+        </div>
+      ) : (
+        <ul className="flex flex-col gap-2">
+          {filteredRows.map((r) => {
+            const exp = expiresIn(r.expires_at, now);
+            const tone = STATUS_TONES[r.status] ?? 'muted';
+            const isPending = r.status === 'pending';
+            return (
+              <li
+                key={r.id}
+                className="flex flex-col gap-3 rounded-2xl border border-border bg-bg p-3.5 sm:flex-row sm:items-center"
+              >
+                <div className="flex min-w-0 flex-1 items-center gap-3">
                   <span
-                    className={
-                      r.status === 'pending'
-                        ? 'text-primary-600 font-medium'
-                        : r.status === 'accepted'
-                          ? 'text-primary-700 font-medium'
-                          : 'text-muted'
-                    }
+                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl"
+                    style={{
+                      background: isPending
+                        ? 'color-mix(in oklab, var(--amber) 18%, transparent)'
+                        : 'color-mix(in oklab, var(--muted-color) 14%, transparent)',
+                      color: isPending ? 'var(--amber)' : 'var(--muted-color)',
+                    }}
+                    aria-hidden
                   >
-                    {r.status === 'pending' ? 'Pendiente' : r.status === 'accepted' ? 'Aceptada' : r.status === 'expired' ? 'Expirada' : 'Cancelada'}
+                    <MailIcon size={16} />
                   </span>
-                </td>
-                <td className="px-3 py-2.5 text-muted">
-                  {new Date(r.expires_at).toLocaleDateString()}
-                </td>
-                <td className="px-3 py-2.5 text-right">
-                  {r.status === 'pending' && (
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-[13.5px] font-semibold text-text">{r.email}</div>
+                    <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11.5px] text-muted">
+                      <span>{ROLE_LABELS[r.role] || r.role}</span>
+                      <span aria-hidden>·</span>
+                      <span>enviada {timeAgo(r.created_at, now)}</span>
+                      {isPending ? (
+                        <>
+                          <span aria-hidden>·</span>
+                          <span style={{ color: exp.soon ? 'var(--red)' : exp.expired ? 'var(--red)' : undefined }}>
+                            {exp.text}
+                          </span>
+                        </>
+                      ) : null}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex shrink-0 flex-wrap items-center gap-1.5">
+                  <Pill tone={tone} dot>
+                    {STATUS_LABELS[r.status] || r.status}
+                  </Pill>
+                  {isPending ? (
                     <>
                       <button
                         type="button"
                         onClick={() => copyLink(r.token, r.id)}
-                        className={copiedId === r.id ? 'font-medium text-green-600' : 'text-primary-600 hover:text-primary-700'}
+                        title="Copiar enlace"
+                        aria-label="Copiar enlace"
+                        className={
+                          'inline-flex h-8 w-8 items-center justify-center rounded-lg transition-colors ' +
+                          (copiedId === r.id
+                            ? 'bg-green-soft text-green'
+                            : 'bg-subtle-2 text-text-sec hover:bg-subtle')
+                        }
                       >
-                        {copiedId === r.id ? '¡Copiado!' : 'Copiar'}
+                        {copiedId === r.id ? <CheckIcon size={14} stroke={2.6} /> : <CopyIcon size={14} />}
                       </button>
-                      <span className="mx-1.5 text-muted">·</span>
                       <button
                         type="button"
                         onClick={() => resend(r.id)}
                         disabled={resending === r.id}
-                        className="text-primary-600 hover:text-primary-700 disabled:opacity-50"
+                        title="Reenviar"
+                        aria-label="Reenviar invitación"
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-subtle-2 text-text-sec transition-colors hover:bg-subtle disabled:opacity-50"
                       >
-                        {resending === r.id ? '…' : 'Reenviar'}
+                        <RefreshIcon size={14} />
                       </button>
-                      <span className="mx-1.5 text-muted">·</span>
                       <button
                         type="button"
                         onClick={() => extend(r)}
                         disabled={extending === r.id}
-                        className="text-primary-600 hover:text-primary-700 disabled:opacity-50"
+                        title="Extender 7 días"
+                        className="inline-flex h-8 items-center justify-center rounded-lg bg-subtle-2 px-2 text-[11px] font-semibold text-text-sec transition-colors hover:bg-subtle disabled:opacity-50"
                       >
-                        {extending === r.id ? '…' : '+7 días'}
+                        +7d
                       </button>
-                      <span className="mx-1.5 text-muted">·</span>
                       <button
                         type="button"
                         onClick={() => cancel(r.id)}
                         disabled={cancelling === r.id}
-                        className="text-red-600 hover:text-red-700 disabled:opacity-50"
+                        title="Cancelar invitación"
+                        aria-label="Cancelar invitación"
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-red transition-colors hover:bg-red-soft disabled:opacity-50"
                       >
-                        Cancelar
+                        <XIcon size={14} stroke={2.4} />
                       </button>
                     </>
-                  )}
-                </td>
-              </tr>
-            ))
-          )}
-        </tbody>
-      </table>
-      </div>
+                  ) : null}
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
     </div>
   );
 }

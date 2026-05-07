@@ -11,12 +11,12 @@ import type { ShiftWithType } from '@/components/calendar/ShiftCalendar';
 import { GiveAwayRequestModal } from '@/components/requests/GiveAwayRequestModal';
 import { SwapRequestModal } from '@/components/requests/SwapRequestModal';
 import { TakeOpenRequestModal } from '@/components/requests/TakeOpenRequestModal';
-import { Button } from '@/components/ui/Button';
 import { ConfirmModal } from '@/components/ui/ConfirmModal';
+import { Pill } from '@/components/ui/Pill';
+import { Icons } from '@/components/ui/icons';
 import { useToast } from '@/components/ui/toast/ToastProvider';
 import { getFocusableElements, trapFocusWithin } from '@/lib/a11y';
 import { createClient } from '@/lib/supabase/client';
-import { formatShiftTypeSchedule } from '@/lib/utils';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 type RequestModalType = 'give_away' | 'take_open' | 'swap' | null;
@@ -133,13 +133,18 @@ export function ShiftDetailModal({
   const typeName = t?.name ?? '—';
   const typeLetter = t?.letter ?? '?';
   const typeColor = t?.color ?? '#6B7280';
-  const schedule = t ? formatShiftTypeSchedule(t.start_time, t.end_time) : '—';
   const start = new Date(shift.start_at);
   const end = new Date(shift.end_at);
-  const timeRange =
-    isNaN(start.getTime()) || isNaN(end.getTime())
-      ? '—'
-      : `${start.toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short', hour12: false })} – ${end.toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short', hour12: false })}`;
+  const validDates = !isNaN(start.getTime()) && !isNaN(end.getTime());
+  const dateLabel = validDates
+    ? start.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })
+    : '—';
+  const timeLabel = validDates
+    ? `${start.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })} — ${end.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}`
+    : '—';
+  const durationHours = validDates ? Math.max(0, (end.getTime() - start.getTime()) / 3_600_000) : 0;
+  const durationLabel = durationHours > 0 ? `${durationHours < 10 ? Math.round(durationHours * 10) / 10 : Math.round(durationHours)}h` : '—';
+  const isPublished = shift.status === 'published';
 
   return (
     <div
@@ -158,97 +163,177 @@ export function ShiftDetailModal({
       <div
         ref={panelRef}
         tabIndex={-1}
-        className="relative w-full max-w-none max-h-[85dvh] overflow-y-auto rounded-t-2xl border border-b-0 border-border bg-background p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] shadow-lg focus:outline-none md:max-w-sm md:max-h-[90dvh] md:rounded-xl md:border-b md:pb-6"
+        className="relative flex w-full max-h-[88dvh] max-w-none flex-col overflow-hidden rounded-t-2xl border border-b-0 border-border bg-bg shadow-lg focus:outline-none md:max-h-[90dvh] md:max-w-md md:rounded-2xl md:border-b"
       >
-        {/* Asa para arrastrar en móvil (bottom sheet) */}
-        <div className="-mt-1 mb-2 flex justify-center md:hidden">
-          <span className="h-1 w-12 shrink-0 rounded-full bg-muted" aria-hidden />
+        {/* Asa drag (mobile) */}
+        <div className="flex shrink-0 justify-center pt-1.5 md:hidden">
+          <span className="h-1 w-10 rounded-full bg-border" aria-hidden />
         </div>
-        <button
-          type="button"
-          onClick={onClose}
-          className="absolute right-3 top-3 flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg text-muted hover:bg-subtle-bg hover:text-text-primary focus:outline-none"
-          aria-label="Cerrar"
-        >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-            <line x1="18" y1="6" x2="6" y2="18" />
-            <line x1="6" y1="6" x2="18" y2="18" />
-          </svg>
-        </button>
-        <h2 id="shift-detail-title" className="text-lg font-semibold text-text-primary">
-          Detalle del turno
-        </h2>
-        <div className="mt-4 space-y-2 text-sm">
-          <div className="flex items-center gap-2">
-            <span
-              className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white"
-              style={{ backgroundColor: typeColor }}
+
+        {/* Top header */}
+        <div className="flex shrink-0 items-center justify-between px-4 pb-1.5 pt-1.5 md:pt-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex h-10 w-10 items-center justify-center rounded-xl bg-subtle-2 text-text-sec hover:text-text"
+            aria-label="Cerrar"
+          >
+            <Icons.x size={20} />
+          </button>
+          <h2 id="shift-detail-title" className="tn-h text-[14px] font-bold text-text">
+            Detalle del turno
+          </h2>
+          <span className="h-10 w-10" aria-hidden />
+        </div>
+
+        {/* Body scrollable */}
+        <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-5">
+          {/* Banner del tipo */}
+          <div
+            className="relative overflow-hidden rounded-[18px] p-5 text-white"
+            style={{ backgroundColor: typeColor }}
+          >
+            <svg
+              width="120"
+              height="120"
+              viewBox="0 0 100 100"
+              className="pointer-events-none absolute -right-[30px] -top-[30px] opacity-[0.14]"
+              aria-hidden
             >
-              {typeLetter}
-            </span>
-            <span className="text-text-primary">{typeName}</span>
-            <span className="text-muted">({schedule})</span>
+              <circle cx="50" cy="50" r="40" stroke="#fff" strokeWidth="1" fill="none" />
+              <circle cx="50" cy="50" r="22" fill="#fff" />
+            </svg>
+
+            <div className="relative flex items-center gap-3">
+              <span
+                className="flex h-[52px] w-[52px] items-center justify-center rounded-[14px] bg-white/[0.22] text-[26px] font-extrabold"
+                style={{ fontFamily: "var(--font-inter-tight), var(--font-inter), sans-serif" }}
+                aria-hidden
+              >
+                {typeLetter}
+              </span>
+              <div className="min-w-0">
+                <p className="text-[11px] font-bold uppercase tracking-[0.1em] opacity-85">
+                  {typeName}
+                </p>
+                <h3 className="tn-h mt-0.5 truncate text-[22px] font-bold tracking-[-0.02em]">
+                  {typeName}
+                </h3>
+              </div>
+            </div>
+
+            {/* Bloque glassy con fecha · horario · horas */}
+            <div className="relative mt-3.5 grid grid-cols-[1fr_auto_1fr_auto_1fr] items-center gap-2 rounded-[14px] bg-white/[0.14] px-3.5 py-3 backdrop-blur">
+              <div className="min-w-0">
+                <p className="text-[11px] opacity-80">FECHA</p>
+                <p className="mt-0.5 truncate text-[13.5px] font-semibold">{dateLabel}</p>
+              </div>
+              <span className="h-7 w-px bg-white/[0.28]" aria-hidden />
+              <div className="min-w-0">
+                <p className="text-[11px] opacity-80">HORARIO</p>
+                <p className="mt-0.5 truncate text-[13.5px] font-semibold">{timeLabel}</p>
+              </div>
+              <span className="h-7 w-px bg-white/[0.28]" aria-hidden />
+              <div className="min-w-0">
+                <p className="text-[11px] opacity-80">HORAS</p>
+                <p className="mt-0.5 text-[13.5px] font-semibold">{durationLabel}</p>
+              </div>
+            </div>
           </div>
-          <p className="text-text-secondary">
-            <span className="font-medium text-text-primary">Horario: </span>
-            {timeRange}
-          </p>
-          <p className="text-text-secondary">
-            <span className="font-medium text-text-primary">Asignado: </span>
-            {assignedName?.trim() || 'Sin asignar'}
-          </p>
-          {shift.location?.trim() && (
-            <p className="text-text-secondary">
-              <span className="font-medium text-text-primary">Ubicación: </span>
-              {shift.location}
-            </p>
-          )}
-          <p className="text-text-secondary">
-            <span className="font-medium text-text-primary">Estado: </span>
-            {shift.status === 'published' ? 'Publicado' : 'Borrador'}
-          </p>
+
+          {/* Info rows */}
+          <div className="mt-4 overflow-hidden rounded-2xl border border-border bg-subtle">
+            <DetailRow
+              icon={<Icons.user size={18} />}
+              label="Asignado"
+              value={assignedName?.trim() || 'Sin asignar'}
+              trailing={isMine ? <Pill tone="primary">Tu turno</Pill> : null}
+            />
+            {shift.location?.trim() ? (
+              <DetailRow
+                icon={<Icons.pin size={18} />}
+                label="Ubicación"
+                value={shift.location}
+              />
+            ) : null}
+            <DetailRow
+              icon={<Icons.cross size={18} />}
+              label="Estado"
+              value={isPublished ? 'Publicado' : 'Borrador'}
+              trailing={
+                isPublished ? (
+                  <span className="text-[11px] font-semibold text-green">● Activo</span>
+                ) : (
+                  <span className="text-[11px] font-semibold text-muted">● Borrador</span>
+                )
+              }
+              last
+            />
+          </div>
+
+          {deleteError ? (
+            <p className="mt-3 text-sm text-red">{deleteError}</p>
+          ) : null}
         </div>
-        {deleteError && (
-          <p className="mt-4 text-sm text-red-600">{deleteError}</p>
-        )}
-        <div className="mt-6 flex flex-wrap justify-end gap-3">
-          {canManageShifts && (
+
+        {/* Action bar fija */}
+        <div
+          className="flex shrink-0 items-center gap-2.5 border-t border-border bg-bg px-5 py-3"
+          style={{ paddingBottom: 'calc(0.75rem + env(safe-area-inset-bottom))' }}
+        >
+          {canManageShifts ? (
             <>
-              <Button
+              <button
                 type="button"
-                variant="ghost"
                 onClick={() => {
                   setDeleteError(null);
                   setConfirmDelete(true);
                 }}
-                className="text-red-600 hover:bg-red-50"
+                className="inline-flex h-[50px] flex-1 items-center justify-center gap-1.5 rounded-[14px] border border-red/55 bg-bg text-[13.5px] font-semibold text-red"
               >
-                Eliminar
-              </Button>
-              <Button type="button" onClick={onEdit ?? undefined}>
-                Editar
-              </Button>
+                <Icons.x size={16} /> Eliminar
+              </button>
+              <button
+                type="button"
+                onClick={onEdit ?? undefined}
+                className="inline-flex h-[50px] flex-[1.3] items-center justify-center gap-1.5 rounded-[14px] bg-primary text-[13.5px] font-bold text-white shadow-[0_8px_22px_-10px_var(--primary)]"
+              >
+                <Icons.settings size={16} /> Editar
+              </button>
             </>
-          )}
-          {showRequestActions && isMine && (
+          ) : showRequestActions && isMine ? (
             <>
-              <Button type="button" variant="secondary" onClick={() => setRequestModal('give_away')}>
-                Dar de baja
-              </Button>
-              <Button type="button" variant="secondary" onClick={() => setRequestModal('swap')}>
-                Intercambiar
-              </Button>
+              <button
+                type="button"
+                onClick={() => setRequestModal('give_away')}
+                className="inline-flex h-[50px] flex-1 items-center justify-center gap-1.5 rounded-[14px] border border-border bg-bg text-[13.5px] font-semibold text-text"
+              >
+                <Icons.giveaway size={16} /> Ceder turno
+              </button>
+              <button
+                type="button"
+                onClick={() => setRequestModal('swap')}
+                className="inline-flex h-[50px] flex-[1.3] items-center justify-center gap-1.5 rounded-[14px] bg-primary text-[13.5px] font-bold text-white shadow-[0_8px_22px_-10px_var(--primary)]"
+              >
+                <Icons.swap size={16} /> Intercambiar
+              </button>
             </>
-          )}
-          {showRequestActions && isOpen && (
-            <Button type="button" onClick={() => setRequestModal('take_open')}>
-              Tomar turno
-            </Button>
-          )}
-          {!canManageShifts && (
-            <Button type="button" variant="secondary" onClick={onClose}>
+          ) : showRequestActions && isOpen ? (
+            <button
+              type="button"
+              onClick={() => setRequestModal('take_open')}
+              className="inline-flex h-[50px] w-full items-center justify-center gap-1.5 rounded-[14px] bg-primary text-[13.5px] font-bold text-white shadow-[0_8px_22px_-10px_var(--primary)]"
+            >
+              <Icons.takeOpen size={16} /> Tomar turno
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={onClose}
+              className="inline-flex h-[50px] w-full items-center justify-center rounded-[14px] border border-border bg-bg text-[13.5px] font-semibold text-text"
+            >
               Cerrar
-            </Button>
+            </button>
           )}
         </div>
       </div>
@@ -293,6 +378,42 @@ export function ShiftDetailModal({
         variant="danger"
         loading={deleting}
       />
+    </div>
+  );
+}
+
+/**
+ * Fila de información dentro del bloque de detalle del turno.
+ * Diseño: ref docs/design/screens/mobile.jsx Row (línea 489).
+ */
+function DetailRow({
+  icon,
+  label,
+  value,
+  trailing,
+  last,
+}: {
+  icon: React.ReactNode;
+  label: React.ReactNode;
+  value: React.ReactNode;
+  trailing?: React.ReactNode;
+  last?: boolean;
+}) {
+  return (
+    <div
+      className={
+        'flex items-center gap-3 px-4 py-3.5 ' +
+        (last ? '' : 'border-b border-border')
+      }
+    >
+      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] bg-bg text-muted">
+        {icon}
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="text-[11.5px] font-medium text-muted">{label}</p>
+        <p className="mt-0.5 truncate text-[14px] font-semibold text-text">{value}</p>
+      </div>
+      {trailing}
     </div>
   );
 }

@@ -1,19 +1,20 @@
 'use client';
 
 /**
- * Disponibilidad del staff: calendario de eventos (vacaciones, licencia, capacitación, no disponible).
- * Solo el propio usuario ve y gestiona sus eventos.
- * @see project-roadmap.md Módulo 6.1
+ * Disponibilidad del staff: chips + year strip + lista de próximos eventos en mobile,
+ * FullCalendar en desktop. Solo el propio usuario ve y gestiona sus eventos.
+ * Diseño: ref docs/design/screens/mobile.jsx MAvailability (línea 666).
  */
 
 import { AvailabilityCalendar } from '@/components/availability/AvailabilityCalendar';
 import type { AvailabilityEvent } from '@/components/availability/AvailabilityEventModal';
 import { AvailabilityEventModal } from '@/components/availability/AvailabilityEventModal';
+import { MobileAvailabilityView } from '@/components/availability/MobileAvailabilityView';
 import { DashboardDesktopHeader } from '@/components/dashboard/DashboardDesktopHeader';
 import { PermissionRequestModal } from '@/components/permissions/PermissionRequestModal';
-import { Button } from '@/components/ui/Button';
+import { Icons } from '@/components/ui/icons';
+import { Skeleton } from '@/components/ui/Skeleton';
 import { useScheduleOrg } from '@/hooks/useScheduleOrg';
-import Link from 'next/link';
 import { useCallback, useState } from 'react';
 
 export default function StaffAvailabilityPage() {
@@ -24,15 +25,7 @@ export default function StaffAvailabilityPage() {
   const [initialStart, setInitialStart] = useState<Date | undefined>(undefined);
   const [permissionModalOpen, setPermissionModalOpen] = useState(false);
 
-  const onRefresh = useCallback(() => {
-    setRefreshKey((k) => k + 1);
-  }, []);
-
   const onSuccess = useCallback(() => {
-    setRefreshKey((k) => k + 1);
-  }, []);
-
-  const onPermissionSuccess = useCallback(() => {
     setRefreshKey((k) => k + 1);
   }, []);
 
@@ -56,79 +49,74 @@ export default function StaffAvailabilityPage() {
 
   if (isLoading) {
     return (
-      <div className="rounded-xl border border-border bg-background p-6">
-        <p className="text-sm text-muted">Cargando…</p>
+      <div className="space-y-4">
+        <DashboardDesktopHeader title="Disponibilidad" subtitle="Tus eventos y ausencias" />
+        <Skeleton className="h-12 w-full rounded-2xl" />
+        <Skeleton className="h-32 w-full rounded-2xl" />
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="rounded-xl border border-border bg-background p-6">
-        <p className="text-sm text-red-600">{error}</p>
+      <div className="space-y-4">
+        <DashboardDesktopHeader title="Disponibilidad" subtitle="Tus eventos y ausencias" />
+        <div className="rounded-2xl border border-border bg-surface p-6">
+          <p className="text-sm text-red-600">{error}</p>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="space-y-4">
-      <DashboardDesktopHeader title="Mi disponibilidad" subtitle="Agrega eventos para que el manager planifique mejor" />
+      <DashboardDesktopHeader
+        title="Disponibilidad"
+        subtitle="Tus eventos y ausencias"
+        actions={
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setPermissionModalOpen(true)}
+              className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-border bg-bg px-3 text-[12.5px] font-semibold text-text-sec transition-colors hover:text-text"
+            >
+              <Icons.doc size={14} /> Permiso
+            </button>
+            <button
+              type="button"
+              onClick={() => openAdd()}
+              aria-label="Añadir evento"
+              className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-white transition-transform hover:-translate-y-px"
+              style={{ boxShadow: '0 8px 18px -10px var(--primary)' }}
+            >
+              <Icons.plus size={16} stroke={2.6 as unknown as number} />
+            </button>
+          </div>
+        }
+      />
 
-      {/* Header (móvil inspirado en "Disponibilidad - Mobile") */}
-      <div className="flex items-center justify-between gap-3 md:hidden">
-        <div className="flex items-center gap-2">
-          <Link
-            href="/dashboard/staff"
-            className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-background text-text-secondary hover:bg-subtle-bg"
-            aria-label="Volver"
-          >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-              <path d="M15 18l-6-6 6-6" />
-            </svg>
-          </Link>
-          <h1 className="text-lg font-semibold text-text-primary">Mi Disponibilidad</h1>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button type="button" variant="secondary" size="sm" onClick={onRefresh}>
-            Actualizar
-          </Button>
-          <Button type="button" variant="secondary" size="sm" onClick={() => setPermissionModalOpen(true)}>
-            Solicitar permiso
-          </Button>
-          <Button type="button" size="sm" onClick={() => openAdd()}>
-            Agregar
-          </Button>
-        </div>
-      </div>
-
-      {/* Acciones (desktop) */}
-      <div className="hidden flex-wrap items-center justify-end gap-3 md:flex">
-        <Button type="button" variant="secondary" onClick={() => setPermissionModalOpen(true)}>
-          Solicitar permiso
-        </Button>
-        <Button type="button" onClick={() => openAdd()}>
-          Agregar
-        </Button>
-        <Button type="button" variant="secondary" onClick={onRefresh}>
-          Actualizar
-        </Button>
-      </div>
-
-      <div className="rounded-xl border border-primary-100 bg-primary-50 p-4">
-        <p className="text-sm font-medium text-primary-700">Configura tu disponibilidad</p>
-        <p className="mt-1 text-sm text-primary-600">
-          Los managers usarán esta información para asignar turnos. Haz clic en un día para agregar o en un evento para editar o eliminar.
-        </p>
-      </div>
-
-      <div className="overflow-hidden rounded-2xl border border-border bg-background md:rounded-xl">
-        <AvailabilityCalendar
+      {/* Mobile: chips + year strip + lista */}
+      <div className="md:hidden">
+        <MobileAvailabilityView
           orgId={orgId}
           userId={userId}
           refreshKey={refreshKey}
-          onAddClick={openAdd}
+          onAdd={() => openAdd()}
           onEventClick={openEdit}
         />
+      </div>
+
+      {/* Desktop: FullCalendar (sin cambio) */}
+      <div className="hidden md:block">
+        <div className="overflow-hidden rounded-2xl border border-border bg-surface">
+          <AvailabilityCalendar
+            orgId={orgId}
+            userId={userId}
+            refreshKey={refreshKey}
+            onAddClick={openAdd}
+            onEventClick={openEdit}
+          />
+        </div>
       </div>
 
       {orgId && userId && (
@@ -146,7 +134,7 @@ export default function StaffAvailabilityPage() {
         <PermissionRequestModal
           open={permissionModalOpen}
           onClose={() => setPermissionModalOpen(false)}
-          onSuccess={onPermissionSuccess}
+          onSuccess={onSuccess}
           currentUserId={userId}
         />
       )}

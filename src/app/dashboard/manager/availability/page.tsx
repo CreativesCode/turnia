@@ -3,7 +3,7 @@
 /**
  * Vista Manager: disponibilidad de todos los miembros (solo lectura).
  * Filtros por usuario y tipo de evento. Clic en evento abre detalle.
- * @see project-roadmap.md Módulo 6.2
+ * Diseño: ref docs/design/PLAN-REDISENO.md 6.2.
  */
 
 import { AvailabilityEventDetailModal } from '@/components/availability/AvailabilityEventDetailModal';
@@ -11,8 +11,8 @@ import type { AvailabilityEvent } from '@/components/availability/AvailabilityEv
 import { ManagerAvailabilityCalendar } from '@/components/availability/ManagerAvailabilityCalendar';
 import { ManagerAvailabilityFilters, defaultFilters } from '@/components/availability/ManagerAvailabilityFilters';
 import { DashboardDesktopHeader } from '@/components/dashboard/DashboardDesktopHeader';
+import { Skeleton } from '@/components/ui/Skeleton';
 import { useScheduleOrg } from '@/hooks/useScheduleOrg';
-import Link from 'next/link';
 import { useCallback, useState } from 'react';
 
 export default function ManagerAvailabilityPage() {
@@ -33,81 +33,55 @@ export default function ManagerAvailabilityPage() {
 
   if (isLoading) {
     return (
-      <div className="rounded-xl border border-border bg-background p-6">
-        <p className="text-sm text-muted">Cargando…</p>
+      <div className="space-y-4">
+        <DashboardDesktopHeader title="Disponibilidad del equipo" subtitle="Vista general (solo lectura)" />
+        <Skeleton className="h-12 w-full rounded-2xl" />
+        <Skeleton className="h-64 w-full rounded-2xl" />
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="rounded-xl border border-border bg-background p-6">
-        <p className="text-sm text-red-600">{error}</p>
+      <div className="space-y-4">
+        <DashboardDesktopHeader title="Disponibilidad del equipo" subtitle="Vista general (solo lectura)" />
+        <div className="rounded-2xl border border-border bg-surface p-6">
+          <p className="text-sm text-red-600">{error}</p>
+        </div>
       </div>
     );
   }
 
   if (!orgId) {
     return (
-      <div className="rounded-xl border border-border bg-background p-6">
-        <h1 className="text-xl font-semibold text-text-primary">Disponibilidad del equipo</h1>
-        <p className="mt-2 text-sm text-muted">
-          No tienes una organización asignada. Contacta a un administrador para unirte a una.
-        </p>
+      <div className="space-y-4">
+        <DashboardDesktopHeader title="Disponibilidad del equipo" subtitle="Vista general (solo lectura)" />
+        <div className="rounded-2xl border border-border bg-surface p-6">
+          <p className="text-sm text-muted">
+            No tienes una organización asignada. Contacta a un administrador para unirte a una.
+          </p>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="space-y-4">
-      <DashboardDesktopHeader title="Disponibilidad del equipo" subtitle="Vista general (solo lectura) de vacaciones/licencias/etc." />
-
-      <div className="flex flex-wrap items-center gap-4 md:hidden">
-        <h1 className="text-xl font-semibold text-text-primary">Disponibilidad del equipo</h1>
-        <Link
-          href="/dashboard/manager"
-          className="text-sm text-primary-600 hover:text-primary-700"
-        >
-          ← Calendario
-        </Link>
-        <Link
-          href="/dashboard/manager/shifts"
-          className="text-sm text-text-secondary hover:text-primary-600"
-        >
-          Lista de turnos
-        </Link>
-        <Link
-          href="/dashboard/manager/requests"
-          className="text-sm text-text-secondary hover:text-primary-600"
-        >
-          Solicitudes
-        </Link>
-      </div>
-
-      <div className="hidden flex-wrap items-center justify-end gap-3 md:flex">
-        <Link href="/dashboard/manager" className="min-h-[44px] rounded-lg border border-border px-4 py-2.5 text-sm font-medium text-text-secondary hover:bg-subtle-bg">
-          Calendario
-        </Link>
-        <Link href="/dashboard/manager/shifts" className="min-h-[44px] rounded-lg border border-border px-4 py-2.5 text-sm font-medium text-text-secondary hover:bg-subtle-bg">
-          Lista de turnos
-        </Link>
-        <Link href="/dashboard/manager/requests" className="min-h-[44px] rounded-lg border border-border px-4 py-2.5 text-sm font-medium text-text-secondary hover:bg-subtle-bg">
-          Solicitudes
-        </Link>
-      </div>
-
-      <p className="text-sm text-muted">
-        Vacaciones, licencia, capacitación y no disponible de todos los miembros. Haz clic en un evento para ver el detalle. Solo los miembros editan su propia disponibilidad en Staff → Disponibilidad.
-      </p>
-
-      <ManagerAvailabilityFilters orgId={orgId} value={filters} onChange={setFilters} className="mb-3" />
-
-      <ManagerAvailabilityCalendar
-        orgId={orgId}
-        userIdFilter={filters.userId}
-        typeFilter={filters.types}
-        onEventClick={handleEventClick}
+      <DashboardDesktopHeader
+        title="Disponibilidad del equipo"
+        subtitle="Vacaciones, licencias y ausencias de todos los miembros"
       />
+
+      <ManagerAvailabilityFilters orgId={orgId} value={filters} onChange={setFilters} />
+
+      <div className="overflow-hidden rounded-2xl border border-border bg-surface">
+        <ManagerAvailabilityCalendar
+          orgId={orgId}
+          userIdFilter={filters.userId}
+          typeFilter={filters.types}
+          onEventClick={handleEventClick}
+        />
+      </div>
 
       <AvailabilityEventDetailModal
         open={!!detailEvent}

@@ -1,8 +1,16 @@
 'use client';
 
+import { Pill } from '@/components/ui/Pill';
 import { ConfirmModal } from '@/components/ui/ConfirmModal';
+import { ShiftLetter } from '@/components/ui/ShiftLetter';
+import {
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  PlusIcon,
+  SettingsIcon,
+  XIcon,
+} from '@/components/ui/icons';
 import { createClient } from '@/lib/supabase/client';
-import { formatShiftTypeSchedule, isColorLight } from '@/lib/utils';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import useSWR from 'swr';
 import type { ShiftTypeRow } from './ShiftTypeFormModal';
@@ -14,6 +22,23 @@ type Props = {
   onRefresh?: () => void;
 };
 
+function formatTime(t: string | null): string {
+  if (!t) return '—';
+  return t.substring(0, 5);
+}
+
+function durationOf(start: string | null, end: string | null): string {
+  if (!start || !end) return '24h';
+  const [sh, sm] = start.split(':').map(Number);
+  const [eh, em] = end.split(':').map(Number);
+  let mins = (eh * 60 + em) - (sh * 60 + sm);
+  if (mins <= 0) mins += 24 * 60;
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  if (m === 0) return `${h}h`;
+  return `${h}h ${m}m`;
+}
+
 export function ShiftTypesList({ orgId, refreshKey = 0, onRefresh }: Props) {
   const [createOpen, setCreateOpen] = useState(false);
   const [editing, setEditing] = useState<ShiftTypeRow | null>(null);
@@ -23,8 +48,19 @@ export function ShiftTypesList({ orgId, refreshKey = 0, onRefresh }: Props) {
   const [reordering, setReordering] = useState(false);
   const [reorderError, setReorderError] = useState<string | null>(null);
 
-  const swrKey = useMemo(() => ['shiftTypes', orgId] as const, [orgId]);
-  const fetcher = useCallback(async (): Promise<ShiftTypeRow[]> => {
+  const { firstDay, lastDay } = useMemo(() => {
+    const now = new Date();
+    return {
+      firstDay: new Date(now.getFullYear(), now.getMonth(), 1).toISOString(),
+      lastDay: new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59).toISOString(),
+    };
+  }, []);
+
+  const swrKey = useMemo(() => ['shiftTypes', orgId, firstDay] as const, [orgId, firstDay]);
+  const fetcher = useCallback(async (): Promise<{
+    rows: ShiftTypeRow[];
+    counts: Record<string, number>;
+  }> => {
     const supabase = createClient();
     const { data, error } = await supabase
       .from('organization_shift_types')
@@ -33,14 +69,37 @@ export function ShiftTypesList({ orgId, refreshKey = 0, onRefresh }: Props) {
       .order('sort_order', { ascending: true })
       .order('name', { ascending: true });
     if (error) throw new Error(error.message);
-    return (data ?? []) as ShiftTypeRow[];
-  }, [orgId]);
+    const rows = (data ?? []) as ShiftTypeRow[];
 
-  const { data: rows = [], error: swrError, isLoading, isValidating, mutate } = useSWR(swrKey, fetcher, {
+    /* Conteo de turnos por tipo en el mes actual. */
+    let counts: Record<string, number> = {};
+    if (rows.length > 0) {
+      const { data: shifts } = await supabase
+        .from('shifts')
+        .select('shift_type_id')
+        .eq('org_id', orgId)
+        .gte('start_at', firstDay)
+        .lte('start_at', lastDay);
+      if (shifts) {
+        counts = (shifts as { shift_type_id: string | null }[]).reduce<Record<string, number>>(
+          (acc, s) => {
+            if (s.shift_type_id) acc[s.shift_type_id] = (acc[s.shift_type_id] || 0) + 1;
+            return acc;
+          },
+          {},
+        );
+      }
+    }
+    return { rows, counts };
+  }, [orgId, firstDay, lastDay]);
+
+  const { data, error: swrError, isLoading, isValidating, mutate } = useSWR(swrKey, fetcher, {
     revalidateOnFocus: true,
     revalidateOnReconnect: true,
     dedupingInterval: 5000,
   });
+  const rows = data?.rows ?? [];
+  const counts = data?.counts ?? {};
 
   useEffect(() => {
     void mutate();
@@ -58,8 +117,13 @@ export function ShiftTypesList({ orgId, refreshKey = 0, onRefresh }: Props) {
       .channel(`turnia:shiftTypes:${orgId}`)
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'organization_shift_types', filter: `org_id=eq.${orgId}` },
-        () => scheduleRealtimeRefresh()
+        {
+          event: '*',
+          schema: 'public',
+          table: 'organization_shift_types',
+          filter: `org_id=eq.${orgId}`,
+        },
+        () => scheduleRealtimeRefresh(),
       )
       .subscribe();
 
@@ -91,7 +155,7 @@ export function ShiftTypesList({ orgId, refreshKey = 0, onRefresh }: Props) {
       setDeleteError(
         err.code === '23503'
           ? 'No se puede eliminar: hay turnos asignados a este tipo. Reasigna o elimina esos turnos antes.'
-          : err.message
+          : err.message,
       );
       return;
     }
@@ -115,21 +179,21 @@ export function ShiftTypesList({ orgId, refreshKey = 0, onRefresh }: Props) {
       setReorderError(null);
       setReordering(true);
 
-      // Optimistic UI swap
       mutate(
         (prev) => {
-          const prevRows = (prev ?? []) as ShiftTypeRow[];
-          if (index < 0 || index >= prevRows.length) return prevRows;
+          if (!prev) return prev;
+          const prevRows = prev.rows;
+          if (index < 0 || index >= prevRows.length) return prev;
           const t = index + dir;
-          if (t < 0 || t >= prevRows.length) return prevRows;
+          if (t < 0 || t >= prevRows.length) return prev;
           const next = [...prevRows];
           const ra = next[index];
           const rb = next[t];
           next[index] = { ...rb, sort_order: ra.sort_order };
           next[t] = { ...ra, sort_order: rb.sort_order };
-          return next;
+          return { ...prev, rows: next };
         },
-        { revalidate: false }
+        { revalidate: false },
       );
 
       const supabase = createClient();
@@ -156,30 +220,27 @@ export function ShiftTypesList({ orgId, refreshKey = 0, onRefresh }: Props) {
       onRefresh?.();
       void mutate();
     },
-    [rows, orgId, reordering, onRefresh, mutate]
+    [rows, orgId, reordering, onRefresh, mutate],
   );
 
   if (loading) {
     return (
-      <div className="rounded-xl border border-border bg-background p-4">
-        <p className="text-sm text-muted">Cargando tipos de turno…</p>
-        <div className="mt-3 space-y-2">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="h-10 w-full animate-pulse rounded bg-subtle-bg" />
-          ))}
-        </div>
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {[0, 1, 2, 3, 4, 5].map((i) => (
+          <div key={i} className="h-44 animate-pulse rounded-2xl bg-subtle-bg" />
+        ))}
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="rounded-xl border border-border bg-background p-4">
-        <p className="text-sm text-red-600">{error}</p>
+      <div className="rounded-2xl border border-border bg-bg p-4">
+        <p className="text-sm text-red">{error}</p>
         <button
           type="button"
           onClick={() => void mutate()}
-          className="mt-3 min-h-[44px] min-w-[44px] rounded-lg border border-border px-4 py-2.5 text-sm font-medium text-text-secondary hover:bg-subtle-bg"
+          className="mt-3 rounded-lg border border-border px-4 py-2 text-sm font-medium text-text-sec hover:bg-subtle-2"
         >
           Reintentar
         </button>
@@ -188,113 +249,114 @@ export function ShiftTypesList({ orgId, refreshKey = 0, onRefresh }: Props) {
   }
 
   return (
-    <>
-      {reorderError && (
-        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-          {reorderError}
-        </div>
-      )}
-      {deleteError && (
-        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-          {deleteError}
+    <div className="space-y-3">
+      {(reorderError || deleteError) && (
+        <div className="rounded-xl border border-border bg-subtle-bg p-3 text-sm text-red">
+          {reorderError || deleteError}
         </div>
       )}
 
-      <div className="mb-4 flex flex-wrap items-center justify-end gap-3">
+      <div className="flex items-center justify-between">
+        <p className="text-[12.5px] text-muted">
+          {rows.length} tipo{rows.length === 1 ? '' : 's'} configurado{rows.length === 1 ? '' : 's'}
+        </p>
         <button
           type="button"
           onClick={() => setCreateOpen(true)}
-          className="min-h-[44px] rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-700"
+          className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-primary px-3 text-[13px] font-semibold text-white shadow-[0_4px_12px_-6px_var(--color-primary)]"
         >
-          Nuevo tipo de turno
+          <PlusIcon size={14} stroke={2.6} /> Nuevo tipo
         </button>
       </div>
 
-      {rows.length === 0 ? (
-        <div className="rounded-xl border border-border bg-background p-6 text-center">
-          <p className="text-sm text-muted">
-            Aún no hay tipos de turno. Crea al menos uno (ej. Mañana, Noche, 24h) para poder asignarlos a los turnos.
-          </p>
-        </div>
-      ) : (
-        <div className="overflow-x-auto rounded-xl border border-border bg-background shadow-sm">
-          <table className="min-w-full text-sm">
-            <thead>
-              <tr className="border-b border-border bg-subtle-bg">
-                <th className="w-[90px] px-3 py-2.5 text-left font-medium text-text-primary">Orden</th>
-                <th className="px-3 py-2.5 text-left font-medium text-text-primary">Tipo</th>
-                <th className="px-3 py-2.5 text-left font-medium text-text-primary">Nombre</th>
-                <th className="px-3 py-2.5 text-left font-medium text-text-primary">Horario</th>
-                <th className="px-3 py-2.5 text-right font-medium text-text-primary">Acciones</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r, idx) => (
-                <tr key={r.id} className="border-b border-border last:border-0">
-                  <td className="px-3 py-2.5">
-                    <span className="inline-flex items-center gap-1">
-                      <button
-                        type="button"
-                        onClick={() => move(idx, -1)}
-                        disabled={reordering || idx === 0}
-                        className="min-h-[44px] min-w-[44px] rounded-lg px-2 py-1.5 text-sm text-text-secondary hover:bg-subtle-bg disabled:opacity-40"
-                        aria-label="Subir"
-                        title="Subir"
-                      >
-                        ↑
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => move(idx, 1)}
-                        disabled={reordering || idx === rows.length - 1}
-                        className="min-h-[44px] min-w-[44px] rounded-lg px-2 py-1.5 text-sm text-text-secondary hover:bg-subtle-bg disabled:opacity-40"
-                        aria-label="Bajar"
-                        title="Bajar"
-                      >
-                        ↓
-                      </button>
-                    </span>
-                  </td>
-                  <td className="px-3 py-2.5">
-                    <span
-                      className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border text-xs font-bold"
-                      style={{
-                        backgroundColor: r.color,
-                        color: isColorLight(r.color) ? '#0F172A' : '#FFFFFF',
-                      }}
-                      title={`${r.name} (${r.letter}) · ${r.color}`}
-                    >
-                      {r.letter}
-                    </span>
-                  </td>
-                  <td className="px-3 py-2.5 text-text-primary">{r.name}</td>
-                  <td className="px-3 py-2.5 text-muted">
-                    {formatShiftTypeSchedule(r.start_time, r.end_time)}
-                  </td>
-                  <td className="px-3 py-2.5 text-right">
-                    <span className="flex justify-end gap-1">
-                      <button
-                        type="button"
-                        onClick={() => setEditing(r)}
-                        className="min-h-[44px] min-w-[44px] rounded-lg px-2 py-1.5 text-sm text-primary-600 hover:bg-primary-50"
-                      >
-                        Editar
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setConfirmDelete(r)}
-                        className="min-h-[44px] min-w-[44px] rounded-lg px-2 py-1.5 text-sm text-red-600 hover:bg-red-50"
-                      >
-                        Eliminar
-                      </button>
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {rows.map((r, idx) => {
+          const count = counts[r.id] ?? 0;
+          return (
+            <article
+              key={r.id}
+              className="flex flex-col gap-3 rounded-2xl border border-border bg-bg p-4 transition-colors hover:border-border-strong"
+            >
+              <div className="flex items-start gap-3">
+                <ShiftLetter letter={r.letter} color={r.color} size={48} />
+                <div className="min-w-0 flex-1">
+                  <h3 className="tn-h truncate text-[15px] font-bold text-text">{r.name}</h3>
+                  <p className="mt-0.5 text-[12px] text-muted">
+                    {formatTime(r.start_time)} — {formatTime(r.end_time)} · {durationOf(r.start_time, r.end_time)}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setEditing(r)}
+                  aria-label="Editar tipo"
+                  className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-text-sec hover:bg-subtle-2"
+                >
+                  <SettingsIcon size={14} />
+                </button>
+              </div>
+
+              <div className="mt-1 flex items-center justify-between border-t border-border pt-3">
+                <span className="text-[11px] font-semibold uppercase tracking-[0.04em] text-muted">
+                  Programados este mes
+                </span>
+                <span
+                  className="tn-h text-[18px] font-extrabold"
+                  style={{ color: r.color }}
+                >
+                  {count}
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between gap-1">
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => move(idx, -1)}
+                    disabled={reordering || idx === 0}
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-subtle-2 text-text-sec hover:bg-subtle disabled:opacity-30"
+                    aria-label="Subir orden"
+                    title="Subir orden"
+                  >
+                    <ChevronLeftIcon size={14} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => move(idx, 1)}
+                    disabled={reordering || idx === rows.length - 1}
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-subtle-2 text-text-sec hover:bg-subtle disabled:opacity-30"
+                    aria-label="Bajar orden"
+                    title="Bajar orden"
+                  >
+                    <ChevronRightIcon size={14} />
+                  </button>
+                </div>
+                {count === 0 ? (
+                  <button
+                    type="button"
+                    onClick={() => setConfirmDelete(r)}
+                    aria-label="Eliminar tipo"
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-red hover:bg-red-soft"
+                  >
+                    <XIcon size={14} stroke={2.4} />
+                  </button>
+                ) : (
+                  <Pill tone="muted">En uso</Pill>
+                )}
+              </div>
+            </article>
+          );
+        })}
+
+        {/* Card "+" dashed para crear */}
+        <button
+          type="button"
+          onClick={() => setCreateOpen(true)}
+          className="flex min-h-44 flex-col items-center justify-center gap-2 rounded-2xl border-[1.5px] border-dashed border-border text-muted transition-colors hover:border-primary hover:text-primary"
+        >
+          <PlusIcon size={22} stroke={2} />
+          <span className="text-[13px] font-semibold">Crear tipo</span>
+        </button>
+      </div>
 
       <ShiftTypeFormModal
         open={createOpen}
@@ -337,6 +399,6 @@ export function ShiftTypesList({ orgId, refreshKey = 0, onRefresh }: Props) {
         variant="danger"
         loading={deleting}
       />
-    </>
+    </div>
   );
 }

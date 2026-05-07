@@ -8,11 +8,11 @@
 
 import type { ShiftWithType } from '@/components/calendar/ShiftCalendar';
 import { ConfirmModal } from '@/components/ui/ConfirmModal';
+import { ShiftLetter } from '@/components/ui/ShiftLetter';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { getCacheEntry, setCache } from '@/lib/cache';
 import { createClient } from '@/lib/supabase/client';
 import { fetchMembershipStaffPositionsMap, fetchOrgMemberIds, fetchProfilesMap, fetchShiftTypes } from '@/lib/supabase/queries';
-import { isColorLight } from '@/lib/utils';
 import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import useSWR from 'swr';
 
@@ -417,7 +417,6 @@ function ShiftListInner({
                     <div className="mt-2 flex flex-col gap-0.5 px-2">
                       {shiftTypes.map((t) => {
                         const checked = allTypesSelected || filters.shiftTypeIds.includes(t.id);
-                        const txt = isColorLight(t.color) ? '#111' : '#fff';
                         return (
                           <label key={t.id} className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 hover:bg-subtle-bg">
                             <input
@@ -426,12 +425,7 @@ function ShiftListInner({
                               onChange={() => toggleType(t.id)}
                               className="h-4 w-4 rounded border-border"
                             />
-                            <span
-                              className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold"
-                              style={{ backgroundColor: t.color, color: txt }}
-                            >
-                              {t.letter}
-                            </span>
+                            <ShiftLetter letter={t.letter} color={t.color} size={24} className="text-xs" />
                             <span className="text-sm text-text-primary">{t.name}</span>
                           </label>
                         );
@@ -622,17 +616,10 @@ function ShiftListInner({
                         <td className="px-4 py-3 text-text-primary">{formatDate(start)}</td>
                         <td className="px-4 py-3 text-text-secondary">{formatTimeRange(s.start_at, s.end_at)}</td>
                         <td className="px-4 py-3">
-                          <span
-                            className="inline-flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold"
-                            style={{
-                              backgroundColor: color,
-                              color: isColorLight(color) ? '#111' : '#fff',
-                            }}
-                            title={typeName}
-                          >
-                            {letter}
+                          <span className="inline-flex items-center gap-2" title={typeName}>
+                            <ShiftLetter letter={letter} color={color} size={28} className="text-xs" />
+                            <span className="text-text-primary">{typeName}</span>
                           </span>
-                          <span className="ml-2 text-text-primary">{typeName}</span>
                         </td>
                         <td className="px-4 py-3 text-text-secondary">
                           {assignedName?.trim() || 'Sin asignar'}

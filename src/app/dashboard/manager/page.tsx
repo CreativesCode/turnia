@@ -6,6 +6,7 @@
  * @see project-roadmap.md Módulo 3
  */
 
+import { CalendarRightRail } from '@/components/calendar/CalendarRightRail';
 import type { ShiftWithType } from '@/components/calendar/ShiftCalendar';
 import { ShiftCalendar } from '@/components/calendar/ShiftCalendar';
 import {
@@ -20,28 +21,18 @@ import { QuickActions } from '@/components/mobile/QuickActions';
 import { CreateShiftModal } from '@/components/shifts/CreateShiftModal';
 import { EditShiftModal } from '@/components/shifts/EditShiftModal';
 import { ShiftDetailModal } from '@/components/shifts/ShiftDetailModal';
-import { Button } from '@/components/ui/Button';
-import { LinkButton } from '@/components/ui/LinkButton';
 import { Skeleton } from '@/components/ui/Skeleton';
+import { Icons } from '@/components/ui/icons';
 import { useScheduleOrg } from '@/hooks/useScheduleOrg';
 import { createClient } from '@/lib/supabase/client';
+import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-function SlidersIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <line x1="4" y1="21" x2="4" y2="14" />
-      <line x1="4" y1="10" x2="4" y2="3" />
-      <line x1="12" y1="21" x2="12" y2="12" />
-      <line x1="12" y1="8" x2="12" y2="3" />
-      <line x1="20" y1="21" x2="20" y2="16" />
-      <line x1="20" y1="12" x2="20" y2="3" />
-      <line x1="1" y1="14" x2="7" y2="14" />
-      <line x1="9" y1="8" x2="15" y2="8" />
-      <line x1="17" y1="16" x2="23" y2="16" />
-    </svg>
-  );
+function calendarSubtitle(): string {
+  const d = new Date();
+  const month = d.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' });
+  return month.charAt(0).toUpperCase() + month.slice(1);
 }
 
 export default function ManagerPage() {
@@ -173,6 +164,39 @@ export default function ManagerPage() {
     ];
   }, [scrollToId]);
 
+  const handleSelectShiftFromRail = useCallback(
+    async (shiftId: string) => {
+      if (!orgId) return;
+      const supabase = createClient();
+      const { data: s } = await supabase
+        .from('shifts')
+        .select(
+          `id, org_id, shift_type_id, status, start_at, end_at, assigned_user_id, location,
+           organization_shift_types (id, name, letter, color, start_time, end_time)`
+        )
+        .eq('id', shiftId)
+        .eq('org_id', orgId)
+        .single();
+      if (!s) return;
+      const ot = Array.isArray((s as { organization_shift_types?: unknown }).organization_shift_types)
+        ? (s as { organization_shift_types?: unknown[] }).organization_shift_types?.[0]
+        : (s as { organization_shift_types?: unknown }).organization_shift_types;
+      const shift: ShiftWithType = { ...s, organization_shift_types: ot ?? null } as ShiftWithType;
+      let name: string | null = null;
+      if (shift.assigned_user_id) {
+        const { data: p } = await supabase
+          .from('profiles')
+          .select('full_name')
+          .eq('id', shift.assigned_user_id)
+          .single();
+        name = (p as { full_name?: string } | null)?.full_name ?? null;
+      }
+      setDetailShift(shift);
+      setDetailAssignedName(name);
+    },
+    [orgId]
+  );
+
   if (isLoading) {
     return (
       <div className="rounded-xl border border-border bg-background p-6">
@@ -207,82 +231,103 @@ export default function ManagerPage() {
     );
   }
 
+  const headerActions = canManageShifts ? (
+    <div className="flex items-center gap-2">
+      <Link
+        href="/dashboard/manager/shifts"
+        className="inline-flex h-9 items-center gap-1.5 rounded-[10px] border border-border bg-surface px-3 text-[12.5px] font-medium text-text-sec hover:bg-subtle"
+      >
+        <Icons.list size={14} /> Lista
+      </Link>
+      <button
+        type="button"
+        onClick={() => {
+          setCreateInitialDate(undefined);
+          setCreateOpen(true);
+        }}
+        className="inline-flex h-9 items-center gap-1.5 rounded-[10px] bg-primary px-3.5 text-[13px] font-semibold text-white shadow-[0_6px_16px_-10px_var(--primary)]"
+      >
+        <Icons.plus size={15} stroke={2.6} /> Nuevo turno
+      </button>
+    </div>
+  ) : null;
+
   return (
     <div className="space-y-4">
-      <DashboardDesktopHeader title="Calendario de turnos" subtitle="Vista general y gestión del calendario" />
+      <DashboardDesktopHeader
+        title="Calendario"
+        subtitle={calendarSubtitle()}
+        actions={headerActions}
+      />
 
-      {/* Header (móvil inspirado en el frame "Calendario - Mobile") */}
+      {/* Header mobile compacto */}
       <div className="flex items-center justify-between gap-3 md:hidden">
-        <h1 className="text-lg font-semibold text-text-primary">Calendario</h1>
+        <h1 className="tn-h text-[20px] font-bold tracking-[-0.02em] text-text">Calendario</h1>
         <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={goToday}
-            className="min-h-[36px] rounded-lg bg-primary-50 px-3 text-sm font-semibold text-primary-700 hover:bg-primary-100"
+            className="inline-flex h-9 items-center rounded-[10px] bg-primary-soft px-3 text-[13px] font-semibold text-primary"
           >
             Hoy
           </button>
           <button
             type="button"
             onClick={toggleFilters}
-            className="flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-background text-text-secondary hover:bg-subtle-bg"
+            className="flex h-9 w-9 items-center justify-center rounded-[10px] bg-subtle-2 text-text-sec"
             aria-label="Filtros"
           >
-            <SlidersIcon />
+            <Icons.filter size={16} />
           </button>
         </div>
       </div>
 
-      {/* Acciones (desktop) */}
-      <div className="hidden flex-wrap items-center justify-end gap-4 md:flex">
-        <div className="flex flex-wrap items-center gap-3">
-          <LinkButton href="/dashboard/manager/shifts" variant="secondary">
-            Lista de turnos
-          </LinkButton>
-          {canManageShifts && (
-            <Button
-              onClick={() => {
-                setCreateInitialDate(undefined);
-                setCreateOpen(true);
+      {/* Layout principal: en desktop, calendario izquierda + right rail 320px */}
+      <div className="grid gap-4 md:grid-cols-[1fr_320px]">
+        <div className="min-w-0 space-y-4">
+          {/* Widgets mobile (no aplican en desktop, los oculto) */}
+          <div className="space-y-4 md:hidden">
+            <QuickActions items={actions} />
+            <MyUpcomingShiftsWidget
+              orgId={orgId}
+              userId={userId}
+              title="Mis próximos turnos (14 días)"
+              onSelectShift={(s) => {
+                setDetailShift(s);
+                setDetailAssignedName((myName?.trim() || 'Yo') as string);
               }}
-            >
-              Nuevo turno
-            </Button>
-          )}
+            />
+            <OnCallNowWidget
+              orgId={orgId}
+              onSelectShift={(s, name) => {
+                setDetailShift(s);
+                setDetailAssignedName(name);
+              }}
+            />
+          </div>
+
+          <ShiftCalendarFilters orgId={orgId} value={filters} onChange={setFilters} />
+
+          <ShiftCalendar
+            orgId={orgId}
+            canManageShifts={canManageShifts}
+            refreshKey={refreshKey}
+            filters={filters}
+            onEventClick={handleEventClick}
+            onDateClick={handleDateClick}
+            compactHeader
+          />
+        </div>
+
+        {/* Right rail (solo desktop) */}
+        <div className="hidden md:block">
+          <CalendarRightRail
+            orgId={orgId}
+            refreshKey={refreshKey}
+            onSelectShift={handleSelectShiftFromRail}
+          />
         </div>
       </div>
-
-      <QuickActions items={actions} />
-
-      <MyUpcomingShiftsWidget
-        orgId={orgId}
-        userId={userId}
-        title="Mis próximos turnos (14 días)"
-        onSelectShift={(s) => {
-          setDetailShift(s);
-          setDetailAssignedName((myName?.trim() || 'Yo') as string);
-        }}
-      />
-
-      <OnCallNowWidget
-        orgId={orgId}
-        onSelectShift={(s, name) => {
-          setDetailShift(s);
-          setDetailAssignedName(name);
-        }}
-      />
-
-      <ShiftCalendarFilters orgId={orgId} value={filters} onChange={setFilters} className="mb-3" />
-
-      <ShiftCalendar
-        orgId={orgId}
-        canManageShifts={canManageShifts}
-        refreshKey={refreshKey}
-        filters={filters}
-        onEventClick={handleEventClick}
-        onDateClick={handleDateClick}
-        compactHeader
-      />
 
       <ShiftDetailModal
         open={!!detailShift}

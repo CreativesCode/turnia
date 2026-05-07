@@ -1,8 +1,11 @@
 'use client';
 
-import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
-import { PasswordInput } from '@/components/ui/PasswordInput';
+import { AuthPasswordField } from '@/components/auth/AuthPasswordField';
+import { AuthShell } from '@/components/auth/AuthShell';
+import { getContrastTextColor } from '@/lib/colorContrast';
+import { Field } from '@/components/ui/Field';
+import { ArrowRightIcon, MailIcon, UserIcon } from '@/components/ui/icons';
+import { Spinner } from '@/components/ui/Spinner';
 import { PENDING_INVITE_TOKEN_KEY } from '@/lib/invite';
 import { redirectAfterAuth } from '@/lib/navigation';
 import { createClient } from '@/lib/supabase/client';
@@ -37,6 +40,48 @@ const ROLE_LABELS: Record<string, string> = {
   viewer: 'Solo lectura',
 };
 
+const ORG_PALETTE = ['#0EA5E9', '#14B8A6', '#8B5CF6', '#F97316', '#22C55E', '#EC4899', '#F59E0B', '#A78BFA'];
+
+function colorForOrg(seed: string): string {
+  let hash = 0;
+  for (let i = 0; i < seed.length; i++) hash = (hash * 31 + seed.charCodeAt(i)) | 0;
+  return ORG_PALETTE[Math.abs(hash) % ORG_PALETTE.length];
+}
+
+function orgInitials(name: string | null): string {
+  const base = (name ?? '').trim();
+  if (!base) return 'OR';
+  const parts = base.split(/\s+/).filter(Boolean);
+  const a = parts[0]?.[0] ?? '?';
+  const b = parts[1]?.[0] ?? parts[0]?.[1] ?? '';
+  return (a + b).toUpperCase();
+}
+
+function OrgCard({ invitation }: { invitation: InvitationData }) {
+  const color = colorForOrg(invitation.org_id || invitation.org_name || invitation.email);
+  const text = getContrastTextColor(color);
+  const initials = orgInitials(invitation.org_name);
+  return (
+    <div className="mb-4 flex items-center gap-3.5 rounded-2xl border border-border bg-subtle-bg p-4">
+      <div
+        className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl text-[15px] font-extrabold"
+        style={{ background: color, color: text }}
+      >
+        {initials}
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="truncate text-[14.5px] font-bold text-text">
+          {invitation.org_name || 'Organización'}
+        </div>
+        <div className="mt-0.5 truncate text-xs text-muted">
+          {ROLE_LABELS[invitation.role] || invitation.role}
+          {invitation.invited_by_name ? <> · invitado por {invitation.invited_by_name}</> : null}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function AcceptInvitationForm({ invitation, sessionUser, token }: Props) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -53,7 +98,9 @@ export function AcceptInvitationForm({ invitation, sessionUser, token }: Props) 
     setError(null);
     setLoading(true);
     const supabase = createClient();
-    const { data: { session } } = await supabase.auth.getSession();
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
     if (!session?.access_token) {
       setError('Sesión expirada. Recarga la página e inicia sesión de nuevo.');
       setLoading(false);
@@ -86,8 +133,6 @@ export function AcceptInvitationForm({ invitation, sessionUser, token }: Props) 
     setLoading(true);
     const supabase = createClient();
 
-    // Crear usuario + aceptar invitación en una sola llamada (sin email de
-    // confirmación: la invitación ya validó el correo).
     const url = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/signup-and-accept-invitation`;
     const res = await fetch(url, {
       method: 'POST',
@@ -109,14 +154,13 @@ export function AcceptInvitationForm({ invitation, sessionUser, token }: Props) 
       return;
     }
 
-    // Login inmediato con las credenciales recién creadas.
     const { error: signInErr } = await supabase.auth.signInWithPassword({
       email: invitation.email,
       password,
     });
     setLoading(false);
     if (signInErr) {
-      setError(`Cuenta creada, pero no pude iniciar sesión: ${signInErr.message}. Ve a iniciar sesión.`);
+      setError(`Cuenta creada, pero no pude iniciar sesión: ${signInErr.message}.`);
       return;
     }
 
@@ -126,170 +170,162 @@ export function AcceptInvitationForm({ invitation, sessionUser, token }: Props) 
     redirectAfterAuth(router, '/dashboard');
   };
 
+  /* Caso: sesión iniciada con correo distinto */
   if (isLoggedIn && !emailMatches) {
     return (
-      <div className="rounded-2xl border border-border bg-background p-6 shadow-sm">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/logo.png" alt="Turnia" className="mx-auto h-20 w-20" />
-        <h1 className="mt-5 text-center text-2xl font-bold text-text-primary">Invitación para otro correo</h1>
-        <p className="mt-3 text-center text-sm text-text-secondary">
-          Has iniciado sesión como <strong>{sessionUser?.email}</strong>. Esta invitación es para{' '}
-          <strong>{invitation.email}</strong>.
-        </p>
-        <p className="mt-3 text-center text-sm text-text-secondary">
-          Cierra sesión e inicia con {invitation.email}, o crea una cuenta nueva con ese correo.
-        </p>
-        <div className="mt-6 flex flex-wrap items-center justify-center gap-3 text-sm">
-          <Link
-            href={`/login?redirect=${encodeURIComponent(`/invite?token=${encodeURIComponent(token)}`)}`}
-            className="font-medium text-primary-600 hover:text-primary-700"
-          >
-            Iniciar sesión con otro correo
-          </Link>
-          <span className="text-muted" aria-hidden>
-            ·
-          </span>
-          <Link href="/" className="font-medium text-primary-600 hover:text-primary-700">
-            Volver
-          </Link>
-        </div>
-      </div>
+      <AuthShell
+        title="Invitación para otro correo"
+        subtitle={
+          <>
+            Has iniciado sesión como <strong className="text-text">{sessionUser?.email}</strong>.
+            <br />
+            Esta invitación es para <strong className="text-text">{invitation.email}</strong>.
+          </>
+        }
+        footer={
+          <>
+            <Link
+              href={`/login?redirect=${encodeURIComponent(`/invite?token=${encodeURIComponent(token)}`)}`}
+              className="font-semibold text-primary"
+            >
+              Iniciar sesión con otro correo
+            </Link>
+            <span className="mx-2">·</span>
+            <Link href="/" className="font-semibold text-primary">
+              Volver
+            </Link>
+          </>
+        }
+      >
+        <OrgCard invitation={invitation} />
+      </AuthShell>
     );
   }
 
+  /* Caso: sesión válida, solo confirmar */
   if (isLoggedIn && emailMatches) {
     return (
-      <div className="rounded-2xl border border-border bg-background p-6 shadow-sm">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/logo.png" alt="Turnia" className="mx-auto h-20 w-20" />
-
-        <div className="mt-5 text-center">
-          <h1 className="text-2xl font-bold text-text-primary">¡Te han invitado!</h1>
-          <p className="mt-2 text-sm text-text-secondary">Has sido invitado a unirte a</p>
-          <p className="mt-2 text-lg font-semibold text-primary-600">{invitation.org_name || 'la organización'}</p>
-        </div>
-
-        <div className="mt-6 rounded-2xl border border-border bg-subtle-bg p-5">
-          <p className="text-sm font-semibold text-text-secondary">Detalles de la invitación</p>
-          <div className="mt-4 space-y-3 text-sm">
-            <div className="flex items-center justify-between gap-4">
-              <span className="text-muted">Rol</span>
-              <span className="font-medium text-text-primary">{ROLE_LABELS[invitation.role] || invitation.role}</span>
-            </div>
-            <div className="flex items-center justify-between gap-4">
-              <span className="text-muted">Correo</span>
-              <span className="font-medium text-text-primary">{invitation.email}</span>
-            </div>
-            {invitation.invited_by_name ? (
-              <div className="flex items-center justify-between gap-4">
-                <span className="text-muted">Invitado por</span>
-                <span className="font-medium text-text-primary">{invitation.invited_by_name}</span>
-              </div>
-            ) : null}
-          </div>
-        </div>
-
-        {error ? <p className="mt-4 text-sm text-red-600">{error}</p> : null}
-
-        <div className="mt-5">
-          <Button type="button" onClick={acceptInvitation} loading={loading} className="w-full">
-            Aceptar invitación
-          </Button>
-        </div>
-
-        <div className="mt-5 text-center text-xs text-muted">
-          <Link href="/" className="text-primary-600 hover:text-primary-700">
+      <AuthShell
+        title="Te invitaron a Turnia"
+        subtitle={
+          <>
+            <b className="text-text">{invitation.org_name || 'Una organización'}</b> te invitó a unirte
+            como <b className="text-primary">{ROLE_LABELS[invitation.role] || invitation.role}</b>.
+          </>
+        }
+        footer={
+          <Link href="/" className="font-semibold text-primary">
             Volver
           </Link>
-        </div>
-      </div>
+        }
+      >
+        <OrgCard invitation={invitation} />
+
+        {error ? <p className="mb-3 text-sm text-red">{error}</p> : null}
+
+        <button
+          type="button"
+          onClick={acceptInvitation}
+          disabled={loading}
+          className="relative flex h-[50px] w-full items-center justify-center gap-2 rounded-xl bg-primary text-[14.5px] font-bold text-white transition-opacity disabled:opacity-60"
+          style={{ boxShadow: '0 10px 24px -12px var(--color-primary)' }}
+        >
+          {loading ? (
+            <Spinner aria-label="Cargando" />
+          ) : (
+            <>
+              Aceptar invitación <ArrowRightIcon size={16} stroke={2.6} />
+            </>
+          )}
+        </button>
+
+        <button
+          type="button"
+          onClick={() => router.push('/')}
+          className="mt-2.5 h-11 w-full rounded-xl border border-border bg-transparent text-[13px] font-medium text-muted"
+        >
+          Rechazar invitación
+        </button>
+      </AuthShell>
     );
   }
 
+  /* Caso: sin sesión (signup + accept) */
   return (
-    <div className="rounded-2xl border border-border bg-background p-6 shadow-sm">
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src="/logo.png" alt="Turnia" className="mx-auto h-20 w-20" />
-
-      <div className="mt-5 text-center">
-        <h1 className="text-2xl font-bold text-text-primary">¡Te han invitado!</h1>
-        <p className="mt-2 text-sm text-text-secondary">Has sido invitado a unirte a</p>
-        <p className="mt-2 text-lg font-semibold text-primary-600">{invitation.org_name || 'la organización'}</p>
-      </div>
-
-      <div className="mt-6 rounded-2xl border border-border bg-subtle-bg p-5">
-        <p className="text-sm font-semibold text-text-secondary">Detalles de la invitación</p>
-        <div className="mt-4 space-y-3 text-sm">
-          <div className="flex items-center justify-between gap-4">
-            <span className="text-muted">Rol</span>
-            <span className="font-medium text-text-primary">{ROLE_LABELS[invitation.role] || invitation.role}</span>
-          </div>
-          <div className="flex items-center justify-between gap-4">
-            <span className="text-muted">Correo</span>
-            <span className="font-medium text-text-primary">{invitation.email}</span>
-          </div>
-          {invitation.invited_by_name ? (
-            <div className="flex items-center justify-between gap-4">
-              <span className="text-muted">Invitado por</span>
-              <span className="font-medium text-text-primary">{invitation.invited_by_name}</span>
-            </div>
-          ) : null}
-        </div>
-      </div>
-
-      <form onSubmit={handleSignup} className="mt-6 flex flex-col gap-3">
-        <div className="flex flex-col gap-2">
-          <label className="text-sm font-medium text-text-primary" htmlFor="invite-email">
-            Correo
-          </label>
-          <Input id="invite-email" type="email" value={invitation.email} readOnly className="bg-subtle-bg text-muted" />
-        </div>
-
-        <div className="flex flex-col gap-2">
-          <label className="text-sm font-medium text-text-primary" htmlFor="invite-name">
-            Tu nombre
-          </label>
-          <Input
-            id="invite-name"
-            type="text"
-            placeholder="Ingresa tu nombre"
-            value={fullName}
-            onChange={(e) => setFullName(e.target.value)}
-            required
-            autoComplete="name"
-          />
-        </div>
-
-        <div className="flex flex-col gap-2">
-          <label className="text-sm font-medium text-text-primary" htmlFor="invite-pass">
-            Crear contraseña
-          </label>
-          <PasswordInput
-            id="invite-pass"
-            placeholder="••••••••"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            minLength={8}
-            autoComplete="new-password"
-          />
-        </div>
-
-        {error ? <p className="text-sm text-red-600">{error}</p> : null}
-
-        <Button type="submit" loading={loading} className="w-full">
-          Aceptar invitación
-        </Button>
-      </form>
-
-      <div className="mt-5 text-center text-xs text-muted">
+    <AuthShell
+      title="Te invitaron a Turnia"
+      subtitle={
+        <>
+          <b className="text-text">{invitation.org_name || 'Una organización'}</b> te invitó a unirte
+          como <b className="text-primary">{ROLE_LABELS[invitation.role] || invitation.role}</b>.
+        </>
+      }
+      footer={
         <Link
           href={`/login?redirect=${encodeURIComponent(`/invite?token=${encodeURIComponent(token)}`)}`}
-          className="text-primary-600 hover:text-primary-700"
+          className="font-semibold text-primary"
         >
           ¿Ya tienes cuenta? Iniciar sesión
         </Link>
-      </div>
-    </div>
+      }
+    >
+      <OrgCard invitation={invitation} />
+
+      <form onSubmit={handleSignup} className="flex flex-col gap-3.5">
+        <Field
+          variant="mobile"
+          label="Email"
+          leading={<MailIcon size={18} />}
+          value={invitation.email}
+          readOnly
+          className="opacity-80"
+        />
+        <Field
+          variant="mobile"
+          label="Tu nombre"
+          type="text"
+          placeholder="Ana Morales"
+          leading={<UserIcon size={18} />}
+          value={fullName}
+          onChange={(e) => setFullName(e.target.value)}
+          required
+          autoComplete="name"
+        />
+        <AuthPasswordField
+          label="Contraseña"
+          placeholder="Mínimo 8 caracteres"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          required
+          minLength={8}
+          autoComplete="new-password"
+        />
+
+        {error ? <p className="text-sm text-red">{error}</p> : null}
+
+        <button
+          type="submit"
+          disabled={loading}
+          className="relative mt-1 flex h-[50px] w-full items-center justify-center gap-2 rounded-xl bg-primary text-[14.5px] font-bold text-white transition-opacity disabled:opacity-60"
+          style={{ boxShadow: '0 10px 24px -12px var(--color-primary)' }}
+        >
+          {loading ? (
+            <Spinner aria-label="Cargando" />
+          ) : (
+            <>
+              Aceptar invitación <ArrowRightIcon size={16} stroke={2.6} />
+            </>
+          )}
+        </button>
+
+        <button
+          type="button"
+          onClick={() => router.push('/')}
+          className="mt-1 h-11 w-full rounded-xl border border-border bg-transparent text-[13px] font-medium text-muted"
+        >
+          Rechazar invitación
+        </button>
+      </form>
+    </AuthShell>
   );
 }

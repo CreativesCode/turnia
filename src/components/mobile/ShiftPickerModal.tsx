@@ -2,6 +2,7 @@
 
 import type { ShiftWithType } from '@/components/calendar/ShiftCalendar';
 import { Dialog } from '@/components/ui/Dialog';
+import { ShiftLetter } from '@/components/ui/ShiftLetter';
 
 export type ShiftPickerItem = {
   shift: ShiftWithType;
@@ -75,13 +76,7 @@ export function ShiftPickerModal({
                     onClick={() => onSelect(it)}
                     className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-subtle-bg"
                   >
-                    <span
-                      className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white"
-                      style={{ backgroundColor: color }}
-                      aria-hidden
-                    >
-                      {letter}
-                    </span>
+                    <ShiftLetter letter={letter} color={color} size={32} className="text-xs" aria-hidden />
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-sm font-medium text-text-primary">{typeName}</span>
                       <span className="mt-0.5 block text-xs text-text-secondary">

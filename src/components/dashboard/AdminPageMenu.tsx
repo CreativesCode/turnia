@@ -1,124 +1,138 @@
 'use client';
 
 /**
- * Menú del panel de administración. El enlace "Audit log" solo se muestra a administradores (org_admin / superadmin).
+ * Hub del panel de administración: grid de cards de acceso rápido.
+ * Diseño: ref docs/design/screens/extras2.jsx DAdminExports (línea 189).
+ *
+ * El enlace "Auditoría" solo se muestra a admins con `canManageOrg`.
  */
 
 import { useScheduleOrg } from '@/hooks/useScheduleOrg';
+import { Icons, type IconProps } from '@/components/ui/icons';
 import Link from 'next/link';
 
-const iconNames = ['user-plus', 'users', 'calendar-clock', 'download', 'file-text', 'building'] as const;
-
-function Icon({ name }: { name: (typeof iconNames)[number] }) {
-  switch (name) {
-    case 'user-plus':
-      return (
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-          <path d="M15 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-          <circle cx="8" cy="7" r="4" />
-          <path d="M20 8v6" />
-          <path d="M23 11h-6" />
-        </svg>
-      );
-    case 'users':
-      return (
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-          <path d="M17 21v-2a4 4 0 0 0-3-3.87" />
-          <path d="M7 21v-2a4 4 0 0 1 4-4h0" />
-          <circle cx="9" cy="7" r="4" />
-          <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
-          <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-        </svg>
-      );
-    case 'calendar-clock':
-      return (
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-          <path d="M8 2v4" />
-          <path d="M16 2v4" />
-          <rect x="3" y="4" width="18" height="18" rx="2" />
-          <path d="M3 10h18" />
-          <path d="M16 14v4" />
-          <path d="M16 14h3" />
-        </svg>
-      );
-    case 'download':
-      return (
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-          <path d="M7 10l5 5 5-5" />
-          <path d="M12 15V3" />
-        </svg>
-      );
-    case 'file-text':
-      return (
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-          <path d="M14 2v6h6" />
-          <path d="M16 13H8" />
-          <path d="M16 17H8" />
-          <path d="M10 9H8" />
-        </svg>
-      );
-    case 'building':
-      return (
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-          <rect x="3" y="3" width="18" height="18" rx="2" />
-          <path d="M7 7h.01" />
-          <path d="M11 7h.01" />
-          <path d="M15 7h.01" />
-          <path d="M7 11h.01" />
-          <path d="M11 11h.01" />
-          <path d="M15 11h.01" />
-          <path d="M7 15h.01" />
-          <path d="M11 15h.01" />
-          <path d="M15 15h.01" />
-        </svg>
-      );
-    default:
-      return null;
-  }
-}
-
-function MenuLink({
-  href,
-  label,
-  icon,
-  last = false,
-}: {
+type CardDef = {
   href: string;
-  label: string;
-  icon: (typeof iconNames)[number];
-  last?: boolean;
-}) {
+  title: string;
+  description: string;
+  icon: React.FC<IconProps>;
+  /** Color de acento (token CSS o hex). */
+  accent: string;
+  /** Solo visible para admins. */
+  adminOnly?: boolean;
+};
+
+const CARDS: CardDef[] = [
+  {
+    href: '/dashboard/admin/members',
+    title: 'Miembros',
+    description: 'Gestiona usuarios, roles y membresías de tu organización.',
+    icon: Icons.users,
+    accent: 'var(--primary)',
+  },
+  {
+    href: '/dashboard/admin/invite',
+    title: 'Invitaciones',
+    description: 'Envía invitaciones por email y monitoriza las pendientes.',
+    icon: Icons.mail,
+    accent: 'var(--blue)',
+  },
+  {
+    href: '/dashboard/admin/teams',
+    title: 'Equipos',
+    description: 'Equipos del centro modelados como sub-organizaciones, con cobertura.',
+    icon: Icons.briefcase,
+    accent: 'var(--violet)',
+  },
+  {
+    href: '/dashboard/admin/shift-types',
+    title: 'Tipos de turno',
+    description: 'Crea y configura los tipos de turno: horario, color, plus.',
+    icon: Icons.cal2,
+    accent: 'var(--amber)',
+  },
+  {
+    href: '/dashboard/admin/staff-positions',
+    title: 'Puestos',
+    description: 'Define puestos del equipo y los permisos de cada categoría.',
+    icon: Icons.stethoscope,
+    accent: 'var(--green)',
+  },
+  {
+    href: '/dashboard/admin/exports',
+    title: 'Exportar datos',
+    description: 'Descarga turnos, horas, solicitudes o auditoría en CSV/XLSX/PDF.',
+    icon: Icons.download,
+    accent: 'var(--primary)',
+  },
+  {
+    href: '/dashboard/admin/reports',
+    title: 'Reportes',
+    description: 'Insights del rendimiento del equipo y tendencias por mes.',
+    icon: Icons.trend,
+    accent: 'var(--blue)',
+  },
+  {
+    href: '/dashboard/admin/audit',
+    title: 'Auditoría',
+    description: 'Registro detallado de cambios y acciones en la organización.',
+    icon: Icons.history,
+    accent: 'var(--amber)',
+    adminOnly: true,
+  },
+  {
+    href: '/dashboard/admin/permissions',
+    title: 'Permisos',
+    description: 'Matriz de capacidades por rol: qué puede hacer cada quién.',
+    icon: Icons.shield,
+    accent: 'var(--violet)',
+  },
+  {
+    href: '/dashboard/admin/settings',
+    title: 'Configuración',
+    description: 'Reglas de turnos, aprobaciones, notificaciones y seguridad.',
+    icon: Icons.settings,
+    accent: 'var(--red)',
+  },
+];
+
+function AdminCard({ card }: { card: CardDef }) {
+  const Icon = card.icon;
   return (
     <Link
-      href={href}
-      className={`flex min-h-[52px] items-center gap-3 px-4 text-sm text-text-primary hover:bg-subtle-bg ${last ? '' : 'border-b border-border'}`}
+      href={card.href}
+      className="group flex items-start gap-3.5 rounded-2xl border border-border bg-surface p-4 transition-colors hover:border-border-strong"
     >
-      <span className="text-primary-600" aria-hidden>
-        <Icon name={icon} />
+      <span
+        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl"
+        style={{
+          backgroundColor: `color-mix(in oklab, ${card.accent} 14%, transparent)`,
+          color: card.accent,
+        }}
+      >
+        <Icon size={20} />
       </span>
-      <span className="flex-1">{label}</span>
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-muted" aria-hidden>
-        <path d="m9 18 6-6-6-6" />
-      </svg>
+      <div className="min-w-0 flex-1">
+        <p className="tn-h text-[14.5px] font-bold text-text">{card.title}</p>
+        <p className="mt-0.5 text-[12px] leading-[1.5] text-muted">{card.description}</p>
+      </div>
+      <Icons.chevronR
+        size={17}
+        className="mt-1 shrink-0 text-muted transition-transform group-hover:translate-x-0.5"
+      />
     </Link>
   );
 }
 
 export function AdminPageMenu() {
   const { canManageOrg } = useScheduleOrg();
+  const cards = CARDS.filter((c) => !c.adminOnly || canManageOrg);
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-border bg-background md:rounded-xl">
-      <MenuLink href="/dashboard/admin/invite" label="Invitar usuarios" icon="user-plus" />
-      <MenuLink href="/dashboard/admin/members" label="Gestión de miembros" icon="users" />
-      <MenuLink href="/dashboard/admin/shift-types" label="Tipos de turno" icon="calendar-clock" />
-      <MenuLink href="/dashboard/admin/exports" label="Exportar horarios" icon="download" />
-      {canManageOrg && (
-        <MenuLink href="/dashboard/admin/audit" label="Audit log" icon="file-text" />
-      )}
-      <MenuLink href="/dashboard/admin/organizations" label="Organizaciones" icon="building" last />
+    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      {cards.map((c) => (
+        <AdminCard key={c.href} card={c} />
+      ))}
     </div>
   );
 }

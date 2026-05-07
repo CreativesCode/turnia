@@ -1,13 +1,12 @@
 'use client';
 
 /**
- * Página de historial de notificaciones.
- * Muestra todas las notificaciones del usuario con opción de marcar como leídas.
+ * Página de historial de notificaciones, agrupadas por período (Hoy / Esta semana / Anteriores).
+ * Diseño: ref docs/design/screens/mobile.jsx MNotifications (línea 744).
  */
 
 import { DashboardDesktopHeader } from '@/components/dashboard/DashboardDesktopHeader';
 import { NotificationsList, type NotificationRow } from '@/components/notifications/NotificationsList';
-import { Button } from '@/components/ui/Button';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { useToast } from '@/components/ui/toast/ToastProvider';
 import { useScheduleOrg } from '@/hooks/useScheduleOrg';
@@ -60,15 +59,11 @@ export default function NotificationsPage() {
     async (id: string) => {
       const supabase = createClient();
       const nowIso = new Date().toISOString();
-      
-      // Optimistic update
       setAllNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read_at: n.read_at || nowIso } : n)));
-      
       const { error } = await supabase.from('notifications').update({ read_at: nowIso }).eq('id', id);
       if (error) {
         console.error('Error marking notification as read:', error);
         toast({ variant: 'error', title: 'Error', message: 'No se pudo marcar como leída' });
-        // Revert optimistic update
         void mutate();
       } else {
         void mutate();
@@ -81,27 +76,19 @@ export default function NotificationsPage() {
     if (!userId) return;
     const supabase = createClient();
     const nowIso = new Date().toISOString();
-    
     const unreadIds = allNotifications.filter((n) => !n.read_at).map((n) => n.id);
     if (unreadIds.length === 0) {
       toast({ variant: 'info', title: 'Ya está todo leído', message: 'Todas las notificaciones ya están marcadas como leídas' });
       return;
     }
-
-    // Optimistic update
     setAllNotifications((prev) => prev.map((n) => ({ ...n, read_at: n.read_at || nowIso })));
-
-    const { error } = await supabase
-      .from('notifications')
-      .update({ read_at: nowIso })
-      .in('id', unreadIds);
-
+    const { error } = await supabase.from('notifications').update({ read_at: nowIso }).in('id', unreadIds);
     if (error) {
       console.error('Error marking all as read:', error);
       toast({ variant: 'error', title: 'Error', message: 'No se pudieron marcar todas como leídas' });
       void mutate();
     } else {
-      toast({ variant: 'success', title: 'Éxito', message: `${unreadIds.length} notificaciones marcadas como leídas` });
+      toast({ variant: 'success', title: 'Marcadas', message: `${unreadIds.length} notificaciones marcadas como leídas` });
       void mutate();
     }
   }, [userId, allNotifications, mutate, toast]);
@@ -153,70 +140,71 @@ export default function NotificationsPage() {
     };
   }, [userId, mutate]);
 
+  const subtitle = unreadCount > 0
+    ? `${unreadCount} ${unreadCount === 1 ? 'nueva' : 'nuevas'}`
+    : 'Tu actividad reciente';
+
   if (orgLoading) {
     return (
       <div className="space-y-4">
-        <DashboardDesktopHeader title="Notificaciones" subtitle="Historial de todas tus notificaciones" />
-        <div className="rounded-xl border border-border bg-background p-6">
-          <Skeleton className="h-4 w-64" />
-          <Skeleton className="mt-2 h-4 w-48" />
-        </div>
+        <DashboardDesktopHeader title="Notificaciones" subtitle="Tu actividad reciente" />
+        <Skeleton className="h-16 w-full rounded-2xl" />
+        <Skeleton className="h-16 w-full rounded-2xl" />
+        <Skeleton className="h-16 w-full rounded-2xl" />
       </div>
     );
   }
 
   return (
     <div className="space-y-4">
-      <DashboardDesktopHeader title="Notificaciones" subtitle="Historial de todas tus notificaciones" />
+      <DashboardDesktopHeader
+        title="Notificaciones"
+        subtitle={subtitle}
+        actions={
+          unreadCount > 0 ? (
+            <button
+              type="button"
+              onClick={markAllAsRead}
+              className="text-[12.5px] font-semibold text-primary hover:underline"
+            >
+              Marcar todas
+            </button>
+          ) : undefined
+        }
+      />
 
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <h1 className="text-lg font-semibold text-text-primary md:hidden">Notificaciones</h1>
-          {unreadCount > 0 && (
-            <span className="rounded-full bg-primary-100 px-3 py-1 text-sm font-medium text-primary-700">
-              {unreadCount} sin leer
-            </span>
-          )}
+      {isLoading && allNotifications.length === 0 ? (
+        <div className="space-y-2">
+          <Skeleton className="h-16 w-full rounded-2xl" />
+          <Skeleton className="h-16 w-full rounded-2xl" />
+          <Skeleton className="h-16 w-full rounded-2xl" />
         </div>
-        <div className="flex items-center gap-2">
-          {unreadCount > 0 && (
-            <Button type="button" variant="secondary" size="sm" onClick={markAllAsRead}>
-              Marcar todas como leídas
-            </Button>
-          )}
-          <Button type="button" variant="secondary" size="sm" onClick={() => void mutate()}>
-            Actualizar
-          </Button>
-        </div>
-      </div>
-
-      {isLoading ? (
-        <div className="rounded-xl border border-border bg-background p-6">
-          <Skeleton className="h-16 w-full" />
-          <Skeleton className="mt-2 h-16 w-full" />
-          <Skeleton className="mt-2 h-16 w-full" />
+      ) : allNotifications.length === 0 ? (
+        <div className="rounded-2xl border border-border bg-surface px-5 py-12 text-center">
+          <p className="text-sm text-muted">No tienes notificaciones aún.</p>
         </div>
       ) : (
-        <div className="rounded-xl border border-border bg-background overflow-hidden">
+        <>
           <NotificationsList
             items={allNotifications}
             onMarkAsRead={markAsRead}
             getHref={getHref}
-            emptyMessage="No hay notificaciones."
+            grouped
           />
-          {allNotifications.length >= PAGE_SIZE * page && (
-            <div className="border-t border-border p-4 text-center">
-              <Button
+
+          {allNotifications.length >= PAGE_SIZE * page ? (
+            <div className="text-center">
+              <button
                 type="button"
-                variant="secondary"
                 onClick={() => setPage((p) => p + 1)}
                 disabled={isLoading}
+                className="inline-flex h-9 items-center rounded-lg border border-border bg-bg px-4 text-[12.5px] font-semibold text-text-sec transition-colors hover:text-text disabled:opacity-50"
               >
                 Cargar más
-              </Button>
+              </button>
             </div>
-          )}
-        </div>
+          ) : null}
+        </>
       )}
     </div>
   );

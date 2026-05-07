@@ -5,9 +5,9 @@
  * @see project-roadmap.md Módulo 3.1
  */
 
+import { ShiftLetter } from '@/components/ui/ShiftLetter';
 import { createClient } from '@/lib/supabase/client';
 import { fetchOrgMemberIds, fetchProfilesMap, fetchShiftTypes } from '@/lib/supabase/queries';
-import { isColorLight } from '@/lib/utils';
 import { memo, useCallback, useEffect, useState } from 'react';
 
 function ChevronDown() {
@@ -178,7 +178,6 @@ function ShiftCalendarFiltersInner({ orgId, value, onChange, className = '' }: P
                   <div className="mt-2 flex flex-col gap-0.5 px-2" role="listbox">
                     {shiftTypes.map((t) => {
                       const checked = allTypesSelected || value.shiftTypeIds.includes(t.id);
-                      const txt = isColorLight(t.color) ? '#111' : '#fff';
                       return (
                         <label
                           key={t.id}
@@ -190,12 +189,7 @@ function ShiftCalendarFiltersInner({ orgId, value, onChange, className = '' }: P
                             onChange={() => toggleType(t.id)}
                             className="h-4 w-4 rounded border-border"
                           />
-                          <span
-                            className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold"
-                            style={{ backgroundColor: t.color, color: txt }}
-                          >
-                            {t.letter}
-                          </span>
+                          <ShiftLetter letter={t.letter} color={t.color} size={24} className="text-xs" />
                           <span className="text-sm text-text-primary">{t.name}</span>
                         </label>
                       );

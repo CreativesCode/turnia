@@ -1,10 +1,16 @@
 'use client';
 
 import { LogoutButton } from '@/components/auth/LogoutButton';
+import { AdminPageMenu } from '@/components/dashboard/AdminPageMenu';
 import { DashboardDesktopHeader } from '@/components/dashboard/DashboardDesktopHeader';
 import { PendingSwapsForYou } from '@/components/requests/PendingSwapsForYou';
 import { LinkButton } from '@/components/ui/LinkButton';
+import { LiveDot } from '@/components/ui/LiveDot';
+import { Pill } from '@/components/ui/Pill';
+import { ShiftLetter } from '@/components/ui/ShiftLetter';
 import { Skeleton } from '@/components/ui/Skeleton';
+import { Stat } from '@/components/ui/Stat';
+import { Icons } from '@/components/ui/icons';
 import { useScheduleOrg } from '@/hooks/useScheduleOrg';
 import { getCacheEntry, setCache } from '@/lib/cache';
 import { PENDING_INVITE_TOKEN_KEY } from '@/lib/invite';
@@ -58,6 +64,57 @@ function formatHours(hours: number): string {
   if (!isFinite(hours) || hours <= 0) return '0h';
   if (hours < 10) return `${Math.round(hours * 10) / 10}h`;
   return `${Math.round(hours)}h`;
+}
+
+function formatLongDate(date: Date): string {
+  const s = date.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
+  // Capitaliza primer carácter
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+function formatTimeOnly(iso: string): string {
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '—';
+  return d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+}
+
+function shiftDurationHours(startAt: string, endAt: string): number {
+  const s = new Date(startAt).getTime();
+  const e = new Date(endAt).getTime();
+  if (!isFinite(s) || !isFinite(e) || e <= s) return 0;
+  return (e - s) / (1000 * 60 * 60);
+}
+
+/** "empieza en 14h 32m" / "empieza en 12 min" / "en curso" / "" si ya pasó. */
+function timeUntilLabel(startAt: string, endAt: string): string {
+  const now = Date.now();
+  const s = new Date(startAt).getTime();
+  const e = new Date(endAt).getTime();
+  if (!isFinite(s)) return '';
+  if (now >= s && now <= e) return 'en curso';
+  if (now > e) return '';
+  const diffMs = s - now;
+  const totalMin = Math.floor(diffMs / 60000);
+  if (totalMin < 60) return `empieza en ${totalMin} min`;
+  const h = Math.floor(totalMin / 60);
+  const m = totalMin % 60;
+  if (h < 24) return `empieza en ${h}h ${m}m`;
+  const d = Math.floor(h / 24);
+  return `empieza en ${d}d ${h % 24}h`;
+}
+
+const SHORT_MONTH = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+const SHORT_WEEKDAY = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
+
+/** Formato compacto "MAR 14" para los bloques fecha del HERO. */
+function formatHeroDate(iso: string): { weekday: string; day: number; month: string } {
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return { weekday: '—', day: 0, month: '—' };
+  return {
+    weekday: SHORT_WEEKDAY[d.getDay()].toUpperCase(),
+    day: d.getDate(),
+    month: SHORT_MONTH[d.getMonth()],
+  };
 }
 
 function TypeBadge({ letter, name, color }: { letter: string; name: string; color?: string | null }) {
@@ -183,10 +240,14 @@ export default function DashboardPage() {
   }, [canManageOrg, canManageShifts]);
 
   const desktopTitle = useMemo(() => {
-    if (canManageOrg) return 'Panel de Administración';
-    if (canManageShifts) return 'Dashboard';
-    return 'Dashboard';
-  }, [canManageOrg, canManageShifts]);
+    // Saludo personalizado para todos los roles ("Hola, Ana 👋")
+    return greeting;
+  }, [greeting]);
+
+  const desktopSubtitle = useMemo(() => {
+    const today = formatLongDate(new Date());
+    return orgName ? `${today} · ${orgName} · ${roleLabel}` : `${today} · ${roleLabel}`;
+  }, [orgName, roleLabel]);
 
   const headerActions = useMemo(() => {
     if (!canManageOrg) return null;
@@ -540,26 +601,28 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <DashboardDesktopHeader title={desktopTitle} subtitle={orgName ? `${orgName} • ${roleLabel}` : roleLabel} actions={headerActions} />
+      <DashboardDesktopHeader title={desktopTitle} subtitle={desktopSubtitle} actions={headerActions} />
 
-      {/* Header mobile (inspirado en "Dashboard - Mobile") */}
-      <div className="flex items-center justify-between gap-4 md:hidden">
-        <div className="min-w-0">
-          <p className="truncate text-lg font-semibold text-text-primary">{greeting}</p>
-          <p className="truncate text-sm text-text-secondary">
-            {orgName ? `${orgName} • ${roleLabel}` : roleLabel}
+      {/* Header mobile — saludo con avatar gradiente. Diseño: ref MHomeStaff. */}
+      <div className="flex items-center gap-3 md:hidden">
+        <span
+          className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-full text-[14px] font-bold text-white"
+          style={{ background: 'linear-gradient(135deg, var(--primary), var(--primary-dark))' }}
+          aria-hidden
+        >
+          {(fullName?.trim()?.split(/\s+/).map((s) => s[0]).slice(0, 2).join('') || 'U').toUpperCase()}
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-[12px] text-muted">Hola,</p>
+          <p className="tn-h truncate text-[18px] font-bold tracking-[-0.02em] text-text">
+            {fullName?.trim() || 'Bienvenido'}
           </p>
         </div>
-        <Link
-          href="/dashboard/notifications"
-          className="flex h-11 w-11 items-center justify-center rounded-lg border border-border bg-background text-text-secondary hover:bg-subtle-bg"
-          aria-label="Notificaciones"
-        >
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-            <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9" />
-            <path d="M13.73 21a2 2 0 01-3.46 0" />
-          </svg>
-        </Link>
+        {orgName ? (
+          <span className="flex items-center gap-1.5 text-[12px] text-muted">
+            <Icons.hospital size={13} /> {orgName}
+          </span>
+        ) : null}
       </div>
 
       {/* Intercambios pendientes de aceptación - visible para todos los usuarios */}
@@ -614,8 +677,6 @@ function AdminHome({
   invitesPending,
   shiftTypesCount,
   pendingRequestsCount,
-  orgName,
-  fullName,
 }: {
   loading: boolean;
   membersCount: number;
@@ -626,113 +687,187 @@ function AdminHome({
   fullName: string | null;
 }) {
   return (
-    <div className="space-y-6">
-      {/* Desktop welcome */}
-      <div className="hidden md:block">
-        <p className="text-2xl font-bold text-text-primary">
-          {fullName?.trim() ? `Bienvenido, ${fullName.trim().split(' ')[0]} 👋` : 'Bienvenido 👋'}
+    <>
+      {/* ============== Desktop ============== */}
+      <div className="hidden space-y-4 md:block">
+        <AdminOverviewHero
+          loading={loading}
+          pendingRequests={pendingRequestsCount}
+          invitesPending={invitesPending}
+          membersCount={membersCount}
+        />
+
+        {/* Stats row 4 columnas */}
+        <div className="grid grid-cols-4 gap-3">
+          <Stat
+            label="Usuarios totales"
+            value={loading ? '…' : membersCount}
+            sub="En la organización"
+            icon={<Icons.users size={16} />}
+            accent="var(--primary)"
+          />
+          <Stat
+            label="Solicitudes pendientes"
+            value={loading ? '…' : pendingRequestsCount}
+            sub={pendingRequestsCount > 0 ? 'Por aprobar' : 'Sin pendientes'}
+            icon={<Icons.swap size={16} />}
+            accent="var(--amber)"
+          />
+          <Stat
+            label="Invitaciones pendientes"
+            value={loading ? '…' : invitesPending}
+            sub={invitesPending > 0 ? 'Sin aceptar' : 'Sin pendientes'}
+            icon={<Icons.mail size={16} />}
+            accent="var(--blue)"
+          />
+          <Stat
+            label="Tipos de turno"
+            value={loading ? '…' : shiftTypesCount}
+            sub="Configurados"
+            icon={<Icons.cal2 size={16} />}
+            accent="var(--violet)"
+          />
+        </div>
+
+        {/* Hub de cards */}
+        <div>
+          <h3 className="tn-h mb-3 text-[15px] font-bold text-text">Administración rápida</h3>
+          <AdminPageMenu />
+        </div>
+      </div>
+
+      {/* ============== Mobile ============== */}
+      <div className="space-y-5 md:hidden">
+        <AdminMobileKpiStrip
+          loading={loading}
+          members={membersCount}
+          pending={pendingRequestsCount}
+          invites={invitesPending}
+        />
+        <div>
+          <h3 className="tn-h mb-2.5 text-[14px] font-bold text-text">Administración</h3>
+          <AdminPageMenu />
+        </div>
+      </div>
+    </>
+  );
+}
+
+function AdminOverviewHero({
+  loading,
+  pendingRequests,
+  invitesPending,
+  membersCount,
+}: {
+  loading: boolean;
+  pendingRequests: number;
+  invitesPending: number;
+  membersCount: number;
+}) {
+  if (loading) {
+    return (
+      <div
+        className="relative overflow-hidden rounded-[20px] p-7 text-white"
+        style={{ background: 'linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%)' }}
+      >
+        <Skeleton className="h-3 w-40 bg-white/20" />
+        <Skeleton className="mt-3 h-10 w-72 bg-white/20" />
+        <Skeleton className="mt-2 h-4 w-56 bg-white/20" />
+      </div>
+    );
+  }
+
+  const totalAttention = pendingRequests + invitesPending;
+  const hasAttention = totalAttention > 0;
+
+  const headline = hasAttention ? 'Hay cosas que requieren tu atención' : 'Tu organización está al día';
+  const subtitle = hasAttention
+    ? `${pendingRequests} solicitud${pendingRequests === 1 ? '' : 'es'} y ${invitesPending} invitación${invitesPending === 1 ? '' : 'es'} esperando.`
+    : `${membersCount} miembro${membersCount === 1 ? '' : 's'} activo${membersCount === 1 ? '' : 's'}, sin pendientes.`;
+
+  return (
+    <div
+      className="relative overflow-hidden rounded-[20px] p-7 text-white shadow-[0_24px_50px_-28px_var(--primary)]"
+      style={{ background: 'linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%)' }}
+    >
+      <svg
+        width="500"
+        height="500"
+        viewBox="0 0 100 100"
+        className="pointer-events-none absolute -right-44 -top-44 opacity-[0.16]"
+        aria-hidden
+      >
+        <circle cx="50" cy="50" r="48" stroke="#fff" strokeWidth=".4" fill="none" />
+        <circle cx="50" cy="50" r="34" stroke="#fff" strokeWidth=".4" fill="none" />
+        <circle cx="50" cy="50" r="20" stroke="#fff" strokeWidth=".4" fill="none" />
+      </svg>
+
+      <div className="relative">
+        <p className="text-[11px] font-bold uppercase tracking-[0.1em] opacity-90">
+          Resumen · Admin
         </p>
-        <p className="mt-2 text-sm text-text-secondary">{orgName ? `${orgName} • Admin` : 'Admin'}</p>
-      </div>
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-6">
-        <div className="rounded-2xl border border-border bg-background p-4 md:rounded-xl md:p-6">
-          <p className="text-2xl font-bold text-primary-600 md:text-4xl">{loading ? '…' : membersCount}</p>
-          <p className="mt-1 text-xs text-muted md:text-sm">Usuarios totales</p>
-        </div>
-        <div className="rounded-2xl border border-border bg-background p-4 md:rounded-xl md:p-6">
-          <p className="text-2xl font-bold text-amber-600 md:text-4xl">{loading ? '…' : pendingRequestsCount}</p>
-          <p className="mt-1 text-xs text-muted md:text-sm">Solicitudes pendientes</p>
-        </div>
-        <div className="rounded-2xl border border-border bg-background p-4 md:rounded-xl md:p-6">
-          <p className="text-2xl font-bold text-amber-600 md:text-4xl">{loading ? '…' : invitesPending}</p>
-          <p className="mt-1 text-xs text-muted md:text-sm">Invitaciones pendientes</p>
-        </div>
-        <div className="rounded-2xl border border-border bg-background p-4 md:rounded-xl md:p-6">
-          <p className="text-2xl font-bold text-slate-700 md:text-4xl">{loading ? '…' : shiftTypesCount}</p>
-          <p className="mt-1 text-xs text-muted md:text-sm">Tipos de turno</p>
-        </div>
-      </div>
+        <h2 className="tn-h mt-3 text-[36px] font-bold leading-[1.05] tracking-[-0.025em]">
+          {headline}
+        </h2>
+        <p className="mt-2 max-w-xl text-base opacity-95">{subtitle}</p>
 
-      <div className="space-y-2 md:hidden">
-        <p className="text-sm font-semibold text-text-secondary">Administración</p>
-        <div className="overflow-hidden rounded-2xl border border-border bg-background md:rounded-xl">
-          <MenuRow href="/dashboard/admin/invite" label="Invitar usuarios" />
-          <MenuRow href="/dashboard/admin/members" label="Gestión de miembros" />
-          <MenuRow href="/dashboard/admin/shift-types" label="Tipos de turno" />
-          <MenuRow href="/dashboard/admin/exports" label="Exportar horarios" />
-          <MenuRow href="/dashboard/admin/audit" label="Audit log" last />
-        </div>
-      </div>
-
-      {/* Desktop: acciones rápidas (inspirado en XWjMG) */}
-      <div className="hidden md:block">
-        <p className="text-base font-semibold text-text-secondary">Administración Rápida</p>
-        <div className="mt-4 grid grid-cols-2 gap-4 lg:grid-cols-3">
+        <div className="mt-6 flex flex-wrap gap-2.5">
+          {pendingRequests > 0 ? (
+            <Link
+              href="/dashboard/manager/requests"
+              className="inline-flex h-[42px] items-center gap-1.5 rounded-[11px] bg-white px-4 text-[13.5px] font-bold"
+              style={{ color: 'var(--primary-dark)' }}
+            >
+              <Icons.swap size={15} /> Revisar solicitudes
+            </Link>
+          ) : null}
           <Link
             href="/dashboard/admin/invite"
-            className="flex h-20 flex-col justify-center gap-2 rounded-xl border border-border bg-background p-5 hover:bg-subtle-bg"
+            className="inline-flex h-[42px] items-center gap-1.5 rounded-[11px] border border-white/30 bg-white/[0.16] px-4 text-[13.5px] font-semibold text-white"
           >
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-primary-600" aria-hidden>
-              <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-              <circle cx="8" cy="7" r="4" />
-              <path d="M20 8v6" />
-              <path d="M23 11h-6" />
-            </svg>
-            <span className="text-sm font-medium text-text-primary">Invitar usuarios</span>
+            <Icons.mail size={15} /> Invitar usuario
           </Link>
           <Link
             href="/dashboard/admin/members"
-            className="flex h-20 flex-col justify-center gap-2 rounded-xl border border-border bg-background p-5 hover:bg-subtle-bg"
+            className="inline-flex h-[42px] items-center gap-1.5 rounded-[11px] border border-white/30 bg-white/[0.16] px-4 text-[13.5px] font-semibold text-white"
           >
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-primary-600" aria-hidden>
-              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-              <circle cx="9" cy="7" r="4" />
-              <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-              <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-            </svg>
-            <span className="text-sm font-medium text-text-primary">Gestionar miembros</span>
-          </Link>
-          <Link
-            href="/dashboard/admin/shift-types"
-            className="flex h-20 flex-col justify-center gap-2 rounded-xl border border-border bg-background p-5 hover:bg-subtle-bg"
-          >
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-primary-600" aria-hidden>
-              <path d="M8 2v4" />
-              <path d="M16 2v4" />
-              <rect x="3" y="4" width="18" height="18" rx="2" />
-              <path d="M3 10h18" />
-              <path d="M16 14v4" />
-              <path d="M16 14h3" />
-            </svg>
-            <span className="text-sm font-medium text-text-primary">Tipos de turno</span>
-          </Link>
-          <Link
-            href="/dashboard/admin/exports"
-            className="flex h-20 flex-col justify-center gap-2 rounded-xl border border-border bg-background p-5 hover:bg-subtle-bg"
-          >
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-primary-600" aria-hidden>
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-              <path d="M7 10l5 5 5-5" />
-              <path d="M12 15V3" />
-            </svg>
-            <span className="text-sm font-medium text-text-primary">Exportar datos</span>
-          </Link>
-          <Link
-            href="/dashboard/admin/audit"
-            className="flex h-20 flex-col justify-center gap-2 rounded-xl border border-border bg-background p-5 hover:bg-subtle-bg"
-          >
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-primary-600" aria-hidden>
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-              <path d="M14 2v6h6" />
-              <path d="M16 13H8" />
-              <path d="M16 17H8" />
-              <path d="M10 9H8" />
-            </svg>
-            <span className="text-sm font-medium text-text-primary">Ver audit log</span>
+            <Icons.users size={15} /> Ver miembros
           </Link>
         </div>
       </div>
+    </div>
+  );
+}
+
+function AdminMobileKpiStrip({
+  loading,
+  members,
+  pending,
+  invites,
+}: {
+  loading: boolean;
+  members: number;
+  pending: number;
+  invites: number;
+}) {
+  return (
+    <div className="grid grid-cols-3 gap-2">
+      {[
+        { v: loading ? '…' : String(members), l: 'Miembros', accent: undefined as string | undefined },
+        { v: loading ? '…' : String(pending), l: 'Solicitudes', accent: pending > 0 ? 'var(--amber)' : undefined },
+        { v: loading ? '…' : String(invites), l: 'Invitaciones', accent: invites > 0 ? 'var(--blue)' : undefined },
+      ].map((m, i) => (
+        <div key={i} className="rounded-[14px] border border-border bg-surface p-3">
+          <p
+            className="tn-h text-[22px] font-extrabold leading-none tracking-[-0.02em]"
+            style={m.accent ? { color: m.accent } : undefined}
+          >
+            {m.v}
+          </p>
+          <p className="mt-1 text-[11px] font-semibold text-text">{m.l}</p>
+        </div>
+      ))}
     </div>
   );
 }
@@ -757,151 +892,82 @@ function ManagerHome({
   fullName: string | null;
 }) {
   return (
-    <div className="space-y-6">
-      {/* Desktop greeting (inspirado en QJp7C) */}
-      <div className="hidden md:block">
-        <p className="text-2xl font-bold text-text-primary">
-          {fullName?.trim() ? `Bienvenido, ${fullName.trim().split(' ')[0]} 👋` : 'Bienvenido 👋'}
-        </p>
-        <p className="mt-2 text-sm text-text-secondary">{orgName ? `${orgName} • Manager` : 'Manager'}</p>
-      </div>
+    <>
+      {/* ============== Desktop ============== */}
+      <div className="hidden space-y-4 md:block">
+        {/* HERO Acción del día + Solicitudes urgentes */}
+        <div className="grid gap-4" style={{ gridTemplateColumns: '1.6fr 1fr' }}>
+          <ManagerActionHero
+            loading={loading}
+            pendingRequestsCount={pendingRequestsCount}
+            todayCount={today.length}
+            weekCount={weekCount}
+          />
+          <ManagerUrgentRequestsDesktop
+            loading={loading}
+            pendingCount={pendingRequestsCount}
+          />
+        </div>
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-6">
-        <div className="rounded-2xl border border-border bg-background p-4 md:rounded-xl md:p-6">
-          <p className="text-2xl font-bold text-primary-600 md:text-4xl">{loading ? '…' : weekCount}</p>
-          <p className="mt-1 text-xs text-muted md:text-sm">Turnos esta semana</p>
+        {/* Stats row 4 columnas */}
+        <div className="grid grid-cols-4 gap-3">
+          <Stat
+            label="Turnos esta semana"
+            value={loading ? '…' : weekCount}
+            sub={loading ? '—' : `${formatHours(weekHours)} programadas`}
+            icon={<Icons.calendar size={16} />}
+            accent="var(--primary)"
+          />
+          <Stat
+            label="Solicitudes pendientes"
+            value={loading ? '…' : pendingRequestsCount}
+            sub={pendingRequestsCount > 0 ? 'Esperan aprobación' : 'Sin pendientes'}
+            icon={<Icons.swap size={16} />}
+            accent="var(--amber)"
+          />
+          <Stat
+            label="Staff activo"
+            value={loading ? '…' : staffActive}
+            sub="De guardia ahora"
+            icon={<Icons.stethoscope size={16} />}
+            accent="var(--green)"
+          />
+          <Stat
+            label="Horas programadas"
+            value={loading ? '…' : formatHours(weekHours)}
+            sub="Esta semana"
+            icon={<Icons.clock size={16} />}
+            accent="var(--blue)"
+          />
         </div>
-        <div className="rounded-2xl border border-border bg-background p-4 md:rounded-xl md:p-6">
-          <p className="text-2xl font-bold text-amber-600 md:text-4xl">{loading ? '…' : pendingRequestsCount}</p>
-          <p className="mt-1 text-xs text-muted md:text-sm">Solicitudes pendientes</p>
-        </div>
-        <div className="rounded-2xl border border-border bg-background p-4 md:rounded-xl md:p-6">
-          <p className="text-2xl font-bold text-green-600 md:text-4xl">{loading ? '…' : staffActive}</p>
-          <p className="mt-1 text-xs text-muted md:text-sm">Staff activo</p>
-        </div>
-        <div className="rounded-2xl border border-border bg-background p-4 md:rounded-xl md:p-6">
-          <p className="text-2xl font-bold text-slate-700 md:text-4xl">{loading ? '…' : formatHours(weekHours)}</p>
-          <p className="mt-1 text-xs text-muted md:text-sm">Horas programadas</p>
-        </div>
-      </div>
 
-      <div className="space-y-2">
-        <p className="text-sm font-semibold text-text-secondary">Acciones Rápidas</p>
-        <div className="grid grid-cols-2 gap-3 md:gap-4">
-          {/* Desktop */}
-          <Link
-            href="/dashboard/manager?create=1"
-            className="hidden min-h-12 items-center justify-center gap-2 rounded-lg bg-primary-600 px-6 text-sm font-semibold text-white hover:bg-primary-700 md:inline-flex"
-          >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-              <path d="M12 5v14" />
-              <path d="M5 12h14" />
-            </svg>
-            Crear Turno
-          </Link>
-          <Link
-            href="/dashboard/manager/requests"
-            className="hidden min-h-12 items-center justify-center gap-2 rounded-lg border border-border bg-background px-6 text-sm font-medium text-text-primary hover:bg-subtle-bg md:inline-flex"
-          >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-              <path d="M22 12h-6l-2 3h-4l-2-3H2" />
-              <path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" />
-            </svg>
-            Ver Solicitudes
-          </Link>
-
-          {/* Mobile */}
-          <LinkButton href="/dashboard/manager?create=1" className="min-h-[56px] rounded-xl md:hidden">
-            Nuevo turno
-          </LinkButton>
-          <LinkButton href="/dashboard/manager/requests" variant="secondary" className="min-h-[56px] rounded-xl md:hidden">
-            Ver solicitudes
-          </LinkButton>
-        </div>
-      </div>
-
-      <div className="space-y-3">
-        <p className="text-sm font-semibold text-text-secondary">Turnos de Hoy</p>
-        {loading ? (
-          <div className="space-y-3">
-            <Skeleton className="h-20 w-full rounded-2xl md:rounded-xl" />
-            <Skeleton className="h-20 w-full rounded-2xl md:rounded-xl" />
+        {/* Listas: Turnos de hoy + (Cobertura semanal + Promo) */}
+        <div className="grid gap-4" style={{ gridTemplateColumns: '1.4fr 1fr' }}>
+          <ManagerTodayShiftsCard loading={loading} today={today} />
+          <div className="flex flex-col gap-4">
+            <ManagerWeekCoverageDesktop loading={loading} />
+            <ManagerCreateShiftPromo />
           </div>
-        ) : today.length === 0 ? (
-          <div className="rounded-2xl border border-border bg-background p-4 md:rounded-xl">
-            <p className="text-sm text-muted">No hay turnos programados para hoy.</p>
-          </div>
-        ) : (
-          <>
-            {/* Mobile cards */}
-            <div className="grid gap-3 md:hidden">
-              {today.map((s) => (
-                <Link
-                  key={s.id}
-                  href={`/dashboard/manager?shift=${encodeURIComponent(s.id)}`}
-                  className="rounded-2xl border border-border bg-background p-4 hover:bg-subtle-bg md:rounded-xl"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-[52px]">
-                      <p className="text-sm font-semibold text-text-primary">
-                        {new Date(s.start_at).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
-                      </p>
-                      <p className="text-xs text-muted">
-                        {new Date(s.end_at).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
-                      </p>
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium text-text-primary">{s.assigned_name?.trim() || 'Sin asignar'}</p>
-                      <p className="mt-0.5 truncate text-sm text-text-secondary">{s.type_name}</p>
-                    </div>
-                    <ChevronRight />
-                  </div>
-                </Link>
-              ))}
-            </div>
-
-            {/* Desktop table (QJp7C) */}
-            <div className="hidden overflow-hidden rounded-2xl border border-border bg-background md:block md:rounded-xl">
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-border bg-subtle-bg">
-                      <th className="w-[160px] px-5 py-3 text-left text-xs font-semibold text-muted">Horario</th>
-                      <th className="w-[180px] px-5 py-3 text-left text-xs font-semibold text-muted">Tipo</th>
-                      <th className="px-5 py-3 text-left text-xs font-semibold text-muted">Staff Asignado</th>
-                      <th className="w-[120px] px-5 py-3 text-left text-xs font-semibold text-muted">Estado</th>
-                      <th className="px-5 py-3 text-right text-xs font-semibold text-muted">Abrir</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {today.map((s) => (
-                      <tr key={s.id} className="border-b border-border last:border-0 hover:bg-subtle-bg/50">
-                        <td className="px-5 py-4 font-medium text-text-primary">{formatTimeRange(s.start_at, s.end_at)}</td>
-                        <td className="px-5 py-4">
-                          <TypePill name={s.type_name} color={s.type_color} />
-                        </td>
-                        <td className="px-5 py-4 text-text-primary">{s.assigned_name?.trim() || 'Sin asignar'}</td>
-                        <td className="px-5 py-4">
-                          {(() => {
-                            const st = getShiftStatus(s.start_at, s.end_at);
-                            return <span className={st.className}>{st.label}</span>;
-                          })()}
-                        </td>
-                        <td className="px-5 py-4 text-right">
-                          <Link href={`/dashboard/manager?shift=${encodeURIComponent(s.id)}`} className="text-primary-600 hover:text-primary-700">
-                            Ver →
-                          </Link>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </>
-        )}
+        </div>
       </div>
-    </div>
+
+      {/* ============== Mobile ============== */}
+      <div className="space-y-5 md:hidden">
+        <ManagerKpiStrip
+          loading={loading}
+          weekCount={weekCount}
+          weekHours={weekHours}
+          pendingRequestsCount={pendingRequestsCount}
+        />
+        <ManagerCreateShiftCta />
+        <ManagerWeekCoverageCard loading={loading} />
+        <ManagerUrgentRequestsCard
+          loading={loading}
+          today={today}
+          pendingCount={pendingRequestsCount}
+        />
+      </div>
+    </>
   );
 }
 
@@ -929,197 +995,1046 @@ function StaffHome({
   const nextShift = upcoming[0] ?? null;
   return (
     <>
-      <div className="hidden md:block">
-        <p className="text-[28px] font-bold leading-tight text-text-primary">
-          {fullName?.trim() ? `Bienvenido, ${fullName.trim().split(' ')[0]} 👋` : 'Bienvenido 👋'}
-        </p>
-        <p className="mt-2 text-sm text-text-secondary">{orgName ? `${orgName} • Staff` : 'Staff'}</p>
-        <p className="mt-2 text-sm text-text-secondary">Aquí tienes un resumen de tus turnos</p>
-      </div>
+      {/* ============== Desktop ============== */}
+      <div className="hidden space-y-4 md:block">
+        {/* HERO + On-call now */}
+        <div className="grid gap-4" style={{ gridTemplateColumns: '1.6fr 1fr' }}>
+          <NextShiftHero loading={loading} shift={nextShift} />
+          <OnCallNowCard />
+        </div>
 
-      {/* Desktop metrics + tabla (6sxe4) */}
-      <section className="hidden md:block">
-        <div className="grid grid-cols-4 gap-6">
-          <div className="rounded-xl border border-border bg-background p-6">
-            <p className="text-sm text-muted">Turnos este mes</p>
-            <p className="mt-2 text-4xl font-bold text-text-primary">{loading ? '…' : monthShiftsCount}</p>
-            <p className="mt-2 text-sm text-text-secondary">Asignados a ti</p>
-          </div>
-          <div className="rounded-xl border border-border bg-background p-6">
-            <p className="text-sm text-muted">Horas trabajadas</p>
-            <p className="mt-2 text-4xl font-bold text-text-primary">{loading ? '…' : formatHours(monthHours)}</p>
-            <p className="mt-2 text-sm text-text-secondary">Este mes</p>
-          </div>
-          <div className="rounded-xl border border-border bg-background p-6">
-            <p className="text-sm text-muted">Próximo turno</p>
-            <p className="mt-2 text-4xl font-bold text-primary-600">{loading ? '…' : nextShift ? formatTableDate(nextShift.start_at) : '—'}</p>
-            <p className="mt-2 text-sm text-text-secondary">
-              {loading
+        {/* Stats row 4 columnas */}
+        <div className="grid grid-cols-4 gap-3">
+          <Stat
+            label="Turnos este mes"
+            value={loading ? '…' : monthShiftsCount}
+            sub="Asignados a ti"
+            icon={<Icons.calendar size={16} />}
+            accent="var(--primary)"
+          />
+          <Stat
+            label="Horas trabajadas"
+            value={loading ? '…' : formatHours(monthHours)}
+            sub="Este mes"
+            icon={<Icons.clock size={16} />}
+            accent="var(--blue)"
+          />
+          <Stat
+            label="Solicitudes pendientes"
+            value={loading ? '…' : myPendingRequestsCount}
+            sub={orgPendingRequestsCount > 0 ? 'Por aprobar' : 'Sin pendientes'}
+            icon={<Icons.swap size={16} />}
+            accent="var(--amber)"
+          />
+          <Stat
+            label="Próximo turno"
+            value={loading ? '…' : nextShift ? formatTableDate(nextShift.start_at) : '—'}
+            sub={
+              loading
                 ? '—'
                 : nextShift
-                  ? `${formatTimeRange(nextShift.start_at, nextShift.end_at)} • ${nextShift.organization_shift_types?.name ?? 'Turno'}`
-                  : 'Sin próximos turnos'}
-            </p>
-          </div>
-          <div className="rounded-xl border border-border bg-background p-6">
-            <p className="text-sm text-muted">Solicitudes pendientes</p>
-            <p className="mt-2 text-4xl font-bold text-amber-600">{loading ? '…' : myPendingRequestsCount}</p>
-            <p className="mt-2 text-sm text-text-secondary">{orgPendingRequestsCount > 0 ? 'Intercambios por aprobar' : '—'}</p>
-          </div>
+                  ? `${formatTimeRange(nextShift.start_at, nextShift.end_at)} · ${nextShift.organization_shift_types?.name ?? 'Turno'}`
+                  : 'Sin próximos turnos'
+            }
+            icon={<Icons.trend size={16} />}
+            accent="var(--green)"
+          />
         </div>
-      </section>
 
-      <section className="hidden space-y-3 md:block">
-        <div className="flex items-center justify-between">
-          <p className="text-lg font-semibold text-text-primary">Próximos turnos</p>
-          <Link
-            href="/dashboard/manager"
-            className="min-h-[36px] rounded-lg border border-border bg-background px-3 text-sm font-medium text-text-secondary hover:bg-subtle-bg"
-          >
-            Ver calendario
-          </Link>
-        </div>
-        <div className="overflow-hidden rounded-xl border border-border bg-background">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border bg-subtle-bg">
-                  <th className="px-5 py-3 text-left text-xs font-semibold text-muted">Fecha</th>
-                  <th className="px-5 py-3 text-left text-xs font-semibold text-muted">Tipo</th>
-                  <th className="px-5 py-3 text-left text-xs font-semibold text-muted">Horario</th>
-                  <th className="px-5 py-3 text-left text-xs font-semibold text-muted">Ubicación</th>
-                </tr>
-              </thead>
-              <tbody>
-                {loading ? (
-                  <tr>
-                    <td colSpan={4} className="px-5 py-6 text-sm text-muted">
-                      Cargando…
-                    </td>
-                  </tr>
-                ) : upcoming.length === 0 ? (
-                  <tr>
-                    <td colSpan={4} className="px-5 py-6 text-sm text-muted">
-                      No tienes turnos próximos.
-                    </td>
-                  </tr>
-                ) : (
-                  upcoming.map((s) => (
-                    <tr key={s.id} className="border-b border-border last:border-0 hover:bg-subtle-bg/50">
-                      <td className="px-5 py-4 font-medium text-text-primary">{formatTableDate(s.start_at)}</td>
-                      <td className="px-5 py-4">
-                        <TypeBadge
-                          letter={s.organization_shift_types?.letter ?? '?'}
-                          name={s.organization_shift_types?.name ?? 'Turno'}
-                          color={s.organization_shift_types?.color ?? '#0D9488'}
-                        />
-                      </td>
-                      <td className="px-5 py-4 text-text-secondary">{formatTimeRange(s.start_at, s.end_at)}</td>
-                      <td className="px-5 py-4 text-text-secondary">{s.location?.trim() || '—'}</td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+        {/* Listas: próximos turnos + actividad/promo */}
+        <div className="grid gap-4" style={{ gridTemplateColumns: '1.4fr 1fr' }}>
+          <UpcomingShiftsCard loading={loading} shifts={upcoming} />
+          <div className="flex flex-col gap-4">
+            <ActivityFeedCard pendingForYou={orgPendingRequestsCount} />
+            <OpenShiftsPromoCard />
           </div>
         </div>
-      </section>
+      </div>
 
-      {/* Mobile: contenido previo */}
-      <section className="space-y-3 md:hidden">
-        <p className="text-xs font-semibold tracking-[0.2em] text-muted">TU TURNO HOY</p>
-        <div className="rounded-xl border border-border bg-background p-4">
-          {loading ? (
-            <div className="flex items-center gap-4">
-              <Skeleton className="h-14 w-14 rounded-xl" />
-              <div className="min-w-0 flex-1 space-y-2">
-                <Skeleton className="h-4 w-40" />
-                <Skeleton className="h-3 w-56" />
-              </div>
-            </div>
-          ) : todayShift ? (
-            <div className="flex items-center gap-4">
-              <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-primary-100 text-xl font-bold text-primary-700" aria-hidden>
-                {todayShift.organization_shift_types?.letter ?? '?'}
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-semibold text-text-primary">{todayShift.organization_shift_types?.name ?? 'Turno'}</p>
-                <p className="mt-1 truncate text-sm text-text-secondary">{formatShortDate(todayShift.start_at, todayShift.end_at)}</p>
-              </div>
-              <Link href="/dashboard/manager" className="flex h-10 w-10 items-center justify-center rounded-lg border border-border text-text-secondary hover:bg-subtle-bg" aria-label="Ver en calendario">
-                <ChevronRight />
-              </Link>
-            </div>
-          ) : (
-            <p className="text-sm text-muted">No tienes turnos para hoy.</p>
-          )}
-        </div>
-      </section>
+      {/* ============== Mobile ============== */}
+      <div className="space-y-5 md:hidden">
+        <MobileNextShiftHero loading={loading} shift={nextShift} />
 
-      <section className="space-y-3 md:hidden">
-        <div className="flex items-center justify-between gap-3">
-          <p className="text-xs font-semibold tracking-[0.2em] text-muted">PRÓXIMOS TURNOS</p>
-          <Link href="/dashboard/manager" className="text-sm font-medium text-primary-600 hover:text-primary-700">
-            Ver todos →
-          </Link>
-        </div>
+        <MobileOnCallStrip />
 
-        <div className="space-y-3">
-          {loading ? (
-            <>
-              <Skeleton className="h-16 w-full rounded-xl" />
-              <Skeleton className="h-16 w-full rounded-xl" />
-              <Skeleton className="h-16 w-full rounded-xl" />
-            </>
-          ) : upcoming.length === 0 ? (
-            <div className="rounded-xl border border-border bg-background p-4">
-              <p className="text-sm text-muted">No tienes turnos próximos.</p>
-            </div>
-          ) : (
-            upcoming.map((s) => (
-              <div key={s.id} className="flex items-center gap-3 rounded-xl border border-border bg-background p-4">
-                <div
-                  className="flex h-10 w-10 items-center justify-center rounded-xl bg-background text-sm font-bold text-white"
-                  style={{ backgroundColor: s.organization_shift_types?.color ?? '#0D9488' }}
-                  aria-hidden
-                >
-                  {s.organization_shift_types?.letter ?? '?'}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-text-primary">{s.organization_shift_types?.name ?? 'Turno'}</p>
-                  <p className="mt-0.5 truncate text-sm text-text-secondary">{formatShortDate(s.start_at, s.end_at)}</p>
-                </div>
-                <ChevronRight />
-              </div>
-            ))
-          )}
-        </div>
-      </section>
+        <MobileMonthStats
+          loading={loading}
+          shifts={monthShiftsCount}
+          hours={monthHours}
+          pending={myPendingRequestsCount}
+        />
 
-      <div className="flex flex-wrap gap-3 md:hidden">
-        <Link
-          href="/dashboard/staff"
-          prefetch={true}
-          className="rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-primary-700"
-        >
-          Ir a mi área
-        </Link>
-        <Link
-          href="/dashboard/notifications"
-          prefetch={true}
-          className="rounded-lg border border-border bg-background px-4 py-2.5 text-sm font-medium text-text-secondary hover:bg-subtle-bg"
-        >
-          Notificaciones
-        </Link>
-        <Link
-          href="/dashboard/staff/my-requests"
-          prefetch={true}
-          className="rounded-lg border border-border bg-background px-4 py-2.5 text-sm font-medium text-text-secondary hover:bg-subtle-bg"
-        >
-          Solicitudes
-        </Link>
+        <MobileQuickActions
+          openShiftsHint="Disponibles"
+          pendingCount={myPendingRequestsCount}
+        />
       </div>
     </>
+  );
+}
+
+// ────────────────────────────────────────────────────────────
+// StaffHome desktop — sub-componentes
+// Diseño: ref docs/design/screens/desktop.jsx DStaffHome (línea 592)
+// ────────────────────────────────────────────────────────────
+
+function NextShiftHero({
+  loading,
+  shift,
+}: {
+  loading: boolean;
+  shift: (ShiftRow & { organization_shift_types: ShiftType }) | null;
+}) {
+  if (loading) {
+    return (
+      <div
+        className="relative overflow-hidden rounded-[20px] p-7 text-white"
+        style={{ background: 'linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%)' }}
+      >
+        <Skeleton className="h-3 w-40 bg-white/20" />
+        <Skeleton className="mt-3 h-10 w-64 bg-white/20" />
+        <Skeleton className="mt-2 h-4 w-48 bg-white/20" />
+      </div>
+    );
+  }
+
+  if (!shift) {
+    return (
+      <div className="flex h-full flex-col justify-center rounded-[20px] border border-border bg-surface p-7">
+        <p className="text-[11px] font-bold uppercase tracking-[0.1em] text-muted">Tu próximo turno</p>
+        <p className="tn-h mt-3 text-[24px] font-bold text-text">No tienes turnos próximos</p>
+        <p className="mt-1 text-sm text-text-sec">Disfruta tu descanso. Te avisaremos cuando publiquen nuevos turnos.</p>
+      </div>
+    );
+  }
+
+  const type = shift.organization_shift_types;
+  const date = formatHeroDate(shift.start_at);
+  const time = `${formatTimeOnly(shift.start_at)} — ${formatTimeOnly(shift.end_at)}`;
+  const dur = shiftDurationHours(shift.start_at, shift.end_at);
+  const typeName = type?.name ?? 'Turno';
+  const location = shift.location?.trim();
+  const until = timeUntilLabel(shift.start_at, shift.end_at);
+
+  return (
+    <div
+      className="relative overflow-hidden rounded-[20px] p-7 text-white shadow-[0_24px_50px_-28px_var(--primary)]"
+      style={{ background: 'linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%)' }}
+    >
+      {/* Patrón concéntrico decorativo */}
+      <svg
+        width="500"
+        height="500"
+        viewBox="0 0 100 100"
+        className="pointer-events-none absolute -right-44 -top-44 opacity-[0.16]"
+        aria-hidden
+      >
+        <circle cx="50" cy="50" r="48" stroke="#fff" strokeWidth=".4" fill="none" />
+        <circle cx="50" cy="50" r="34" stroke="#fff" strokeWidth=".4" fill="none" />
+        <circle cx="50" cy="50" r="20" stroke="#fff" strokeWidth=".4" fill="none" />
+      </svg>
+
+      <div className="relative">
+        <p className="text-[11px] font-bold uppercase tracking-[0.1em] opacity-90">
+          Tu próximo turno{until ? ` · ${until}` : ''}
+        </p>
+
+        <div className="mt-3.5 flex items-end gap-6">
+          {/* Bloque fecha 92×92 */}
+          <div className="flex h-[92px] w-[92px] flex-col items-center justify-center rounded-[18px] bg-white/[0.18] backdrop-blur">
+            <span className="text-[12px] font-bold tracking-[0.08em] opacity-85">{date.weekday}</span>
+            <span className="tn-h mt-0.5 text-[44px] font-extrabold leading-none">{date.day}</span>
+          </div>
+
+          <div className="min-w-0">
+            <h2 className="tn-h text-[32px] font-bold leading-[1.05] tracking-[-0.025em]">
+              {typeName}
+            </h2>
+            <p className="mt-1.5 text-base opacity-95">
+              {time}
+              {dur > 0 ? ` · ${formatHours(dur)}` : ''}
+            </p>
+            {location ? (
+              <p className="mt-1 flex items-center gap-1.5 text-sm opacity-85">
+                <Icons.pin size={14} />
+                {location}
+              </p>
+            ) : null}
+          </div>
+        </div>
+
+        <div className="mt-5 flex gap-2.5">
+          <Link
+            href={`/dashboard/my-shifts?shift=${encodeURIComponent(shift.id)}`}
+            className="inline-flex h-[42px] items-center gap-1.5 rounded-[11px] bg-white px-4 text-[13.5px] font-bold"
+            style={{ color: 'var(--primary-dark)' }}
+          >
+            <Icons.eye size={15} /> Ver detalle
+          </Link>
+          <Link
+            href={`/dashboard/staff/my-requests?from=${encodeURIComponent(shift.id)}`}
+            className="inline-flex h-[42px] items-center gap-1.5 rounded-[11px] border border-white/30 bg-white/[0.16] px-4 text-[13.5px] font-semibold text-white"
+          >
+            <Icons.swap size={15} /> Solicitar cambio
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function OnCallNowCard() {
+  return (
+    <div className="flex h-full flex-col rounded-[20px] border border-border bg-surface p-5">
+      <div className="mb-4 flex items-center gap-2">
+        <LiveDot color="var(--green)" size={9} />
+        <h3 className="tn-h text-base font-bold text-text">De guardia ahora</h3>
+        <span className="ml-auto text-[11.5px] text-muted">
+          {new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+        </span>
+      </div>
+
+      <div className="flex flex-1 items-center justify-center text-center">
+        <div>
+          <Icons.stethoscope size={32} className="mx-auto text-muted/60" />
+          <p className="mt-3 text-sm text-text-sec">Conectando con el equipo activo…</p>
+          <Link
+            href="/dashboard/active-now"
+            className="mt-3 inline-flex h-9 items-center rounded-[10px] border border-border bg-bg px-3 text-[12.5px] font-medium text-text-sec hover:bg-subtle"
+          >
+            Ver toda la guardia →
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function UpcomingShiftsCard({
+  loading,
+  shifts,
+}: {
+  loading: boolean;
+  shifts: (ShiftRow & { organization_shift_types: ShiftType })[];
+}) {
+  return (
+    <div className="overflow-hidden rounded-2xl border border-border bg-surface">
+      <div className="flex items-center justify-between border-b border-border px-5 py-4">
+        <h3 className="tn-h text-[15px] font-bold text-text">Próximos turnos</h3>
+        <Link href="/dashboard/my-shifts" className="text-[12.5px] font-semibold text-primary">
+          Ver calendario →
+        </Link>
+      </div>
+      {loading ? (
+        <div className="space-y-2 p-4">
+          <Skeleton className="h-14 w-full" />
+          <Skeleton className="h-14 w-full" />
+          <Skeleton className="h-14 w-full" />
+        </div>
+      ) : shifts.length === 0 ? (
+        <p className="px-5 py-8 text-center text-sm text-muted">No tienes turnos próximos.</p>
+      ) : (
+        shifts.map((s, i) => {
+          const type = s.organization_shift_types;
+          const color = type?.color ?? '#14B8A6';
+          const date = formatHeroDate(s.start_at);
+          const isFirst = i === 0;
+          return (
+            <Link
+              key={s.id}
+              href={`/dashboard/my-shifts?shift=${encodeURIComponent(s.id)}`}
+              className={
+                'relative flex items-center gap-4 px-5 py-3.5 transition-colors hover:bg-subtle ' +
+                (i < shifts.length - 1 ? 'border-b border-border' : '')
+              }
+            >
+              <span
+                aria-hidden
+                className="absolute left-0 top-2 bottom-2 w-[3px] rounded-r-full"
+                style={{ backgroundColor: color }}
+              />
+              <div className="w-[50px] text-center">
+                <p className="text-[10px] font-bold uppercase tracking-[0.06em] text-muted">{date.weekday}</p>
+                <p className="tn-h mt-0.5 text-[22px] font-extrabold leading-none text-text">{date.day}</p>
+              </div>
+              <ShiftLetter letter={type?.letter ?? '?'} color={color} size={38} />
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-[13.5px] font-semibold text-text">{type?.name ?? 'Turno'}</p>
+                <p className="mt-0.5 truncate text-[11.5px] text-muted">
+                  {formatTimeRange(s.start_at, s.end_at)}
+                  {s.location?.trim() ? ` · ${s.location.trim()}` : ''}
+                </p>
+              </div>
+              {isFirst ? <Pill tone="primary">Empieza pronto</Pill> : null}
+              <Icons.chevronR size={16} className="text-muted" />
+            </Link>
+          );
+        })
+      )}
+    </div>
+  );
+}
+
+function ActivityFeedCard({ pendingForYou }: { pendingForYou: number }) {
+  return (
+    <div className="rounded-2xl border border-border bg-surface p-4">
+      <div className="mb-3 flex items-center justify-between">
+        <h3 className="tn-h text-[15px] font-bold text-text">Actividad reciente</h3>
+        <Link href="/dashboard/notifications" className="text-[12px] font-semibold text-primary">
+          Ver todo
+        </Link>
+      </div>
+      <div className="space-y-2">
+        <ActivityRow
+          icon={<Icons.swap size={13} />}
+          color="var(--primary)"
+          title={pendingForYou > 0 ? `Tienes ${pendingForYou} solicitud${pendingForYou === 1 ? '' : 'es'} por revisar` : 'Sin solicitudes pendientes'}
+          time="ahora"
+        />
+        <ActivityRow
+          icon={<Icons.bell size={13} />}
+          color="var(--blue)"
+          title="Revisa tus notificaciones recientes"
+          time=""
+        />
+      </div>
+    </div>
+  );
+}
+
+function ActivityRow({
+  icon,
+  color,
+  title,
+  time,
+}: {
+  icon: React.ReactNode;
+  color: string;
+  title: string;
+  time: string;
+}) {
+  return (
+    <div className="flex gap-2.5 py-1.5">
+      <span
+        className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md"
+        style={{ backgroundColor: `color-mix(in oklab, ${color} 14%, transparent)`, color }}
+      >
+        {icon}
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="text-[12.5px] font-medium text-text">{title}</p>
+        {time ? <p className="mt-0.5 text-[11px] text-muted">{time}</p> : null}
+      </div>
+    </div>
+  );
+}
+
+function OpenShiftsPromoCard() {
+  return (
+    <div
+      className="rounded-2xl border p-4"
+      style={{
+        borderColor: 'color-mix(in oklab, var(--primary) 30%, transparent)',
+        background: 'linear-gradient(135deg, color-mix(in oklab, var(--primary) 10%, transparent), color-mix(in oklab, var(--primary) 4%, transparent))',
+      }}
+    >
+      <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.08em] text-primary">
+        <Icons.takeOpen size={13} /> Turnos abiertos
+      </div>
+      <p className="tn-h mt-1.5 text-[22px] font-extrabold tracking-[-0.02em] text-text">Disponibles ahora</p>
+      <p className="mt-1 text-[12.5px] leading-[1.5] text-text-sec">
+        Hay turnos sin asignar que pueden coincidir con tu disponibilidad.
+      </p>
+      <Link
+        href="/dashboard/open-shifts"
+        className="mt-3.5 inline-flex h-[38px] items-center gap-1.5 rounded-[10px] bg-primary px-4 text-[13px] font-semibold text-white"
+      >
+        Ver turnos abiertos <Icons.arrowR size={14} stroke={2.4} />
+      </Link>
+    </div>
+  );
+}
+
+// ────────────────────────────────────────────────────────────
+// StaffHome mobile — sub-componentes
+// Diseño: ref docs/design/screens/mobile.jsx MHomeStaff (línea 157)
+// ────────────────────────────────────────────────────────────
+
+function MobileNextShiftHero({
+  loading,
+  shift,
+}: {
+  loading: boolean;
+  shift: (ShiftRow & { organization_shift_types: ShiftType }) | null;
+}) {
+  if (loading) {
+    return (
+      <div
+        className="relative overflow-hidden rounded-[22px] p-5 text-white"
+        style={{ background: 'linear-gradient(150deg, var(--primary) 0%, var(--primary-dark) 100%)' }}
+      >
+        <Skeleton className="h-3 w-32 bg-white/20" />
+        <Skeleton className="mt-3 h-7 w-48 bg-white/20" />
+        <Skeleton className="mt-2 h-3 w-40 bg-white/20" />
+      </div>
+    );
+  }
+
+  if (!shift) {
+    return (
+      <div className="rounded-[22px] border border-border bg-surface p-5">
+        <p className="text-[11px] font-bold uppercase tracking-[0.1em] text-muted">Tu próximo turno</p>
+        <p className="tn-h mt-2 text-[20px] font-bold text-text">Sin turnos próximos</p>
+        <p className="mt-1 text-[13px] text-text-sec">Te avisaremos cuando publiquen nuevos turnos.</p>
+      </div>
+    );
+  }
+
+  const type = shift.organization_shift_types;
+  const date = formatHeroDate(shift.start_at);
+  const time = `${formatTimeOnly(shift.start_at)} — ${formatTimeOnly(shift.end_at)}`;
+  const dur = shiftDurationHours(shift.start_at, shift.end_at);
+  const typeName = type?.name ?? 'Turno';
+  const location = shift.location?.trim();
+  const until = timeUntilLabel(shift.start_at, shift.end_at);
+
+  return (
+    <div
+      className="relative overflow-hidden rounded-[22px] p-5 text-white shadow-[0_14px_30px_-16px_var(--primary)]"
+      style={{ background: 'linear-gradient(150deg, var(--primary) 0%, var(--primary-dark) 100%)' }}
+    >
+      <svg
+        width="240"
+        height="240"
+        viewBox="0 0 100 100"
+        className="pointer-events-none absolute -right-16 -top-16 opacity-[0.18]"
+        aria-hidden
+      >
+        <circle cx="50" cy="50" r="40" stroke="#fff" strokeWidth="0.6" fill="none" />
+        <circle cx="50" cy="50" r="28" stroke="#fff" strokeWidth="0.6" fill="none" />
+        <circle cx="50" cy="50" r="16" stroke="#fff" strokeWidth="0.6" fill="none" />
+      </svg>
+
+      <div className="relative flex items-center justify-between">
+        <p className="text-[11px] font-bold uppercase tracking-[0.1em] opacity-90">Tu próximo turno</p>
+        {until ? (
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-white/[0.18] px-2.5 py-1 text-[11px] font-semibold">
+            <span className="tn-blink h-[7px] w-[7px] rounded-full bg-white" />
+            {until.replace('empieza en ', 'En ')}
+          </span>
+        ) : null}
+      </div>
+
+      <div className="relative mt-3.5 flex items-end gap-3.5">
+        <div className="flex h-16 w-16 flex-col items-center justify-center rounded-[18px] bg-white/[0.18] backdrop-blur">
+          <span className="text-[10px] font-bold tracking-[0.06em] opacity-85">{date.weekday}</span>
+          <span className="tn-h mt-0.5 text-[28px] font-extrabold leading-none">{date.day}</span>
+        </div>
+        <div className="min-w-0">
+          <h2 className="tn-h truncate text-[22px] font-bold leading-[1.1] tracking-[-0.02em]">
+            {typeName}
+          </h2>
+          <p className="mt-1 text-[14px] opacity-95">
+            {time}
+            {dur > 0 ? ` · ${formatHours(dur)}` : ''}
+          </p>
+          {location ? (
+            <p className="mt-0.5 flex items-center gap-1 text-[13px] opacity-85">
+              <Icons.pin size={12} /> {location}
+            </p>
+          ) : null}
+        </div>
+      </div>
+
+      <div className="relative mt-4 flex gap-2">
+        <Link
+          href={`/dashboard/my-shifts?shift=${encodeURIComponent(shift.id)}`}
+          className="flex h-10 flex-1 items-center justify-center gap-1.5 rounded-[12px] bg-white/95 text-[13.5px] font-bold"
+          style={{ color: 'var(--primary-dark)' }}
+        >
+          <Icons.eye size={15} /> Ver detalle
+        </Link>
+        <Link
+          href={`/dashboard/staff/my-requests?from=${encodeURIComponent(shift.id)}`}
+          className="flex h-10 flex-1 items-center justify-center gap-1.5 rounded-[12px] border border-white/30 bg-white/[0.18] text-[13.5px] font-semibold text-white"
+        >
+          <Icons.swap size={15} /> Solicitar cambio
+        </Link>
+      </div>
+    </div>
+  );
+}
+
+function MobileOnCallStrip() {
+  return (
+    <div>
+      <div className="mb-2.5 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <LiveDot color="var(--green)" size={8} />
+          <h3 className="tn-h text-base font-bold tracking-[-0.015em] text-text">De guardia ahora</h3>
+        </div>
+        <Link href="/dashboard/active-now" className="text-[12px] font-semibold text-primary">
+          Ver todos →
+        </Link>
+      </div>
+      <Link
+        href="/dashboard/active-now"
+        className="flex items-center gap-3 rounded-[16px] border border-dashed border-border bg-surface px-4 py-3.5"
+      >
+        <span className="flex h-9 w-9 items-center justify-center rounded-[10px] bg-subtle text-text-sec">
+          <Icons.stethoscope size={18} />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-[13px] font-medium text-text">Consulta el equipo activo</p>
+          <p className="text-[11.5px] text-muted">Quién está cubriendo ahora mismo</p>
+        </div>
+        <Icons.chevronR size={16} className="text-muted" />
+      </Link>
+    </div>
+  );
+}
+
+function MobileMonthStats({
+  loading,
+  shifts,
+  hours,
+  pending,
+}: {
+  loading: boolean;
+  shifts: number;
+  hours: number;
+  pending: number;
+}) {
+  return (
+    <div className="grid grid-cols-3 gap-2">
+      {[
+        { v: loading ? '…' : String(shifts), l: 'Turnos', sub: 'este mes', accent: undefined as string | undefined },
+        { v: loading ? '…' : formatHours(hours), l: 'Horas', sub: 'trabajadas', accent: undefined },
+        { v: loading ? '…' : String(pending), l: 'Solicitudes', sub: 'pendientes', accent: pending > 0 ? 'var(--amber)' : undefined },
+      ].map((m, i) => (
+        <div key={i} className="rounded-[14px] border border-border bg-surface p-3">
+          <p
+            className="tn-h text-[22px] font-extrabold leading-none tracking-[-0.02em]"
+            style={m.accent ? { color: m.accent } : undefined}
+          >
+            {m.v}
+          </p>
+          <p className="mt-1 text-[11px] font-semibold text-text">{m.l}</p>
+          <p className="text-[11px] text-muted">{m.sub}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function MobileQuickActions({
+  openShiftsHint,
+  pendingCount,
+}: {
+  openShiftsHint: string;
+  pendingCount: number;
+}) {
+  const actions: Array<{
+    href: string;
+    label: string;
+    sub: string;
+    icon: React.ReactNode;
+    color: string;
+  }> = [
+    { href: '/dashboard/open-shifts', label: 'Turnos abiertos', sub: openShiftsHint, icon: <Icons.takeOpen size={18} />, color: 'var(--primary)' },
+    { href: '/dashboard/staff/availability', label: 'Mi disponibilidad', sub: 'Vacaciones, libres…', icon: <Icons.beach size={18} />, color: 'var(--blue)' },
+    { href: '/dashboard/staff/my-requests', label: 'Mis solicitudes', sub: pendingCount > 0 ? `${pendingCount} pendiente${pendingCount === 1 ? '' : 's'}` : 'Sin pendientes', icon: <Icons.swap size={18} />, color: 'var(--amber)' },
+    { href: '/dashboard/staff', label: 'Compañeros', sub: 'Ver equipo', icon: <Icons.users size={18} />, color: 'var(--violet)' },
+  ];
+
+  return (
+    <div>
+      <h3 className="tn-h mb-2.5 text-[14px] font-bold text-text">Acciones rápidas</h3>
+      <div className="grid grid-cols-2 gap-2.5">
+        {actions.map((a) => (
+          <Link
+            key={a.href}
+            href={a.href}
+            className="flex flex-col gap-2 rounded-[16px] border border-border bg-surface p-3.5"
+          >
+            <span
+              className="flex h-9 w-9 items-center justify-center rounded-[11px]"
+              style={{ backgroundColor: `color-mix(in oklab, ${a.color} 14%, transparent)`, color: a.color }}
+            >
+              {a.icon}
+            </span>
+            <div>
+              <p className="text-[13px] font-semibold text-text">{a.label}</p>
+              <p className="mt-0.5 text-[11.5px] text-muted">{a.sub}</p>
+            </div>
+          </Link>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ────────────────────────────────────────────────────────────
+// ManagerHome mobile — sub-componentes
+// Diseño: ref docs/design/screens/mobile.jsx MManagerHome (línea 935)
+// ────────────────────────────────────────────────────────────
+
+function ManagerKpiStrip({
+  loading,
+  weekCount,
+  weekHours,
+  pendingRequestsCount,
+}: {
+  loading: boolean;
+  weekCount: number;
+  weekHours: number;
+  pendingRequestsCount: number;
+}) {
+  const coveragePct = weekCount > 0 ? Math.min(100, Math.round((weekHours / (weekCount * 8)) * 100)) : 0;
+  return (
+    <div className="grid grid-cols-2 gap-2">
+      <div className="rounded-2xl border border-border bg-surface p-3.5">
+        <p className="text-[11px] font-semibold text-muted">Esta semana</p>
+        <p className="tn-h mt-0.5 text-[26px] font-extrabold leading-none tracking-[-0.02em] text-text">
+          {loading ? '…' : weekCount}{' '}
+          <span className="text-[13px] font-semibold text-muted">turnos</span>
+        </p>
+        <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-subtle-2">
+          <div
+            className="h-full rounded-full bg-primary"
+            style={{ width: `${loading ? 0 : Math.min(100, coveragePct)}%` }}
+          />
+        </div>
+        <p className="mt-1 text-[11px] text-muted">
+          {loading ? '—' : `${formatHours(weekHours)} programadas`}
+        </p>
+      </div>
+      <div
+        className="rounded-2xl border p-3.5"
+        style={{
+          borderColor: 'color-mix(in oklab, var(--amber) 55%, transparent)',
+          backgroundColor: 'color-mix(in oklab, var(--amber) 8%, transparent)',
+        }}
+      >
+        <p className="text-[11px] font-bold text-amber">Atención</p>
+        <p
+          className="tn-h mt-0.5 text-[26px] font-extrabold leading-none tracking-[-0.02em]"
+          style={{ color: 'var(--amber)' }}
+        >
+          {loading ? '…' : pendingRequestsCount}
+        </p>
+        <p className="mt-1 text-[11.5px] font-medium text-text">Solicitudes pendientes</p>
+      </div>
+    </div>
+  );
+}
+
+function ManagerCreateShiftCta() {
+  return (
+    <Link
+      href="/dashboard/manager?create=1"
+      className="flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-primary text-sm font-bold text-white shadow-[0_12px_26px_-12px_var(--primary)]"
+    >
+      <Icons.plus size={18} stroke={2.6} /> Crear nuevo turno
+    </Link>
+  );
+}
+
+/**
+ * Tarjeta de cobertura semanal (7 mini-cards).
+ * Datos: por ahora estáticos demo — pendiente conectar endpoint de cobertura por día.
+ */
+function ManagerWeekCoverageCard({ loading }: { loading: boolean }) {
+  const days = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
+  // Cobertura de demo (mockup). Se reemplazará con datos reales cuando estén disponibles.
+  const cov = [100, 100, 95, 80, 60, 100, 75];
+
+  function colorFor(pct: number): string {
+    if (pct >= 95) return 'var(--green)';
+    if (pct >= 80) return 'var(--primary)';
+    if (pct >= 70) return 'var(--amber)';
+    return 'var(--red)';
+  }
+
+  return (
+    <div>
+      <div className="mb-2.5 flex items-center justify-between">
+        <h3 className="tn-h text-[14px] font-bold text-text">Cobertura semanal</h3>
+        <Link href="/dashboard/manager" className="text-[12px] font-semibold text-primary">
+          Ver calendario →
+        </Link>
+      </div>
+      <div className="grid grid-cols-7 gap-1">
+        {days.map((d, i) => {
+          const pct = loading ? 0 : cov[i];
+          const c = colorFor(pct);
+          return (
+            <div key={d} className="rounded-xl border border-border bg-surface px-1 py-2.5 text-center">
+              <p className="text-[10px] font-semibold text-muted">{d}</p>
+              <p
+                className="tn-h mt-1 text-[14px] font-bold leading-none"
+                style={{ color: c }}
+              >
+                {loading ? '…' : `${pct}%`}
+              </p>
+              <div className="mt-1.5 h-[3px] overflow-hidden rounded-full bg-subtle-2">
+                <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: c }} />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function ManagerUrgentRequestsCard({
+  loading,
+  today,
+  pendingCount,
+}: {
+  loading: boolean;
+  today: ManagerCardShift[];
+  pendingCount: number;
+}) {
+  return (
+    <div>
+      <div className="mb-2.5 flex items-center justify-between">
+        <h3 className="tn-h text-[14px] font-bold text-text">
+          {pendingCount > 0 ? 'Solicitudes urgentes' : 'Turnos de hoy'}
+        </h3>
+        <Link
+          href={pendingCount > 0 ? '/dashboard/manager/requests' : '/dashboard/manager'}
+          className="text-[12px] font-semibold text-primary"
+        >
+          Ver todo →
+        </Link>
+      </div>
+
+      {loading ? (
+        <div className="space-y-2">
+          <Skeleton className="h-20 w-full rounded-2xl" />
+          <Skeleton className="h-20 w-full rounded-2xl" />
+        </div>
+      ) : pendingCount > 0 ? (
+        <Link
+          href="/dashboard/manager/requests"
+          className="block rounded-2xl border border-border bg-surface p-3.5"
+        >
+          <div className="flex items-center gap-3">
+            <span className="flex h-10 w-10 items-center justify-center rounded-[12px] bg-amber-soft text-amber">
+              <Icons.swap size={18} />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-[13.5px] font-semibold text-text">
+                {pendingCount} solicitud{pendingCount === 1 ? '' : 'es'} pendiente{pendingCount === 1 ? '' : 's'}
+              </p>
+              <p className="mt-0.5 text-[11.5px] text-muted">Toca para revisar y aprobar</p>
+            </div>
+            <Pill tone="amber">Pendiente{pendingCount === 1 ? '' : 's'}</Pill>
+          </div>
+        </Link>
+      ) : today.length === 0 ? (
+        <div className="rounded-2xl border border-border bg-surface p-4">
+          <p className="text-sm text-muted">No hay turnos programados para hoy.</p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {today.slice(0, 3).map((s) => (
+            <Link
+              key={s.id}
+              href={`/dashboard/manager?shift=${encodeURIComponent(s.id)}`}
+              className="block rounded-2xl border border-border bg-surface p-3.5"
+            >
+              <div className="flex items-center gap-3">
+                <ShiftLetter
+                  letter={s.type_letter || '?'}
+                  color={s.type_color || '#14B8A6'}
+                  size={38}
+                />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-[13.5px] font-semibold text-text">
+                    {s.assigned_name?.trim() || 'Sin asignar'}
+                  </p>
+                  <p className="mt-0.5 truncate text-[11.5px] text-muted">
+                    {formatTimeRange(s.start_at, s.end_at)} · {s.type_name}
+                  </p>
+                </div>
+                <Icons.chevronR size={16} className="text-muted" />
+              </div>
+            </Link>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ────────────────────────────────────────────────────────────
+// ManagerHome desktop — sub-componentes
+// Diseño: ref docs/design/screens/desktop.jsx (DStaffHome adaptado a manager) + extras2
+// ────────────────────────────────────────────────────────────
+
+function ManagerActionHero({
+  loading,
+  pendingRequestsCount,
+  todayCount,
+  weekCount,
+}: {
+  loading: boolean;
+  pendingRequestsCount: number;
+  todayCount: number;
+  weekCount: number;
+}) {
+  if (loading) {
+    return (
+      <div
+        className="relative overflow-hidden rounded-[20px] p-7 text-white"
+        style={{ background: 'linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%)' }}
+      >
+        <Skeleton className="h-3 w-40 bg-white/20" />
+        <Skeleton className="mt-3 h-10 w-72 bg-white/20" />
+        <Skeleton className="mt-2 h-4 w-56 bg-white/20" />
+      </div>
+    );
+  }
+
+  const hasPending = pendingRequestsCount > 0;
+  const subtitle = hasPending
+    ? `Tienes ${pendingRequestsCount} solicitud${pendingRequestsCount === 1 ? '' : 'es'} esperando aprobación.`
+    : `Tu equipo va al día. ${todayCount} turno${todayCount === 1 ? '' : 's'} hoy · ${weekCount} esta semana.`;
+
+  const headline = hasPending ? 'Acción del día' : 'Buen ritmo de equipo';
+
+  return (
+    <div
+      className="relative overflow-hidden rounded-[20px] p-7 text-white shadow-[0_24px_50px_-28px_var(--primary)]"
+      style={{ background: 'linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%)' }}
+    >
+      <svg
+        width="500"
+        height="500"
+        viewBox="0 0 100 100"
+        className="pointer-events-none absolute -right-44 -top-44 opacity-[0.16]"
+        aria-hidden
+      >
+        <circle cx="50" cy="50" r="48" stroke="#fff" strokeWidth=".4" fill="none" />
+        <circle cx="50" cy="50" r="34" stroke="#fff" strokeWidth=".4" fill="none" />
+        <circle cx="50" cy="50" r="20" stroke="#fff" strokeWidth=".4" fill="none" />
+      </svg>
+
+      <div className="relative">
+        <p className="text-[11px] font-bold uppercase tracking-[0.1em] opacity-90">
+          {hasPending ? 'Atención · Manager' : 'Resumen · Manager'}
+        </p>
+
+        <h2 className="tn-h mt-3 text-[36px] font-bold leading-[1.05] tracking-[-0.025em]">
+          {headline}
+        </h2>
+        <p className="mt-2 max-w-xl text-base opacity-95">{subtitle}</p>
+
+        <div className="mt-6 flex gap-2.5">
+          <Link
+            href="/dashboard/manager/requests"
+            className="inline-flex h-[42px] items-center gap-1.5 rounded-[11px] bg-white px-4 text-[13.5px] font-bold"
+            style={{ color: 'var(--primary-dark)' }}
+          >
+            <Icons.swap size={15} /> {hasPending ? 'Revisar solicitudes' : 'Ver solicitudes'}
+          </Link>
+          <Link
+            href="/dashboard/manager?create=1"
+            className="inline-flex h-[42px] items-center gap-1.5 rounded-[11px] border border-white/30 bg-white/[0.16] px-4 text-[13.5px] font-semibold text-white"
+          >
+            <Icons.plus size={15} stroke={2.6} /> Crear nuevo turno
+          </Link>
+          <div className="ml-auto inline-flex h-[42px] items-center gap-1.5 rounded-[11px] bg-white/[0.12] px-4 text-[12px]">
+            <Icons.calendar size={13} /> {weekCount} turnos esta semana
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ManagerUrgentRequestsDesktop({
+  loading,
+  pendingCount,
+}: {
+  loading: boolean;
+  pendingCount: number;
+}) {
+  if (loading) {
+    return (
+      <div className="rounded-[20px] border border-border bg-surface p-5">
+        <Skeleton className="h-4 w-40" />
+        <Skeleton className="mt-4 h-12 w-full" />
+      </div>
+    );
+  }
+  if (pendingCount === 0) {
+    return (
+      <div className="flex h-full flex-col rounded-[20px] border border-border bg-surface p-5">
+        <h3 className="tn-h text-base font-bold text-text">Solicitudes urgentes</h3>
+        <div className="flex flex-1 items-center justify-center text-center">
+          <div>
+            <span className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-green-soft text-green">
+              <Icons.check size={20} stroke={2.6} />
+            </span>
+            <p className="mt-3 text-[13.5px] font-medium text-text">Sin solicitudes pendientes</p>
+            <p className="mt-1 text-[12px] text-muted">Tu equipo está al día.</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex h-full flex-col rounded-[20px] border border-border bg-surface p-5">
+      <div className="flex items-center justify-between">
+        <h3 className="tn-h text-base font-bold text-text">Solicitudes urgentes</h3>
+        <Pill tone="amber">{pendingCount}</Pill>
+      </div>
+      <p className="mt-2 text-[13px] text-text-sec">
+        Hay solicitudes esperando tu aprobación. Revisa la bandeja para gestionarlas.
+      </p>
+      <Link
+        href="/dashboard/manager/requests"
+        className="mt-auto inline-flex h-[42px] items-center justify-center gap-1.5 rounded-[11px] bg-primary text-[13.5px] font-bold text-white"
+      >
+        <Icons.inbox size={15} /> Ir a la bandeja
+      </Link>
+    </div>
+  );
+}
+
+function ManagerTodayShiftsCard({
+  loading,
+  today,
+}: {
+  loading: boolean;
+  today: ManagerCardShift[];
+}) {
+  return (
+    <div className="overflow-hidden rounded-2xl border border-border bg-surface">
+      <div className="flex items-center justify-between border-b border-border px-5 py-4">
+        <h3 className="tn-h text-[15px] font-bold text-text">Turnos de hoy</h3>
+        <Link href="/dashboard/manager" className="text-[12.5px] font-semibold text-primary">
+          Ver calendario →
+        </Link>
+      </div>
+      {loading ? (
+        <div className="space-y-2 p-4">
+          <Skeleton className="h-14 w-full" />
+          <Skeleton className="h-14 w-full" />
+          <Skeleton className="h-14 w-full" />
+        </div>
+      ) : today.length === 0 ? (
+        <p className="px-5 py-8 text-center text-sm text-muted">No hay turnos programados para hoy.</p>
+      ) : (
+        today.slice(0, 6).map((s, i) => {
+          const status = getShiftStatus(s.start_at, s.end_at);
+          const isUnassigned = !s.assigned_name?.trim();
+          return (
+            <Link
+              key={s.id}
+              href={`/dashboard/manager?shift=${encodeURIComponent(s.id)}`}
+              className={
+                'flex items-center gap-4 px-5 py-3.5 transition-colors hover:bg-subtle ' +
+                (i < Math.min(today.length, 6) - 1 ? 'border-b border-border' : '')
+              }
+            >
+              <div className="w-[110px] text-[12px] text-text-sec">
+                {formatTimeRange(s.start_at, s.end_at)}
+              </div>
+              <ShiftLetter
+                letter={s.type_letter || '?'}
+                color={s.type_color || '#14B8A6'}
+                size={38}
+              />
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-[13.5px] font-semibold text-text">
+                  {isUnassigned ? 'Sin asignar' : s.assigned_name}
+                </p>
+                <p className="mt-0.5 truncate text-[11.5px] text-muted">{s.type_name}</p>
+              </div>
+              {isUnassigned ? (
+                <Pill tone="amber">Vacante</Pill>
+              ) : (
+                <span className={status.className + ' text-[12px] font-semibold'}>{status.label}</span>
+              )}
+              <Icons.chevronR size={16} className="text-muted" />
+            </Link>
+          );
+        })
+      )}
+    </div>
+  );
+}
+
+function ManagerWeekCoverageDesktop({ loading }: { loading: boolean }) {
+  // Datos demo (mockup). Sustituir cuando exista endpoint de cobertura por día.
+  const days = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
+  const cov = [100, 100, 95, 80, 60, 100, 75];
+
+  function colorFor(pct: number): string {
+    if (pct >= 95) return 'var(--green)';
+    if (pct >= 80) return 'var(--primary)';
+    if (pct >= 70) return 'var(--amber)';
+    return 'var(--red)';
+  }
+
+  return (
+    <div className="rounded-2xl border border-border bg-surface p-4">
+      <div className="mb-3 flex items-center justify-between">
+        <h3 className="tn-h text-[15px] font-bold text-text">Cobertura semanal</h3>
+        <Link href="/dashboard/manager" className="text-[12px] font-semibold text-primary">
+          Ver →
+        </Link>
+      </div>
+      <div className="grid grid-cols-7 gap-1.5">
+        {days.map((d, i) => {
+          const pct = loading ? 0 : cov[i];
+          const c = colorFor(pct);
+          return (
+            <div key={d} className="rounded-xl border border-border bg-bg px-1 py-2.5 text-center">
+              <p className="text-[10px] font-semibold text-muted">{d}</p>
+              <p className="tn-h mt-1 text-[14px] font-bold leading-none" style={{ color: c }}>
+                {loading ? '…' : `${pct}%`}
+              </p>
+              <div className="mt-1.5 h-[3px] overflow-hidden rounded-full bg-subtle-2">
+                <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: c }} />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function ManagerCreateShiftPromo() {
+  return (
+    <div
+      className="rounded-2xl border p-4"
+      style={{
+        borderColor: 'color-mix(in oklab, var(--primary) 30%, transparent)',
+        background: 'linear-gradient(135deg, color-mix(in oklab, var(--primary) 10%, transparent), color-mix(in oklab, var(--primary) 4%, transparent))',
+      }}
+    >
+      <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.08em] text-primary">
+        <Icons.plus size={13} stroke={2.6} /> Plantilla rápida
+      </div>
+      <p className="tn-h mt-1.5 text-[22px] font-extrabold tracking-[-0.02em] text-text">Crea un turno</p>
+      <p className="mt-1 text-[12.5px] leading-[1.5] text-text-sec">
+        Genera un nuevo turno con tipo, fecha y miembro asignado.
+      </p>
+      <Link
+        href="/dashboard/manager?create=1"
+        className="mt-3.5 inline-flex h-[38px] items-center gap-1.5 rounded-[10px] bg-primary px-4 text-[13px] font-semibold text-white"
+      >
+        Crear nuevo <Icons.arrowR size={14} stroke={2.4} />
+      </Link>
+    </div>
   );
 }
 

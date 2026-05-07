@@ -1,11 +1,19 @@
-import { Suspense } from 'react';
 import { ForgotPasswordForm } from '@/components/auth/ForgotPasswordForm';
+import { Spinner } from '@/components/ui/Spinner';
+import { Suspense } from 'react';
 
 export default function ForgotPasswordPage() {
   return (
-    <Suspense fallback={<div className="rounded-2xl border border-border bg-background p-6 text-text-secondary shadow-sm">Cargando…</div>}>
-      <ForgotPasswordForm />
-    </Suspense>
+    <div className="flex min-h-screen items-start justify-center px-4 sm:items-center">
+      <Suspense
+        fallback={
+          <div className="flex justify-center py-12 text-text-sec">
+            <Spinner />
+          </div>
+        }
+      >
+        <ForgotPasswordForm />
+      </Suspense>
+    </div>
   );
 }
-

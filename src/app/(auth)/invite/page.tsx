@@ -1,6 +1,11 @@
 'use client';
 
-import { AcceptInvitationForm, type InvitationData } from '@/components/invitations/AcceptInvitationForm';
+import { AuthShell } from '@/components/auth/AuthShell';
+import {
+  AcceptInvitationForm,
+  type InvitationData,
+} from '@/components/invitations/AcceptInvitationForm';
+import { Spinner } from '@/components/ui/Spinner';
 import { createClient } from '@/lib/supabase/client';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
@@ -55,23 +60,33 @@ function InvitePageContent() {
 
   if (state.status === 'loading') {
     return (
-      <div className="rounded-2xl border border-border bg-background p-6 shadow-sm">
-        <p className="text-center text-text-secondary">Cargando invitación…</p>
-      </div>
+      <AuthShell title="Cargando invitación…">
+        <div className="flex justify-center py-6 text-text-sec">
+          <Spinner />
+        </div>
+      </AuthShell>
     );
   }
 
   if (state.status === 'error') {
     return (
-      <div className="rounded-2xl border border-border bg-background p-6 shadow-sm">
-        <h1 className="mb-4 text-xl font-semibold text-text-primary">Invitación no disponible</h1>
-        <p className="mb-4 text-sm text-text-secondary">{state.message}</p>
-        <p className="text-center text-xs text-muted">
-          <Link href="/" className="text-primary-600 hover:text-primary-700">Volver al inicio</Link>
-          <span className="mx-2">·</span>
-          <Link href="/login" className="text-primary-600 hover:text-primary-700">Iniciar sesión</Link>
-        </p>
-      </div>
+      <AuthShell
+        title="Invitación no disponible"
+        subtitle={state.message}
+        footer={
+          <>
+            <Link href="/" className="font-semibold text-primary">
+              Volver al inicio
+            </Link>
+            <span className="mx-2">·</span>
+            <Link href="/login" className="font-semibold text-primary">
+              Iniciar sesión
+            </Link>
+          </>
+        }
+      >
+        <div />
+      </AuthShell>
     );
   }
 
@@ -86,18 +101,18 @@ function InvitePageContent() {
 
 export default function InvitePage() {
   return (
-    <div className="mx-auto flex min-h-[calc(100vh-2rem)] max-w-xl items-center justify-center sm:min-h-[calc(100vh-3rem)]">
-      <div className="w-full">
-        <Suspense
-          fallback={
-            <div className="rounded-2xl border border-border bg-background p-6 shadow-sm">
-              <p className="text-center text-text-secondary">Cargando…</p>
+    <div className="flex min-h-screen items-start justify-center px-4 sm:items-center">
+      <Suspense
+        fallback={
+          <AuthShell title="Cargando…">
+            <div className="flex justify-center py-6 text-text-sec">
+              <Spinner />
             </div>
-          }
-        >
-          <InvitePageContent />
-        </Suspense>
-      </div>
+          </AuthShell>
+        }
+      >
+        <InvitePageContent />
+      </Suspense>
     </div>
   );
 }

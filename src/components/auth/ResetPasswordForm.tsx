@@ -1,12 +1,25 @@
 'use client';
 
-import { Button } from '@/components/ui/Button';
-import { PasswordInput } from '@/components/ui/PasswordInput';
+import { AuthPasswordField } from '@/components/auth/AuthPasswordField';
+import { AuthShell } from '@/components/auth/AuthShell';
+import { CheckIcon, XIcon } from '@/components/ui/icons';
+import { Spinner } from '@/components/ui/Spinner';
 import { redirectAfterAuth } from '@/lib/navigation';
 import { createClient } from '@/lib/supabase/client';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+
+type Requirement = { label: string; ok: boolean };
+
+function buildRequirements(value: string): Requirement[] {
+  return [
+    { label: 'Al menos 8 caracteres', ok: value.length >= 8 },
+    { label: 'Una mayúscula', ok: /[A-Z]/.test(value) },
+    { label: 'Un número', ok: /\d/.test(value) },
+    { label: 'Un símbolo', ok: /[^A-Za-z0-9]/.test(value) },
+  ];
+}
 
 export function ResetPasswordForm() {
   const router = useRouter();
@@ -17,6 +30,9 @@ export function ResetPasswordForm() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
+
+  const requirements = useMemo(() => buildRequirements(password), [password]);
+  const allOk = requirements.every((r) => r.ok);
 
   useEffect(() => {
     const supabase = createClient();
@@ -29,8 +45,8 @@ export function ResetPasswordForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    if (password.length < 8) {
-      setError('La contraseña debe tener al menos 8 caracteres.');
+    if (!allOk) {
+      setError('La contraseña no cumple todos los requisitos.');
       return;
     }
     if (password !== confirm) {
@@ -46,92 +62,122 @@ export function ResetPasswordForm() {
       return;
     }
     setDone(true);
-    // Opcional: redirigir a login tras unos segundos.
     window.setTimeout(() => redirectAfterAuth(router, '/login'), 1200);
   };
 
   if (!ready) {
     return (
-      <div className="rounded-2xl border border-border bg-background p-6 shadow-sm">
-        <p className="text-center text-text-secondary">Cargando…</p>
-      </div>
+      <AuthShell title="Cargando…">
+        <div className="flex justify-center py-6 text-text-sec">
+          <Spinner />
+        </div>
+      </AuthShell>
     );
   }
 
   if (!hasSession) {
     return (
-      <div className="rounded-2xl border border-border bg-background p-6 shadow-sm">
-        <h1 className="text-2xl font-bold text-text-primary">Enlace inválido o expirado</h1>
-        <p className="mt-3 text-sm text-text-secondary">
-          Vuelve a solicitar un enlace de recuperación.
-        </p>
-        <div className="mt-6 text-center text-sm">
-          <Link href="/forgot-password" className="font-medium text-primary-600 hover:text-primary-700">
+      <AuthShell
+        title="Enlace inválido o expirado"
+        subtitle="Vuelve a solicitar un enlace de recuperación."
+        footer={
+          <Link href="/login" className="font-semibold text-primary">
+            Volver
+          </Link>
+        }
+      >
+        <div className="flex justify-center">
+          <Link
+            href="/forgot-password"
+            className="flex h-[50px] items-center justify-center gap-2 rounded-xl bg-primary px-5 text-[14.5px] font-bold text-white"
+            style={{ boxShadow: '0 10px 24px -12px var(--color-primary)' }}
+          >
             Recuperar contraseña
           </Link>
         </div>
-      </div>
+      </AuthShell>
     );
   }
 
   if (done) {
     return (
-      <div className="rounded-2xl border border-border bg-background p-6 shadow-sm">
-        <h1 className="text-2xl font-bold text-text-primary">Contraseña actualizada</h1>
-        <p className="mt-3 text-sm text-text-secondary">Redirigiendo a inicio de sesión…</p>
-      </div>
+      <AuthShell
+        title="Contraseña actualizada"
+        subtitle="Te estamos redirigiendo a inicio de sesión…"
+      >
+        <div className="flex justify-center py-2 text-primary">
+          <Spinner />
+        </div>
+      </AuthShell>
     );
   }
 
   return (
-    <div className="rounded-2xl border border-border bg-background p-6 shadow-sm">
-      <h1 className="text-2xl font-bold text-text-primary">Restablecer contraseña</h1>
-      <p className="mt-3 text-sm text-text-secondary">Elige una nueva contraseña para tu cuenta.</p>
-
-      <form onSubmit={handleSubmit} className="mt-6 space-y-4">
-        <div className="space-y-2">
-          <label htmlFor="reset-pass" className="text-sm font-medium text-text-primary">
-            Nueva contraseña
-          </label>
-          <PasswordInput
-            id="reset-pass"
-            placeholder="Mínimo 8 caracteres"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            minLength={8}
-            autoComplete="new-password"
-          />
-        </div>
-
-        <div className="space-y-2">
-          <label htmlFor="reset-confirm" className="text-sm font-medium text-text-primary">
-            Confirmar contraseña
-          </label>
-          <PasswordInput
-            id="reset-confirm"
-            placeholder="••••••••"
-            value={confirm}
-            onChange={(e) => setConfirm(e.target.value)}
-            required
-            minLength={8}
-            autoComplete="new-password"
-          />
-        </div>
-
-        {error ? <p className="text-sm text-red-600">{error}</p> : null}
-
-        <Button type="submit" loading={loading} className="w-full">
-          Guardar contraseña
-        </Button>
-      </form>
-
-      <div className="mt-5 text-center text-xs text-muted">
-        <Link href="/login" className="text-primary-600 hover:text-primary-700">
+    <AuthShell
+      title="Nueva contraseña"
+      subtitle="Elige una contraseña segura para tu cuenta."
+      footer={
+        <Link href="/login" className="font-semibold text-primary">
           Volver
         </Link>
-      </div>
-    </div>
+      }
+    >
+      <form onSubmit={handleSubmit} className="flex flex-col gap-3.5">
+        <AuthPasswordField
+          label="Nueva contraseña"
+          placeholder="Mínimo 8 caracteres"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          required
+          minLength={8}
+          autoComplete="new-password"
+        />
+        <AuthPasswordField
+          label="Confirmar contraseña"
+          placeholder="Repite la contraseña"
+          value={confirm}
+          onChange={(e) => setConfirm(e.target.value)}
+          required
+          minLength={8}
+          autoComplete="new-password"
+        />
+
+        <div className="mt-1">
+          <p className="mb-2 text-[11.5px] font-semibold uppercase tracking-[0.04em] text-muted">
+            Requisitos
+          </p>
+          <ul className="flex flex-col gap-1.5">
+            {requirements.map((r) => (
+              <li
+                key={r.label}
+                className="flex items-center gap-2 text-[12.5px] transition-colors"
+                style={{ color: r.ok ? 'var(--color-green)' : 'var(--color-muted)' }}
+              >
+                <span
+                  className="flex h-4 w-4 items-center justify-center rounded-full"
+                  style={{
+                    background: r.ok ? 'var(--color-green-soft)' : 'var(--color-subtle)',
+                  }}
+                >
+                  {r.ok ? <CheckIcon size={11} stroke={3} /> : <XIcon size={10} stroke={3} />}
+                </span>
+                {r.label}
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        {error ? <p className="text-sm text-red">{error}</p> : null}
+
+        <button
+          type="submit"
+          disabled={loading || !allOk || password !== confirm}
+          className="relative mt-2 flex h-[50px] w-full items-center justify-center gap-2 rounded-xl bg-primary text-[14.5px] font-bold text-white transition-opacity disabled:opacity-50"
+          style={{ boxShadow: '0 10px 24px -12px var(--color-primary)' }}
+        >
+          {loading ? <Spinner aria-label="Cargando" /> : 'Actualizar contraseña'}
+        </button>
+      </form>
+    </AuthShell>
   );
 }
-

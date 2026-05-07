@@ -1,28 +1,26 @@
 'use client';
 
 /**
- * Lista de solicitudes del usuario (requester). Cancelar si está en draft/submitted/accepted.
- * @see project-roadmap.md Módulo 4.1 — /dashboard/staff/my-requests
+ * Lista de solicitudes del usuario (requester) con tabs Pills + lista de cards
+ * (icono cuadrado coloreado por estado + título + meta + Pill estado).
+ * Diseño: ref docs/design/screens/mobile.jsx MMyRequests timeline list (línea 628).
  */
 
-import { Button } from '@/components/ui/Button';
 import { ConfirmModal } from '@/components/ui/ConfirmModal';
+import { Icons } from '@/components/ui/icons';
+import { Pill, type PillTone } from '@/components/ui/Pill';
+import { Skeleton } from '@/components/ui/Skeleton';
 import { useToast } from '@/components/ui/toast/ToastProvider';
+import { cn } from '@/lib/cn';
 import { createClient } from '@/lib/supabase/client';
 import { fetchProfilesMap } from '@/lib/supabase/queries';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import useSWR from 'swr';
 
-const REQUEST_TYPE_LABEL: Record<string, string> = {
-  give_away: 'Dar de baja',
-  swap: 'Intercambiar',
-  take_open: 'Tomar turno abierto',
-};
-
 const STATUS_LABEL: Record<string, string> = {
   draft: 'Borrador',
-  submitted: 'Enviada',
-  accepted: 'Aceptada (pend. aprob.)',
+  submitted: 'Pendiente',
+  accepted: 'Aceptada',
   approved: 'Aprobada',
   rejected: 'Rechazada',
   cancelled: 'Cancelada',
@@ -32,7 +30,7 @@ type ShiftEmbed = {
   start_at: string;
   end_at: string;
   assigned_user_id: string | null;
-  organization_shift_types: { name: string; letter: string } | { name: string; letter: string }[] | null;
+  organization_shift_types: { name: string; letter: string; color?: string } | { name: string; letter: string; color?: string }[] | null;
 };
 
 type Row = {
@@ -54,28 +52,49 @@ type Props = {
   refreshKey?: number;
 };
 
-type Tab = 'all' | 'pending' | 'approved';
+type Tab = 'all' | 'pending' | 'accepted' | 'rejected';
 
-function formatRange(start: string, end: string): string {
+function formatRangeShort(start: string, end: string): string {
   const d1 = new Date(start);
   const d2 = new Date(end);
-  return `${d1.toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' })} ${d1.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })} – ${d2.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}`;
+  if (isNaN(d1.getTime()) || isNaN(d2.getTime())) return '—';
+  const day = d1.toLocaleDateString('es-ES', { weekday: 'short', day: '2-digit', month: 'short' });
+  const t1 = d1.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+  const t2 = d2.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+  return `${capitalize(day)} · ${t1}–${t2}`;
 }
 
-function formatRelative(iso: string): string {
-  const d = new Date(iso);
-  const now = new Date();
-  const diff = now.getTime() - d.getTime();
-  if (diff < 60_000) return 'Ahora';
-  if (diff < 3600_000) return `Hace ${Math.floor(diff / 60_000)} min`;
-  if (diff < 86400_000) return `Hace ${Math.floor(diff / 3600_000)} h`;
-  return `Hace ${Math.floor(diff / 86400_000)} d`;
+function shortDate(start: string): string {
+  const d = new Date(start);
+  if (isNaN(d.getTime())) return '—';
+  return capitalize(d.toLocaleDateString('es-ES', { weekday: 'short', day: '2-digit', month: 'short' }));
 }
 
-function getTypeLetter(ot: ShiftEmbed['organization_shift_types']): string {
-  if (!ot) return '?';
-  const o = Array.isArray(ot) ? ot[0] : ot;
-  return o?.letter ?? '?';
+function capitalize(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+function statusToTone(status: string): PillTone {
+  if (status === 'approved' || status === 'accepted') return 'green';
+  if (status === 'rejected') return 'red';
+  if (status === 'cancelled') return 'muted';
+  return 'amber';
+}
+
+function statusToColorVar(status: string): string {
+  if (status === 'approved' || status === 'accepted') return 'var(--green)';
+  if (status === 'rejected') return 'var(--red)';
+  if (status === 'cancelled') return 'var(--muted)';
+  return 'var(--amber)';
+}
+
+function classifyTab(status: string): Tab[] {
+  if (['draft', 'submitted'].includes(status)) return ['all', 'pending'];
+  if (status === 'accepted') return ['all', 'accepted'];
+  if (status === 'approved') return ['all', 'accepted'];
+  if (status === 'rejected') return ['all', 'rejected'];
+  if (status === 'cancelled') return ['all', 'rejected'];
+  return ['all'];
 }
 
 export function MyRequestsList({ orgId, userId, refreshKey = 0 }: Props) {
@@ -96,8 +115,8 @@ export function MyRequestsList({ orgId, userId, refreshKey = 0 }: Props) {
       .from('shift_requests')
       .select(
         `id, request_type, status, comment, created_at, shift_id, target_shift_id, target_user_id,
-         shift:shifts!shift_id(start_at, end_at, assigned_user_id, organization_shift_types(name, letter)),
-         target_shift:shifts!target_shift_id(start_at, end_at, assigned_user_id, organization_shift_types(name, letter))`
+         shift:shifts!shift_id(start_at, end_at, assigned_user_id, organization_shift_types(name, letter, color)),
+         target_shift:shifts!target_shift_id(start_at, end_at, assigned_user_id, organization_shift_types(name, letter, color))`
       )
       .eq('org_id', orgId)
       .eq('requester_id', userId)
@@ -112,10 +131,9 @@ export function MyRequestsList({ orgId, userId, refreshKey = 0 }: Props) {
       if (r.target_shift?.assigned_user_id) userIds.add(r.target_shift.assigned_user_id);
       if (r.target_user_id) userIds.add(r.target_user_id);
     });
-    const names =
-      userIds.size > 0
-        ? await fetchProfilesMap(supabase, Array.from(userIds), { fallbackName: (id) => id.slice(0, 8) })
-        : {};
+    const names = userIds.size > 0
+      ? await fetchProfilesMap(supabase, Array.from(userIds), { fallbackName: (id) => id.slice(0, 8) })
+      : {};
     return { rows, names };
   }, [orgId, userId]);
 
@@ -134,6 +152,21 @@ export function MyRequestsList({ orgId, userId, refreshKey = 0 }: Props) {
   const names = swrData?.names ?? {};
   const loading = isLoading || (isValidating && !swrData);
   const error = swrError ? String((swrError as Error).message ?? swrError) : null;
+
+  const counts = useMemo(() => {
+    const c: Record<Tab, number> = { all: rows.length, pending: 0, accepted: 0, rejected: 0 };
+    for (const r of rows) {
+      for (const t of classifyTab(r.status)) {
+        if (t !== 'all') c[t] += 1;
+      }
+    }
+    return c;
+  }, [rows]);
+
+  const filteredRows = useMemo(() => {
+    if (tab === 'all') return rows;
+    return rows.filter((r) => classifyTab(r.status).includes(tab));
+  }, [rows, tab]);
 
   const handleCancel = useCallback(async () => {
     if (!cancelId) return;
@@ -154,198 +187,44 @@ export function MyRequestsList({ orgId, userId, refreshKey = 0 }: Props) {
   }, [cancelId, toast, mutate]);
 
   const canCancel = (s: string) => ['draft', 'submitted', 'accepted'].includes(s);
-  const isPending = (s: string) => ['draft', 'submitted', 'accepted'].includes(s);
 
   if (!orgId || !userId) {
     return (
-      <div className="rounded-xl border border-border bg-background p-6">
+      <div className="rounded-2xl border border-border bg-surface p-6">
         <p className="text-sm text-muted">Inicia sesión y asegúrate de tener una organización asignada.</p>
       </div>
     );
   }
 
-  if (loading) {
-    return (
-      <div className="rounded-xl border border-border bg-background p-6">
-        <p className="text-sm text-muted">Cargando solicitudes…</p>
-      </div>
-    );
-  }
-
-  const filteredRows =
-    tab === 'pending'
-      ? rows.filter((r) => isPending(r.status))
-      : tab === 'approved'
-        ? rows.filter((r) => r.status === 'approved')
-        : rows;
-
   return (
-    <div className="space-y-4">
-      {error && (
-        <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</p>
-      )}
-      {/* Tabs siempre visibles para poder cambiar de filtro */}
-      <div className="flex items-center gap-2 overflow-x-auto rounded-xl border border-border bg-background p-2">
-        <TabButton active={tab === 'all'} onClick={() => setTab('all')}>
-          Todas
-        </TabButton>
-        <TabButton active={tab === 'pending'} onClick={() => setTab('pending')}>
-          Pendientes
-        </TabButton>
-        <TabButton active={tab === 'approved'} onClick={() => setTab('approved')}>
-          Aprobadas
-        </TabButton>
-      </div>
+    <div className="space-y-3">
+      <p className="tn-h text-[12px] font-bold uppercase tracking-[0.06em] text-muted">Mis solicitudes</p>
 
-      {filteredRows.length === 0 ? (
-        <div className="rounded-xl border border-border bg-background p-6">
-          <p className="text-sm text-muted">
-            {tab === 'all' ? 'No tienes solicitudes.' : tab === 'pending' ? 'No tienes solicitudes pendientes.' : 'No tienes solicitudes aprobadas.'}
-          </p>
-          <p className="mt-1 text-sm text-muted">
-            Puedes crear solicitudes desde el calendario: clic en un turno → Solicitar cambio.
-          </p>
+      <TabsBar tab={tab} counts={counts} onChange={setTab} />
+
+      {error ? (
+        <p className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</p>
+      ) : null}
+
+      {loading ? (
+        <div className="space-y-2">
+          <Skeleton className="h-16 w-full rounded-2xl" />
+          <Skeleton className="h-16 w-full rounded-2xl" />
+          <Skeleton className="h-16 w-full rounded-2xl" />
         </div>
+      ) : filteredRows.length === 0 ? (
+        <EmptyState tab={tab} />
       ) : (
-        <div className="space-y-4">
-          {/* Mobile cards */}
-          <div className="grid gap-3 md:hidden">
-            {filteredRows.map((r) => {
-              const shift = r.shift;
-              const letter = shift ? getTypeLetter(shift.organization_shift_types) : '?';
-              const range = shift ? formatRange(shift.start_at, shift.end_at) : '—';
-              const assignedName = shift?.assigned_user_id ? (names[shift.assigned_user_id] ?? '—') : 'Sin asignar';
-              const title =
-                r.request_type === 'swap'
-                  ? `Intercambio${r.target_user_id ? ` con ${names[r.target_user_id] ?? 'otro miembro'}` : ''}`
-                  : r.request_type === 'give_away'
-                    ? 'Ceder turno'
-                    : 'Tomar turno abierto';
-
-              const statusColor =
-                r.status === 'approved'
-                  ? 'text-green-600'
-                  : r.status === 'rejected' || r.status === 'cancelled'
-                    ? 'text-gray-600'
-                    : 'text-amber-600';
-
-              const typeBadgeClass =
-                r.request_type === 'swap'
-                  ? 'bg-amber-500'
-                  : r.request_type === 'give_away'
-                    ? 'bg-green-600'
-                    : 'bg-primary-600';
-
-              return (
-                <div key={r.id} className="rounded-2xl border border-border bg-background p-4">
-                  <div className="flex items-center justify-between gap-3">
-                    <span className={`inline-flex h-6 items-center rounded-md px-2 text-xs font-semibold text-white ${typeBadgeClass}`}>
-                      {REQUEST_TYPE_LABEL[r.request_type] ?? r.request_type}
-                    </span>
-                    <span className={`text-xs font-medium ${statusColor}`}>{STATUS_LABEL[r.status] ?? r.status}</span>
-                  </div>
-
-                  <div className="mt-3 space-y-1">
-                    <p className="text-sm font-medium text-text-primary">{title}</p>
-                    <p className="text-sm text-text-secondary">
-                      <span className="font-semibold text-text-primary">{letter}</span> {range}
-                      {r.request_type !== 'take_open' ? ` — ${assignedName}` : null}
-                    </p>
-                  </div>
-
-                  <div className="mt-3 flex items-center justify-between gap-3">
-                    <p className="text-xs text-muted">{formatRelative(r.created_at)}</p>
-                    {canCancel(r.status) ? (
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        size="sm"
-                        onClick={() => setCancelId(r.id)}
-                        className="border-red-200 text-red-600 hover:bg-red-50"
-                      >
-                        Cancelar
-                      </Button>
-                    ) : null}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Desktop table (mantiene funcionalidad actual) */}
-          <div className="hidden overflow-hidden rounded-xl border border-border bg-background md:block">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-border bg-subtle-bg">
-                    <th className="px-4 py-3 text-left font-medium text-text-primary">Tipo</th>
-                    <th className="px-4 py-3 text-left font-medium text-text-primary">Turno</th>
-                    <th className="px-4 py-3 text-left font-medium text-text-primary">Estado</th>
-                    <th className="px-4 py-3 text-left font-medium text-text-primary">Fecha solicitud</th>
-                    <th className="px-4 py-3 text-right font-medium text-text-primary">Acciones</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredRows.map((r) => {
-                    const shift = r.shift;
-                    const letter = shift ? getTypeLetter(shift.organization_shift_types) : '?';
-                    const range = shift ? formatRange(shift.start_at, shift.end_at) : '—';
-                    const assignedName = shift?.assigned_user_id ? (names[shift.assigned_user_id] ?? '—') : 'Sin asignar';
-                    const targetInfo =
-                      r.request_type === 'swap' && r.target_shift
-                        ? ` ↔ ${getTypeLetter(r.target_shift.organization_shift_types)} ${formatRange(r.target_shift.start_at, r.target_shift.end_at)} (${r.target_shift.assigned_user_id ? names[r.target_shift.assigned_user_id] ?? '—' : '?'})`
-                        : '';
-
-                    return (
-                      <tr key={r.id} className="border-b border-border last:border-0">
-                        <td className="px-4 py-3 text-text-primary">
-                          {REQUEST_TYPE_LABEL[r.request_type] ?? r.request_type}
-                        </td>
-                        <td className="px-4 py-3 text-text-secondary">
-                          <span className="font-medium text-text-primary">{letter}</span> {range}
-                          {r.request_type !== 'take_open' && ` — ${assignedName}`}
-                          {targetInfo}
-                        </td>
-                        <td className="px-4 py-3">
-                          <span
-                            className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${r.status === 'approved'
-                              ? 'bg-green-100 text-green-800'
-                              : r.status === 'rejected' || r.status === 'cancelled'
-                                ? 'bg-gray-100 text-gray-700'
-                                : 'bg-amber-100 text-amber-800'
-                              }`}
-                          >
-                            {STATUS_LABEL[r.status] ?? r.status}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-muted">
-                          {new Date(r.created_at).toLocaleDateString('es-ES', {
-                            day: '2-digit',
-                            month: 'short',
-                            year: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })}
-                        </td>
-                        <td className="px-4 py-3 text-right">
-                          {canCancel(r.status) && (
-                            <Button
-                              type="button"
-                              variant="secondary"
-                              onClick={() => setCancelId(r.id)}
-                              className="border-red-200 px-3 text-red-600 hover:bg-red-50"
-                            >
-                              Cancelar solicitud
-                            </Button>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
+        <div className="space-y-2">
+          {filteredRows.map((r) => (
+            <RequestRow
+              key={r.id}
+              row={r}
+              names={names}
+              canCancel={canCancel(r.status)}
+              onCancel={() => setCancelId(r.id)}
+            />
+          ))}
         </div>
       )}
 
@@ -363,23 +242,140 @@ export function MyRequestsList({ orgId, userId, refreshKey = 0 }: Props) {
   );
 }
 
-function TabButton({
-  active,
-  onClick,
-  children,
+function TabsBar({
+  tab,
+  counts,
+  onChange,
 }: {
-  active: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
+  tab: Tab;
+  counts: Record<Tab, number>;
+  onChange: (t: Tab) => void;
 }) {
+  const items: { key: Tab; label: string }[] = [
+    { key: 'all', label: 'Todas' },
+    { key: 'pending', label: 'Pendientes' },
+    { key: 'accepted', label: 'Aceptadas' },
+    { key: 'rejected', label: 'Rechazadas' },
+  ];
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`min-h-[36px] shrink-0 rounded-lg px-3 text-sm font-medium transition-colors ${active ? 'bg-primary-50 text-primary-700' : 'text-text-secondary hover:bg-subtle-bg'
-        }`}
-    >
-      {children}
-    </button>
+    <div className="-mx-1 flex items-center gap-1.5 overflow-x-auto px-1 pb-1">
+      {items.map((it) => {
+        const active = tab === it.key;
+        const n = counts[it.key];
+        return (
+          <button
+            key={it.key}
+            type="button"
+            onClick={() => onChange(it.key)}
+            aria-pressed={active}
+            className={cn(
+              'inline-flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[12.5px] font-semibold whitespace-nowrap transition-colors',
+              active
+                ? 'bg-text text-bg'
+                : 'bg-subtle-2 text-text-sec hover:text-text'
+            )}
+          >
+            {it.label}
+            {n > 0 ? (
+              <span className={cn('text-[10.5px] font-bold', active ? 'opacity-80' : 'text-muted')}>
+                · {n}
+              </span>
+            ) : null}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function EmptyState({ tab }: { tab: Tab }) {
+  const copy = tab === 'pending'
+    ? 'No tienes solicitudes pendientes.'
+    : tab === 'accepted'
+      ? 'Aún no tienes solicitudes aceptadas o aprobadas.'
+      : tab === 'rejected'
+        ? 'Sin solicitudes rechazadas o canceladas.'
+        : 'No tienes solicitudes.';
+  return (
+    <div className="rounded-2xl border border-border bg-surface px-5 py-12 text-center">
+      <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-subtle-2 text-muted">
+        <Icons.swap size={18} />
+      </div>
+      <p className="tn-h text-[15px] font-bold text-text">Sin solicitudes</p>
+      <p className="mx-auto mt-1 max-w-sm text-[12.5px] text-muted">{copy}</p>
+      <p className="mx-auto mt-2 max-w-sm text-[11.5px] text-muted">
+        Para crear una nueva, abre un turno desde el calendario y elige “Solicitar cambio”.
+      </p>
+    </div>
+  );
+}
+
+function RequestRow({
+  row,
+  names,
+  canCancel,
+  onCancel,
+}: {
+  row: Row;
+  names: Record<string, string>;
+  canCancel: boolean;
+  onCancel: () => void;
+}) {
+  const TypeIcon = row.request_type === 'swap'
+    ? Icons.swap
+    : row.request_type === 'give_away'
+      ? Icons.giveaway
+      : Icons.takeOpen;
+  const statusColor = statusToColorVar(row.status);
+  const statusTone = statusToTone(row.status);
+
+  const title = useMemo(() => {
+    if (row.request_type === 'swap') {
+      const target = row.target_user_id ? names[row.target_user_id] : null;
+      return target ? `Intercambio con ${target}` : 'Intercambio de turno';
+    }
+    if (row.request_type === 'give_away') return 'Ceder turno';
+    return 'Tomar turno abierto';
+  }, [row.request_type, row.target_user_id, names]);
+
+  const sub = useMemo(() => {
+    if (row.request_type === 'swap' && row.shift && row.target_shift) {
+      return `${shortDate(row.shift.start_at)} ⇄ ${shortDate(row.target_shift.start_at)}`;
+    }
+    if (row.shift) return formatRangeShort(row.shift.start_at, row.shift.end_at);
+    return '—';
+  }, [row.request_type, row.shift, row.target_shift]);
+
+  return (
+    <div className="flex items-center gap-3 rounded-2xl border border-border bg-surface p-4">
+      <span
+        aria-hidden
+        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
+        style={{
+          backgroundColor: `color-mix(in oklab, ${statusColor} 18%, transparent)`,
+          color: statusColor,
+        }}
+      >
+        <TypeIcon size={18} />
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-[13.5px] font-semibold text-text">{title}</p>
+        <p className="mt-0.5 truncate text-[11.5px] text-muted">{sub}</p>
+      </div>
+      <div className="flex shrink-0 flex-col items-end gap-1.5">
+        <Pill tone={statusTone} dot>
+          {STATUS_LABEL[row.status] ?? row.status}
+        </Pill>
+        {canCancel ? (
+          <button
+            type="button"
+            onClick={onCancel}
+            className="text-[10.5px] font-semibold text-red hover:underline"
+          >
+            Cancelar
+          </button>
+        ) : null}
+      </div>
+    </div>
   );
 }

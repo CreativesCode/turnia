@@ -1,6 +1,15 @@
 'use client';
 
+import { Pill } from '@/components/ui/Pill';
 import { ConfirmModal } from '@/components/ui/ConfirmModal';
+import {
+  ChevronDownIcon,
+  ChevronUpIcon,
+  PlusIcon,
+  SettingsIcon,
+  StethoscopeIcon,
+  XIcon,
+} from '@/components/ui/icons';
 import { createClient } from '@/lib/supabase/client';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import useSWR from 'swr';
@@ -13,6 +22,14 @@ type Props = {
   onRefresh?: () => void;
 };
 
+const PALETTE = ['#0EA5E9', '#8B5CF6', '#14B8A6', '#F97316', '#F59E0B', '#A78BFA', '#EC4899', '#22C55E'];
+
+function colorForPosition(id: string): string {
+  let hash = 0;
+  for (let i = 0; i < id.length; i++) hash = (hash * 31 + id.charCodeAt(i)) | 0;
+  return PALETTE[Math.abs(hash) % PALETTE.length];
+}
+
 export function StaffPositionsList({ orgId, refreshKey = 0, onRefresh }: Props) {
   const [createOpen, setCreateOpen] = useState(false);
   const [editing, setEditing] = useState<StaffPositionRow | null>(null);
@@ -23,7 +40,10 @@ export function StaffPositionsList({ orgId, refreshKey = 0, onRefresh }: Props) 
   const [reorderError, setReorderError] = useState<string | null>(null);
 
   const swrKey = useMemo(() => ['staffPositions', orgId] as const, [orgId]);
-  const fetcher = useCallback(async (): Promise<StaffPositionRow[]> => {
+  const fetcher = useCallback(async (): Promise<{
+    positions: StaffPositionRow[];
+    counts: Record<string, number>;
+  }> => {
     const supabase = createClient();
     const { data, error } = await supabase
       .from('organization_staff_positions')
@@ -32,14 +52,36 @@ export function StaffPositionsList({ orgId, refreshKey = 0, onRefresh }: Props) 
       .order('sort_order', { ascending: true })
       .order('name', { ascending: true });
     if (error) throw new Error(error.message);
-    return (data ?? []) as StaffPositionRow[];
+    const positions = (data ?? []) as StaffPositionRow[];
+
+    /* Count memberships per position */
+    let counts: Record<string, number> = {};
+    if (positions.length > 0) {
+      const { data: members, error: mErr } = await supabase
+        .from('memberships')
+        .select('staff_position_id')
+        .eq('org_id', orgId);
+      if (!mErr && members) {
+        counts = (members as { staff_position_id: string | null }[]).reduce<Record<string, number>>(
+          (acc, m) => {
+            if (m.staff_position_id) acc[m.staff_position_id] = (acc[m.staff_position_id] || 0) + 1;
+            return acc;
+          },
+          {},
+        );
+      }
+    }
+
+    return { positions, counts };
   }, [orgId]);
 
-  const { data: rows = [], error: swrError, isLoading, isValidating, mutate } = useSWR(swrKey, fetcher, {
+  const { data, error: swrError, isLoading, isValidating, mutate } = useSWR(swrKey, fetcher, {
     revalidateOnFocus: true,
     revalidateOnReconnect: true,
     dedupingInterval: 5000,
   });
+  const rows = data?.positions ?? [];
+  const counts = data?.counts ?? {};
 
   useEffect(() => {
     void mutate();
@@ -57,8 +99,13 @@ export function StaffPositionsList({ orgId, refreshKey = 0, onRefresh }: Props) 
       .channel(`turnia:staffPositions:${orgId}`)
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'organization_staff_positions', filter: `org_id=eq.${orgId}` },
-        () => scheduleRealtimeRefresh()
+        {
+          event: '*',
+          schema: 'public',
+          table: 'organization_staff_positions',
+          filter: `org_id=eq.${orgId}`,
+        },
+        () => scheduleRealtimeRefresh(),
       )
       .subscribe();
 
@@ -89,8 +136,8 @@ export function StaffPositionsList({ orgId, refreshKey = 0, onRefresh }: Props) 
     if (err) {
       setDeleteError(
         err.code === '23503'
-          ? 'No se puede eliminar: hay miembros con este puesto. Reasigna o elimina esos miembros antes.'
-          : err.message
+          ? 'No se puede eliminar: hay miembros con este puesto. Reasigna esos miembros primero.'
+          : err.message,
       );
       return;
     }
@@ -113,18 +160,19 @@ export function StaffPositionsList({ orgId, refreshKey = 0, onRefresh }: Props) 
 
       mutate(
         (prev) => {
-          const prevRows = (prev ?? []) as StaffPositionRow[];
-          if (index < 0 || index >= prevRows.length) return prevRows;
+          if (!prev) return prev;
+          const prevRows = prev.positions;
+          if (index < 0 || index >= prevRows.length) return prev;
           const t = index + dir;
-          if (t < 0 || t >= prevRows.length) return prevRows;
+          if (t < 0 || t >= prevRows.length) return prev;
           const next = [...prevRows];
           const ra = next[index];
           const rb = next[t];
           next[index] = { ...rb, sort_order: ra.sort_order };
           next[t] = { ...ra, sort_order: rb.sort_order };
-          return next;
+          return { ...prev, positions: next };
         },
-        { revalidate: false }
+        { revalidate: false },
       );
 
       const supabase = createClient();
@@ -151,30 +199,27 @@ export function StaffPositionsList({ orgId, refreshKey = 0, onRefresh }: Props) 
       onRefresh?.();
       void mutate();
     },
-    [rows, orgId, reordering, onRefresh, mutate]
+    [rows, orgId, reordering, onRefresh, mutate],
   );
 
   if (loading) {
     return (
-      <div className="rounded-xl border border-border bg-background p-4">
-        <p className="text-sm text-muted">Cargando puestos…</p>
-        <div className="mt-3 space-y-2">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="h-10 w-full animate-pulse rounded bg-subtle-bg" />
-          ))}
-        </div>
+      <div className="space-y-2">
+        {[1, 2, 3].map((i) => (
+          <div key={i} className="h-16 w-full animate-pulse rounded-2xl bg-subtle-bg" />
+        ))}
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="rounded-xl border border-border bg-background p-4">
-        <p className="text-sm text-red-600">{error}</p>
+      <div className="rounded-2xl border border-border bg-bg p-4">
+        <p className="text-sm text-red">{error}</p>
         <button
           type="button"
           onClick={() => void mutate()}
-          className="mt-3 min-h-[44px] min-w-[44px] rounded-lg border border-border px-4 py-2.5 text-sm font-medium text-text-secondary hover:bg-subtle-bg"
+          className="mt-3 rounded-lg border border-border px-4 py-2 text-sm font-medium text-text-sec hover:bg-subtle-2"
         >
           Reintentar
         </button>
@@ -183,95 +228,133 @@ export function StaffPositionsList({ orgId, refreshKey = 0, onRefresh }: Props) 
   }
 
   return (
-    <>
-      {reorderError && (
-        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-          {reorderError}
-        </div>
-      )}
-      {deleteError && (
-        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-          {deleteError}
+    <div className="space-y-3">
+      {(reorderError || deleteError) && (
+        <div className="rounded-xl border border-border bg-subtle-bg p-3 text-sm text-red">
+          {reorderError || deleteError}
         </div>
       )}
 
-      <div className="mb-4 flex flex-wrap items-center justify-end gap-3">
+      <div className="flex items-center justify-between">
+        <p className="text-[12.5px] text-muted">
+          {rows.length} puesto{rows.length === 1 ? '' : 's'} configurado{rows.length === 1 ? '' : 's'}
+        </p>
         <button
           type="button"
           onClick={() => setCreateOpen(true)}
-          className="min-h-[44px] rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-700"
+          className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-primary px-3 text-[13px] font-semibold text-white shadow-[0_4px_12px_-6px_var(--color-primary)]"
         >
-          Nuevo puesto
+          <PlusIcon size={14} stroke={2.6} /> Nuevo puesto
         </button>
       </div>
 
       {rows.length === 0 ? (
-        <div className="rounded-xl border border-border bg-background p-6 text-center">
-          <p className="text-sm text-muted">
-            Aún no hay puestos de personal. Crea algunos (ej. Médico Turnate, Médico de refuerzo) para asignarlos a los
-            miembros.
+        <div className="flex flex-col items-center gap-2 rounded-2xl border border-border bg-bg p-8 text-center">
+          <div
+            className="flex h-12 w-12 items-center justify-center rounded-2xl"
+            style={{
+              background: 'color-mix(in oklab, var(--color-primary) 14%, transparent)',
+              color: 'var(--color-primary)',
+            }}
+            aria-hidden
+          >
+            <StethoscopeIcon size={22} />
+          </div>
+          <p className="text-[13.5px] font-semibold text-text">Sin puestos definidos</p>
+          <p className="text-[12.5px] text-muted">
+            Crea puestos como Médico Adjunto o Residente para asignarlos a los miembros.
           </p>
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-border bg-background shadow-sm">
-          <table className="min-w-full text-sm">
-            <thead>
-              <tr className="border-b border-border bg-subtle-bg">
-                <th className="w-[90px] px-3 py-2.5 text-left font-medium text-text-primary">Orden</th>
-                <th className="px-3 py-2.5 text-left font-medium text-text-primary">Puesto</th>
-                <th className="px-3 py-2.5 text-right font-medium text-text-primary">Acciones</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r, idx) => (
-                <tr key={r.id} className="border-b border-border last:border-0">
-                  <td className="px-3 py-2.5">
-                    <span className="inline-flex items-center gap-1">
-                      <button
-                        type="button"
-                        onClick={() => move(idx, -1)}
-                        disabled={reordering || idx === 0}
-                        className="min-h-[44px] min-w-[44px] rounded-lg px-2 py-1.5 text-sm text-text-secondary hover:bg-subtle-bg disabled:opacity-40"
-                        aria-label="Subir"
-                        title="Subir"
-                      >
-                        ↑
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => move(idx, 1)}
-                        disabled={reordering || idx === rows.length - 1}
-                        className="min-h-[44px] min-w-[44px] rounded-lg px-2 py-1.5 text-sm text-text-secondary hover:bg-subtle-bg disabled:opacity-40"
-                        aria-label="Bajar"
-                        title="Bajar"
-                      >
-                        ↓
-                      </button>
-                    </span>
-                  </td>
-                  <td className="px-3 py-2.5 text-text-primary">{r.name}</td>
-                  <td className="px-3 py-2.5 text-right">
-                    <span className="flex justify-end gap-1">
-                      <button
-                        type="button"
-                        onClick={() => setEditing(r)}
-                        className="min-h-[44px] min-w-[44px] rounded-lg px-2 py-1.5 text-sm text-primary-600 hover:bg-primary-50"
-                      >
-                        Editar
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setConfirmDelete(r)}
-                        className="min-h-[44px] min-w-[44px] rounded-lg px-2 py-1.5 text-sm text-red-600 hover:bg-red-50"
-                      >
-                        Eliminar
-                      </button>
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="overflow-hidden rounded-2xl border border-border bg-bg">
+          <div className="hidden grid-cols-[1fr_auto_auto_auto] items-center gap-3 border-b border-border bg-subtle-bg px-4 py-3 text-[10.5px] font-bold uppercase tracking-[0.06em] text-muted sm:grid">
+            <span>Puesto</span>
+            <span className="w-24 text-center">Miembros</span>
+            <span className="w-24 text-center">Orden</span>
+            <span className="w-20 text-right">Acciones</span>
+          </div>
+          {rows.map((r, idx) => {
+            const color = colorForPosition(r.id);
+            const memberCount = counts[r.id] ?? 0;
+            return (
+              <div
+                key={r.id}
+                className={
+                  'grid grid-cols-1 items-center gap-3 px-4 py-3 sm:grid-cols-[1fr_auto_auto_auto] ' +
+                  (idx < rows.length - 1 ? 'border-b border-border' : '')
+                }
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <span
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
+                    style={{
+                      background: `color-mix(in oklab, ${color} 18%, transparent)`,
+                      color,
+                    }}
+                    aria-hidden
+                  >
+                    <StethoscopeIcon size={18} />
+                  </span>
+                  <div className="min-w-0">
+                    <div className="truncate text-[14px] font-semibold text-text">{r.name}</div>
+                    <div className="text-[11.5px] text-muted">
+                      {memberCount > 0
+                        ? `${memberCount} miembro${memberCount === 1 ? '' : 's'} asignado${memberCount === 1 ? '' : 's'}`
+                        : 'Sin asignaciones'}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex justify-start sm:w-24 sm:justify-center">
+                  <Pill tone={memberCount > 0 ? 'primary' : 'muted'}>{memberCount}</Pill>
+                </div>
+
+                <div className="flex items-center gap-1 sm:w-24 sm:justify-center">
+                  <button
+                    type="button"
+                    onClick={() => move(idx, -1)}
+                    disabled={reordering || idx === 0}
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-subtle-2 text-text-sec transition-colors hover:bg-subtle disabled:opacity-30"
+                    aria-label="Subir"
+                    title="Subir"
+                  >
+                    <ChevronUpIcon size={14} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => move(idx, 1)}
+                    disabled={reordering || idx === rows.length - 1}
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-subtle-2 text-text-sec transition-colors hover:bg-subtle disabled:opacity-30"
+                    aria-label="Bajar"
+                    title="Bajar"
+                  >
+                    <ChevronDownIcon size={14} />
+                  </button>
+                </div>
+
+                <div className="flex items-center gap-1 sm:w-20 sm:justify-end">
+                  <button
+                    type="button"
+                    onClick={() => setEditing(r)}
+                    aria-label="Editar"
+                    title="Editar"
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-text-sec transition-colors hover:bg-subtle-2"
+                  >
+                    <SettingsIcon size={14} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmDelete(r)}
+                    aria-label="Eliminar"
+                    title="Eliminar"
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-red transition-colors hover:bg-red-soft"
+                  >
+                    <XIcon size={14} stroke={2.4} />
+                  </button>
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
 
@@ -312,6 +395,6 @@ export function StaffPositionsList({ orgId, refreshKey = 0, onRefresh }: Props) 
         variant="danger"
         loading={deleting}
       />
-    </>
+    </div>
   );
 }

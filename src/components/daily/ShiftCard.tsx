@@ -6,6 +6,7 @@
  */
 
 import type { ShiftWithType } from '@/components/calendar/ShiftCalendar';
+import { ShiftLetter } from '@/components/ui/ShiftLetter';
 
 function formatTime(date: Date): string {
   return date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
@@ -32,12 +33,7 @@ export function ShiftCard({ shift, organizationName, onClick }: Props) {
       onClick={onClick}
       className="flex w-full items-center gap-3 rounded-lg border border-border bg-subtle-bg p-3 text-left transition-colors hover:border-primary-300 hover:bg-primary-50"
     >
-      <div
-        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-sm font-bold text-white"
-        style={{ backgroundColor: color }}
-      >
-        {letter}
-      </div>
+      <ShiftLetter letter={letter} color={color} size={40} />
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
           <p className="font-medium text-text-primary">{typeName}</p>

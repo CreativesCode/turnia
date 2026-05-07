@@ -66,7 +66,7 @@ export default function ActiveNowPage() {
     <div className="space-y-4">
       <DashboardDesktopHeader
         title="De turno ahora"
-        subtitle="Turnos activos en todas las organizaciones"
+        subtitle="Quién está activo en este momento"
       />
 
       <ActiveShiftsList orgIds={orgIds} onShiftClick={handleShiftClick} />

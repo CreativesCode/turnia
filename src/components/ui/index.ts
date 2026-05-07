@@ -10,3 +10,13 @@ export * from './LinkButton';
 export * from './Skeleton';
 export * from './Spinner';
 
+// Primitivas del rediseño (docs/design)
+export * from './Pill';
+export * from './ShiftLetter';
+export * from './Stat';
+export * from './Switch';
+export * from './FilterChip';
+export * from './Section';
+export * from './LiveDot';
+export * from './Field';
+export * from './icons';

@@ -1,10 +1,12 @@
 'use client';
 
+import { AuthShell } from '@/components/auth/AuthShell';
+import { Field } from '@/components/ui/Field';
+import { ArrowRightIcon, MailIcon } from '@/components/ui/icons';
+import { Spinner } from '@/components/ui/Spinner';
+import { createClient } from '@/lib/supabase/client';
 import Link from 'next/link';
 import { useState } from 'react';
-import { createClient } from '@/lib/supabase/client';
-import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
 
 export function ForgotPasswordForm() {
   const [email, setEmail] = useState('');
@@ -35,56 +37,85 @@ export function ForgotPasswordForm() {
 
   if (done) {
     return (
-      <div className="rounded-2xl border border-border bg-background p-6 shadow-sm">
-        <h1 className="text-2xl font-bold text-text-primary">Revisa tu correo</h1>
-        <p className="mt-3 text-sm text-text-secondary">
-          Si existe una cuenta con <strong>{email}</strong>, te enviamos un enlace para restablecer la contraseña.
-        </p>
-        <div className="mt-6 text-center text-sm">
-          <Link href="/login" className="font-medium text-primary-600 hover:text-primary-700">
+      <AuthShell
+        title="Revisa tu correo"
+        subtitle={
+          <>
+            Si existe una cuenta con <strong className="text-text">{email}</strong>, te enviamos un enlace
+            para restablecer la contraseña.
+          </>
+        }
+        footer={
+          <Link href="/login" className="font-semibold text-primary">
             Volver a iniciar sesión
           </Link>
+        }
+      >
+        <div className="flex justify-center">
+          <Link
+            href="/login"
+            className="flex h-[50px] items-center justify-center gap-2 rounded-xl bg-primary px-5 text-[14.5px] font-bold text-white"
+            style={{ boxShadow: '0 10px 24px -12px var(--color-primary)' }}
+          >
+            Ir a iniciar sesión <ArrowRightIcon size={16} stroke={2.6} />
+          </Link>
         </div>
-      </div>
+      </AuthShell>
     );
   }
 
   return (
-    <div className="rounded-2xl border border-border bg-background p-6 shadow-sm">
-      <h1 className="text-2xl font-bold text-text-primary">Recuperar contraseña</h1>
-      <p className="mt-3 text-sm text-text-secondary">
-        Te enviaremos un enlace para restablecer tu contraseña.
-      </p>
+    <AuthShell
+      title="¿Olvidaste tu contraseña?"
+      subtitle="Ingresa tu email y te enviaremos un enlace para restablecerla."
+      footer={
+        <>
+          ¿Recordaste tu contraseña?{' '}
+          <Link href="/login" className="font-semibold text-primary">
+            Iniciar sesión
+          </Link>
+        </>
+      }
+    >
+      <form onSubmit={handleSubmit} className="flex flex-col gap-3.5">
+        <Field
+          variant="mobile"
+          label="Email"
+          type="email"
+          placeholder="tu@email.com"
+          leading={<MailIcon size={18} />}
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          required
+          autoComplete="email"
+        />
 
-      <form onSubmit={handleSubmit} className="mt-6 space-y-4">
-        <div className="space-y-2">
-          <label htmlFor="forgot-email" className="text-sm font-medium text-text-primary">
-            Correo electrónico
-          </label>
-          <Input
-            id="forgot-email"
-            type="email"
-            placeholder="tu@email.com"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-            autoComplete="email"
-          />
+        {error ? <p className="text-sm text-red">{error}</p> : null}
+
+        <button
+          type="submit"
+          disabled={loading}
+          className="relative mt-1 flex h-[50px] w-full items-center justify-center gap-2 rounded-xl bg-primary text-[14.5px] font-bold text-white transition-opacity disabled:opacity-60"
+          style={{ boxShadow: '0 10px 24px -12px var(--color-primary)' }}
+        >
+          {loading ? (
+            <Spinner aria-label="Cargando" />
+          ) : (
+            <>
+              Enviar enlace <ArrowRightIcon size={16} stroke={2.6} />
+            </>
+          )}
+        </button>
+
+        <div className="mt-3 flex items-start gap-2.5 rounded-xl border border-border bg-subtle-bg p-3.5 text-[12.5px] text-text-sec">
+          <div className="mt-px flex-shrink-0 text-primary">
+            <MailIcon size={16} />
+          </div>
+          <div>
+            El enlace expira en <b className="text-text">30 min</b>. Revisa también la carpeta de spam.
+          </div>
         </div>
-
-        {error ? <p className="text-sm text-red-600">{error}</p> : null}
-
-        <Button type="submit" loading={loading} className="w-full">
-          Enviar enlace
-        </Button>
       </form>
-
-      <div className="mt-5 text-center text-xs text-muted">
-        <Link href="/login" className="text-primary-600 hover:text-primary-700">
-          Volver
-        </Link>
-      </div>
-    </div>
+    </AuthShell>
   );
 }
-

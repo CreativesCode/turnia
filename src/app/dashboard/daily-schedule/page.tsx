@@ -1,16 +1,17 @@
 'use client';
 
 /**
- * Página de Turnos por día: agenda diaria por organización.
- * Muestra una lista de personas con sus turnos del día actual.
+ * Página "Agenda del día": timeline horizontal con las personas y sus turnos del día.
+ * Diseño: ref docs/design/screens/extras.jsx MDailySchedule (línea 180).
  */
 
 import type { ShiftWithType } from '@/components/calendar/ShiftCalendar';
 import { DailyShiftsList } from '@/components/daily/DailyShiftsList';
 import { DashboardDesktopHeader } from '@/components/dashboard/DashboardDesktopHeader';
 import { ShiftDetailModal } from '@/components/shifts/ShiftDetailModal';
-import { useSelectedOrg } from '@/hooks/useSelectedOrg';
+import { Skeleton } from '@/components/ui/Skeleton';
 import { useScheduleOrg } from '@/hooks/useScheduleOrg';
+import { useSelectedOrg } from '@/hooks/useSelectedOrg';
 import { createClient } from '@/lib/supabase/client';
 import { useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
@@ -62,9 +63,10 @@ export default function DailySchedulePage() {
   if (isLoadingOrgs || isLoadingSchedule) {
     return (
       <div className="space-y-4">
-        <DashboardDesktopHeader title="Turnos por día" subtitle="Agenda diaria por organización" />
-        <div className="rounded-xl border border-border bg-background p-6">
-          <p className="text-muted">Cargando...</p>
+        <DashboardDesktopHeader title="Agenda del día" subtitle="Timeline diario por persona" />
+        <div className="rounded-2xl border border-border bg-surface p-6">
+          <Skeleton className="h-4 w-64" />
+          <Skeleton className="mt-2 h-4 w-48" />
         </div>
       </div>
     );
@@ -73,8 +75,8 @@ export default function DailySchedulePage() {
   if (error) {
     return (
       <div className="space-y-4">
-        <DashboardDesktopHeader title="Turnos por día" subtitle="Agenda diaria por organización" />
-        <div className="rounded-xl border border-border bg-background p-6">
+        <DashboardDesktopHeader title="Agenda del día" subtitle="Timeline diario por persona" />
+        <div className="rounded-2xl border border-border bg-surface p-6">
           <p className="text-sm text-red-600">{error}</p>
         </div>
       </div>
@@ -84,9 +86,9 @@ export default function DailySchedulePage() {
   if (!orgId || !selectedOrgId) {
     return (
       <div className="space-y-4">
-        <DashboardDesktopHeader title="Turnos por día" subtitle="Agenda diaria por organización" />
-        <div className="rounded-xl border border-border bg-background p-6">
-          <h1 className="text-xl font-semibold text-text-primary">Turnos por día</h1>
+        <DashboardDesktopHeader title="Agenda del día" subtitle="Timeline diario por persona" />
+        <div className="rounded-2xl border border-border bg-surface p-6">
+          <h1 className="text-xl font-semibold text-text">Agenda del día</h1>
           <p className="mt-2 text-sm text-muted">
             {organizations.length === 0
               ? 'No tienes ninguna organización asignada. Contacta a un administrador para unirte a una.'
@@ -100,11 +102,11 @@ export default function DailySchedulePage() {
   return (
     <div className="space-y-4">
       <DashboardDesktopHeader
-        title="Turnos por día"
-        subtitle={selectedOrg ? `Agenda diaria - ${selectedOrg.name}` : 'Agenda diaria por organización'}
+        title="Agenda del día"
+        subtitle={selectedOrg ? selectedOrg.name : 'Timeline diario por persona'}
       />
 
-      <DailyShiftsList orgId={orgId} onShiftClick={handleShiftClick} />
+      <DailyShiftsList orgId={orgId} currentUserId={userId} onShiftClick={handleShiftClick} />
 
       <ShiftDetailModal
         open={!!detailShift}
@@ -113,7 +115,6 @@ export default function DailySchedulePage() {
           setDetailAssignedName(null);
         }}
         onEdit={() => {
-          // En esta vista no permitimos editar directamente, solo ver
           setDetailShift(null);
           setDetailAssignedName(null);
         }}

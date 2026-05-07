@@ -1,6 +1,15 @@
 'use client';
 
+/**
+ * Lista de miembros con avatar coloreado, Pills por rol y acciones.
+ * Diseño: ref docs/design/screens/extras.jsx DAdminMembers (línea 413).
+ */
+
 import { ConfirmModal } from '@/components/ui/ConfirmModal';
+import { Icons } from '@/components/ui/icons';
+import { Pill, type PillTone } from '@/components/ui/Pill';
+import { Skeleton } from '@/components/ui/Skeleton';
+import { cn } from '@/lib/cn';
 import { createClient } from '@/lib/supabase/client';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import useSWR from 'swr';
@@ -20,11 +29,53 @@ type Props = {
   orgId: string;
   refreshKey?: number;
   onRefresh?: () => void;
+  onCountsChange?: (counts: RoleCounts) => void;
+};
+
+export type RoleCounts = {
+  total: number;
+  superadmin: number;
+  org_admin: number;
+  team_manager: number;
+  user: number;
+  viewer: number;
 };
 
 const PAGE_SIZE = 50;
+const PALETTE = ['#0EA5E9', '#8B5CF6', '#14B8A6', '#F97316', '#F59E0B', '#A78BFA', '#EC4899', '#22C55E'];
 
-export function MembersList({ orgId, refreshKey = 0, onRefresh }: Props) {
+function colorForUser(userId: string): string {
+  let hash = 0;
+  for (let i = 0; i < userId.length; i++) hash = (hash * 31 + userId.charCodeAt(i)) | 0;
+  return PALETTE[Math.abs(hash) % PALETTE.length];
+}
+
+function getInitials(name: string | null, email: string | null): string {
+  const base = (name?.trim() || email || '').trim();
+  if (!base) return '?';
+  const parts = base.split(/\s+|@/).filter(Boolean);
+  const a = parts[0]?.[0] ?? '?';
+  const b = parts[1]?.[0] ?? '';
+  return (a + b).toUpperCase();
+}
+
+function roleToTone(role: string): PillTone {
+  switch (role) {
+    case 'superadmin':
+      return 'amber';
+    case 'org_admin':
+      return 'red';
+    case 'team_manager':
+      return 'violet';
+    case 'viewer':
+      return 'muted';
+    case 'user':
+    default:
+      return 'primary';
+  }
+}
+
+export function MembersList({ orgId, refreshKey = 0, onRefresh, onCountsChange }: Props) {
   const [detailMember, setDetailMember] = useState<MemberForDetails | null>(null);
   const [editMember, setEditMember] = useState<MemberForDetails | null>(null);
   const [confirmRemove, setConfirmRemove] = useState<MemberForDetails | null>(null);
@@ -34,7 +85,7 @@ export function MembersList({ orgId, refreshKey = 0, onRefresh }: Props) {
 
   const swrKey = useMemo(() => ['membersList', orgId, page] as const, [orgId, page]);
 
-  const fetcher = useCallback(async (): Promise<{ rows: MemberForDetails[]; total: number }> => {
+  const fetcher = useCallback(async (): Promise<{ rows: MemberForDetails[]; total: number; counts: RoleCounts }> => {
     const supabase = createClient();
     const fromIdx = (page - 1) * PAGE_SIZE;
     const { data: memberships, error: mErr, count } = await supabase
@@ -47,9 +98,7 @@ export function MembersList({ orgId, refreshKey = 0, onRefresh }: Props) {
       .order('created_at', { ascending: false })
       .range(fromIdx, fromIdx + PAGE_SIZE - 1);
 
-    if (mErr) {
-      throw new Error(mErr.message);
-    }
+    if (mErr) throw new Error(mErr.message);
 
     const list = (memberships ?? []) as {
       id: string;
@@ -60,9 +109,9 @@ export function MembersList({ orgId, refreshKey = 0, onRefresh }: Props) {
       updated_at: string | null;
       organization_staff_positions: { name: string } | { name: string }[] | null;
     }[];
-    if (list.length === 0) {
-      return { rows: [], total: count ?? 0 };
-    }
+
+    const baseCounts: RoleCounts = { total: count ?? 0, superadmin: 0, org_admin: 0, team_manager: 0, user: 0, viewer: 0 };
+    if (list.length === 0) return { rows: [], total: count ?? 0, counts: baseCounts };
 
     const userIds = [...new Set(list.map((m) => m.user_id))];
     const { data: profiles } = await supabase
@@ -75,6 +124,10 @@ export function MembersList({ orgId, refreshKey = 0, onRefresh }: Props) {
       const p = profileMap[m.user_id];
       const sp = m.organization_staff_positions;
       const staffPositionName = sp ? (Array.isArray(sp) ? sp[0]?.name : sp?.name) : null;
+      const role = m.role as keyof RoleCounts;
+      if (role !== 'total' && role in baseCounts) {
+        baseCounts[role] = (baseCounts[role] ?? 0) + 1;
+      }
       return {
         id: m.id,
         user_id: m.user_id,
@@ -88,7 +141,7 @@ export function MembersList({ orgId, refreshKey = 0, onRefresh }: Props) {
       };
     });
 
-    return { rows: merged, total: count ?? 0 };
+    return { rows: merged, total: count ?? 0, counts: baseCounts };
   }, [orgId, page]);
 
   const { data, error: swrError, isLoading, isValidating, mutate } = useSWR(swrKey, fetcher, {
@@ -100,6 +153,10 @@ export function MembersList({ orgId, refreshKey = 0, onRefresh }: Props) {
   useEffect(() => {
     void mutate();
   }, [refreshKey, mutate]);
+
+  useEffect(() => {
+    if (data?.counts) onCountsChange?.(data.counts);
+  }, [data?.counts, onCountsChange]);
 
   const realtimeTimerRef = useRef<number | null>(null);
   const scheduleRealtimeRefresh = useCallback(() => {
@@ -132,7 +189,7 @@ export function MembersList({ orgId, refreshKey = 0, onRefresh }: Props) {
     setRemoving(true);
     setRemoveError(null);
     const supabase = createClient();
-    const { data, error: rpcError } = await supabase.rpc('remove_from_org', {
+    const { data: rpcData, error: rpcError } = await supabase.rpc('remove_from_org', {
       p_org_id: orgId,
       p_user_id: confirmRemove.user_id,
     });
@@ -142,7 +199,7 @@ export function MembersList({ orgId, refreshKey = 0, onRefresh }: Props) {
       setRemoveError(rpcError.message);
       return;
     }
-    const res = data as { ok?: boolean; error?: string } | null;
+    const res = rpcData as { ok?: boolean; error?: string } | null;
     if (!res?.ok) {
       setRemoveError(ERROR_MESSAGES[res?.error ?? ''] ?? res?.error ?? 'Error al eliminar');
       return;
@@ -159,25 +216,22 @@ export function MembersList({ orgId, refreshKey = 0, onRefresh }: Props) {
 
   if (loading) {
     return (
-      <div className="rounded-xl border border-border bg-background p-4">
-        <p className="text-sm text-muted">Cargando miembros…</p>
-        <div className="mt-3 space-y-2">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="h-10 w-full animate-pulse rounded bg-subtle-bg" />
-          ))}
-        </div>
+      <div className="space-y-2">
+        <Skeleton className="h-16 w-full rounded-2xl" />
+        <Skeleton className="h-16 w-full rounded-2xl" />
+        <Skeleton className="h-16 w-full rounded-2xl" />
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="rounded-xl border border-border bg-background p-4">
+      <div className="rounded-2xl border border-border bg-surface p-4">
         <p className="text-sm text-red-600">{error}</p>
         <button
           type="button"
           onClick={() => void mutate()}
-          className="mt-3 min-h-[44px] min-w-[44px] rounded-lg border border-border px-4 py-2.5 text-sm font-medium text-text-secondary hover:bg-subtle-bg"
+          className="mt-3 inline-flex h-9 items-center rounded-lg border border-border bg-bg px-3 text-[12.5px] font-semibold text-text-sec hover:text-text"
         >
           Reintentar
         </button>
@@ -187,8 +241,12 @@ export function MembersList({ orgId, refreshKey = 0, onRefresh }: Props) {
 
   if (rows.length === 0) {
     return (
-      <div className="rounded-xl border border-border bg-background p-4">
-        <p className="text-sm text-muted">
+      <div className="rounded-2xl border border-border bg-surface px-5 py-12 text-center">
+        <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-subtle-2 text-muted">
+          <Icons.users size={20} />
+        </div>
+        <p className="tn-h text-[15px] font-bold text-text">Sin miembros</p>
+        <p className="mx-auto mt-1 max-w-sm text-[12.5px] text-muted">
           Aún no hay miembros en esta organización. Invita a alguien para comenzar.
         </p>
       </div>
@@ -197,75 +255,79 @@ export function MembersList({ orgId, refreshKey = 0, onRefresh }: Props) {
 
   return (
     <>
-      {removeError && (
-        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+      {removeError ? (
+        <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
           {removeError}
         </div>
-      )}
-      <div className="overflow-x-auto rounded-xl border border-border bg-background shadow-sm">
-        <table className="min-w-full text-sm">
-          <thead>
-            <tr className="border-b border-border bg-subtle-bg">
-              <th className="px-3 py-2.5 text-left font-medium text-text-primary">Usuario</th>
-              <th className="px-3 py-2.5 text-left font-medium text-text-primary">Correo</th>
-              <th className="px-3 py-2.5 text-left font-medium text-text-primary">Rol</th>
-              <th className="px-3 py-2.5 text-left font-medium text-text-primary">Puesto</th>
-              <th className="px-3 py-2.5 text-left font-medium text-text-primary">Alta</th>
-              <th className="px-3 py-2.5 text-right font-medium text-text-primary">Acciones</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((r) => (
-              <tr key={r.id} className="border-b border-border last:border-0">
-                <td className="px-3 py-2.5 text-text-primary">
-                  <button
-                    type="button"
-                    onClick={() => setDetailMember(r)}
-                    className="text-left font-medium text-primary-600 hover:underline"
-                  >
-                    {r.full_name?.trim() || r.email || '—'}
-                  </button>
-                </td>
-                <td className="px-3 py-2.5 text-muted">{r.email || '—'}</td>
-                <td className="px-3 py-2.5 text-muted">{ROLE_LABELS[r.role] || r.role}</td>
-                <td className="px-3 py-2.5 text-muted">{r.staff_position_name || '—'}</td>
-                <td className="px-3 py-2.5 text-muted">
-                  {new Date(r.created_at).toLocaleDateString()}
-                </td>
-                <td className="px-3 py-2.5 text-right">
-                  <span className="flex justify-end gap-1">
-                    <button
-                      type="button"
-                      onClick={() => setDetailMember(r)}
-                      className="min-h-[44px] min-w-[44px] rounded-lg px-2 py-1.5 text-sm text-primary-600 hover:bg-primary-50"
-                    >
-                      Ver
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setEditMember(r)}
-                      className="min-h-[44px] min-w-[44px] rounded-lg px-2 py-1.5 text-sm text-primary-600 hover:bg-primary-50"
-                    >
-                      Editar
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setConfirmRemove(r)}
-                      className="min-h-[44px] min-w-[44px] rounded-lg px-2 py-1.5 text-sm text-red-600 hover:bg-red-50"
-                    >
-                      Eliminar
-                    </button>
-                  </span>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      ) : null}
+
+      <div className="overflow-hidden rounded-2xl border border-border bg-surface">
+        {rows.map((r, i) => {
+          const userColor = colorForUser(r.user_id);
+          const tone = roleToTone(r.role);
+          const isLast = i === rows.length - 1;
+          return (
+            <div
+              key={r.id}
+              className={cn(
+                'flex items-center gap-3 px-4 py-3.5 transition-colors hover:bg-subtle-2/50',
+                !isLast ? 'border-b border-border' : ''
+              )}
+            >
+              <div
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[12.5px] font-extrabold"
+                style={{ backgroundColor: userColor + '22', color: userColor }}
+              >
+                {getInitials(r.full_name, r.email)}
+              </div>
+              <div className="min-w-0 flex-1">
+                <button
+                  type="button"
+                  onClick={() => setDetailMember(r)}
+                  className="block w-full truncate text-left text-[13.5px] font-semibold text-text hover:text-primary"
+                >
+                  {r.full_name?.trim() || r.email || 'Sin nombre'}
+                </button>
+                <p className="mt-0.5 flex flex-wrap items-center gap-x-2 truncate text-[11.5px] text-muted">
+                  {r.email ? <span className="truncate">{r.email}</span> : null}
+                  {r.staff_position_name ? <span className="truncate">· {r.staff_position_name}</span> : null}
+                </p>
+              </div>
+              <Pill tone={tone}>{ROLE_LABELS[r.role] ?? r.role}</Pill>
+              <div className="flex shrink-0 items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => setDetailMember(r)}
+                  aria-label="Ver detalle"
+                  className="flex h-8 w-8 items-center justify-center rounded-lg text-muted hover:bg-subtle-2 hover:text-text"
+                >
+                  <Icons.eye size={15} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEditMember(r)}
+                  aria-label="Editar"
+                  className="flex h-8 w-8 items-center justify-center rounded-lg text-text-sec hover:bg-subtle-2 hover:text-primary"
+                >
+                  <Icons.settings size={15} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfirmRemove(r)}
+                  aria-label="Eliminar"
+                  className="flex h-8 w-8 items-center justify-center rounded-lg text-text-sec hover:bg-red-soft hover:text-red"
+                >
+                  <Icons.x size={15} />
+                </button>
+              </div>
+            </div>
+          );
+        })}
       </div>
 
-      {totalPages > 1 && (
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-4">
-          <p className="text-sm text-text-secondary">
+      {totalPages > 1 ? (
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+          <p className="text-[12.5px] text-text-sec">
             {total} miembro{total !== 1 ? 's' : ''} · Página {page} de {totalPages}
           </p>
           <div className="flex gap-2">
@@ -273,7 +335,7 @@ export function MembersList({ orgId, refreshKey = 0, onRefresh }: Props) {
               type="button"
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={page <= 1}
-              className="rounded-lg border border-border bg-background px-4 py-2 text-sm font-medium text-text-primary hover:bg-subtle-bg disabled:opacity-50"
+              className="inline-flex h-9 items-center rounded-lg border border-border bg-bg px-3 text-[12.5px] font-semibold text-text-sec hover:text-text disabled:opacity-50"
             >
               Anterior
             </button>
@@ -281,15 +343,15 @@ export function MembersList({ orgId, refreshKey = 0, onRefresh }: Props) {
               type="button"
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
               disabled={page >= totalPages}
-              className="rounded-lg border border-border bg-background px-4 py-2 text-sm font-medium text-text-primary hover:bg-subtle-bg disabled:opacity-50"
+              className="inline-flex h-9 items-center rounded-lg border border-border bg-bg px-3 text-[12.5px] font-semibold text-text-sec hover:text-text disabled:opacity-50"
             >
               Siguiente
             </button>
           </div>
         </div>
-      )}
+      ) : null}
 
-      {detailMember && (
+      {detailMember ? (
         <MemberDetails
           member={detailMember}
           onClose={() => setDetailMember(null)}
@@ -298,9 +360,9 @@ export function MembersList({ orgId, refreshKey = 0, onRefresh }: Props) {
             setEditMember(detailMember);
           }}
         />
-      )}
+      ) : null}
 
-      {editMember && (
+      {editMember ? (
         <EditMembershipForm
           member={editMember}
           orgId={orgId}
@@ -310,7 +372,7 @@ export function MembersList({ orgId, refreshKey = 0, onRefresh }: Props) {
           }}
           onClose={() => setEditMember(null)}
         />
-      )}
+      ) : null}
 
       <ConfirmModal
         open={!!confirmRemove}

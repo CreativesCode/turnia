@@ -1,19 +1,179 @@
 'use client';
 
 import { LogoutButton } from '@/components/auth/LogoutButton';
+import { TurniaLogo } from '@/components/branding/TurniaLogo';
 import { OrganizationSelector } from '@/components/dashboard/OrganizationSelector';
 import { NotificationBell } from '@/components/notifications/NotificationBell';
 import { OfflinePill } from '@/components/offline/OfflinePill';
 import { ThemeToggleButton } from '@/components/theme/theme';
+import {
+  Icons,
+  type IconProps,
+} from '@/components/ui/icons';
 import { useScheduleOrg } from '@/hooks/useScheduleOrg';
+import { cn } from '@/lib/cn';
 import { createClient } from '@/lib/supabase/client';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-function cn(...v: Array<string | false | null | undefined>) {
-  return v.filter(Boolean).join(' ');
+// ─────────── Tipos del menú ───────────
+
+type Role = 'admin' | 'manager' | 'staff';
+
+type Permission = 'manage-org' | 'manage-shifts' | 'create-requests' | 'approve-requests';
+
+type Permissions = {
+  canManageOrg: boolean;
+  canManageShifts: boolean;
+  canCreateRequests: boolean;
+  canApproveRequests: boolean;
+};
+
+type NavItemDef = {
+  href: string;
+  label: string;
+  icon: React.FC<IconProps>;
+  /** Active si pathname empieza por uno de estos prefixes (orden importa). */
+  match: string[];
+  /** Exclude si el pathname empieza por alguno de estos (para evitar solape entre rutas anidadas). */
+  exclude?: string[];
+  /** Badge numérico opcional (puede venir de un hook en el futuro). */
+  badge?: number;
+  /** Permiso requerido para mostrar el item; si no se cumple, se oculta. */
+  requires?: Permission;
+};
+
+type Section = { title: string; items: NavItemDef[] };
+
+function hasPermission(perms: Permissions, p: Permission): boolean {
+  switch (p) {
+    case 'manage-org':
+      return perms.canManageOrg;
+    case 'manage-shifts':
+      return perms.canManageShifts;
+    case 'create-requests':
+      return perms.canCreateRequests;
+    case 'approve-requests':
+      return perms.canApproveRequests;
+  }
 }
+
+function filterSections(sections: Section[], perms: Permissions): Section[] {
+  return sections
+    .map((s) => ({
+      ...s,
+      items: s.items.filter((it) => !it.requires || hasPermission(perms, it.requires)),
+    }))
+    .filter((s) => s.items.length > 0);
+}
+
+function buildSections(role: Role): Section[] {
+  if (role === 'admin') {
+    return [
+      {
+        title: 'Principal',
+        items: [
+          { href: '/dashboard', label: 'Dashboard', icon: Icons.home, match: ['/dashboard'], exclude: ['/dashboard/manager', '/dashboard/admin', '/dashboard/staff'] },
+          { href: '/dashboard/manager', label: 'Calendario', icon: Icons.calendar, match: ['/dashboard/manager'], exclude: ['/dashboard/manager/requests', '/dashboard/manager/availability'] },
+        ],
+      },
+      {
+        title: 'Operación',
+        items: [
+          { href: '/dashboard/daily-schedule', label: 'Agenda del día', icon: Icons.list, match: ['/dashboard/daily-schedule'] },
+          { href: '/dashboard/manager/requests', label: 'Solicitudes', icon: Icons.swap, match: ['/dashboard/manager/requests'], requires: 'approve-requests' },
+          { href: '/dashboard/manager/availability', label: 'Disponibilidad', icon: Icons.beach, match: ['/dashboard/manager/availability'] },
+          { href: '/dashboard/admin/statistics', label: 'Estadísticas', icon: Icons.trend, match: ['/dashboard/admin/statistics'] },
+        ],
+      },
+      {
+        title: 'Administración',
+        items: [
+          { href: '/dashboard/admin/members', label: 'Miembros', icon: Icons.users, match: ['/dashboard/admin/members'] },
+          { href: '/dashboard/admin/teams', label: 'Equipos', icon: Icons.briefcase, match: ['/dashboard/admin/teams'] },
+          { href: '/dashboard/admin/organizations', label: 'Organizaciones', icon: Icons.building, match: ['/dashboard/admin/organizations'] },
+          { href: '/dashboard/admin/shift-types', label: 'Tipos de turno', icon: Icons.cal2, match: ['/dashboard/admin/shift-types'] },
+          { href: '/dashboard/admin/staff-positions', label: 'Puestos', icon: Icons.stethoscope, match: ['/dashboard/admin/staff-positions'] },
+          { href: '/dashboard/admin/invite', label: 'Invitaciones', icon: Icons.mail, match: ['/dashboard/admin/invite'] },
+          { href: '/dashboard/admin/audit', label: 'Auditoría', icon: Icons.history, match: ['/dashboard/admin/audit'] },
+          { href: '/dashboard/admin/permissions', label: 'Permisos', icon: Icons.shield, match: ['/dashboard/admin/permissions'] },
+          { href: '/dashboard/admin/exports', label: 'Exportar', icon: Icons.download, match: ['/dashboard/admin/exports'] },
+          { href: '/dashboard/admin/reports', label: 'Reportes', icon: Icons.trend, match: ['/dashboard/admin/reports'] },
+          { href: '/dashboard/admin/settings', label: 'Configuración', icon: Icons.settings, match: ['/dashboard/admin/settings'] },
+        ],
+      },
+    ];
+  }
+
+  if (role === 'manager') {
+    return [
+      {
+        title: 'Principal',
+        items: [
+          { href: '/dashboard', label: 'Inicio', icon: Icons.home, match: ['/dashboard'], exclude: ['/dashboard/manager', '/dashboard/staff', '/dashboard/admin'] },
+          { href: '/dashboard/manager', label: 'Calendario', icon: Icons.calendar, match: ['/dashboard/manager'], exclude: ['/dashboard/manager/requests', '/dashboard/manager/availability'] },
+        ],
+      },
+      {
+        title: 'Operación',
+        items: [
+          { href: '/dashboard/daily-schedule', label: 'Agenda del día', icon: Icons.list, match: ['/dashboard/daily-schedule'] },
+          { href: '/dashboard/manager/requests', label: 'Solicitudes', icon: Icons.swap, match: ['/dashboard/manager/requests'], requires: 'approve-requests' },
+          { href: '/dashboard/manager/availability', label: 'Disponibilidad', icon: Icons.beach, match: ['/dashboard/manager/availability'] },
+          { href: '/dashboard/active-now', label: 'De guardia ahora', icon: Icons.stethoscope, match: ['/dashboard/active-now'] },
+        ],
+      },
+      {
+        title: 'Equipo',
+        items: [
+          { href: '/dashboard/staff', label: 'Compañeros', icon: Icons.users, match: ['/dashboard/staff'] },
+          { href: '/dashboard/statistics', label: 'Estadísticas', icon: Icons.trend, match: ['/dashboard/statistics'] },
+        ],
+      },
+    ];
+  }
+
+  // staff
+  return [
+    {
+      title: 'Principal',
+      items: [
+        { href: '/dashboard', label: 'Inicio', icon: Icons.home, match: ['/dashboard'], exclude: ['/dashboard/staff', '/dashboard/manager', '/dashboard/admin', '/dashboard/my-shifts', '/dashboard/open-shifts', '/dashboard/permissions', '/dashboard/transactions'] },
+        { href: '/dashboard/my-shifts', label: 'Mis turnos', icon: Icons.calendar, match: ['/dashboard/my-shifts'] },
+      ],
+    },
+    {
+      title: 'Mi gestión',
+      items: [
+        { href: '/dashboard/staff/my-requests', label: 'Solicitudes', icon: Icons.swap, match: ['/dashboard/staff/my-requests'], requires: 'create-requests' },
+        { href: '/dashboard/staff/availability', label: 'Disponibilidad', icon: Icons.beach, match: ['/dashboard/staff/availability'] },
+        { href: '/dashboard/open-shifts', label: 'Turnos abiertos', icon: Icons.takeOpen, match: ['/dashboard/open-shifts'], requires: 'create-requests' },
+        { href: '/dashboard/permissions', label: 'Permisos', icon: Icons.doc, match: ['/dashboard/permissions'], requires: 'create-requests' },
+      ],
+    },
+    {
+      title: 'Mi equipo',
+      items: [
+        { href: '/dashboard/active-now', label: 'On-call ahora', icon: Icons.stethoscope, match: ['/dashboard/active-now'] },
+        { href: '/dashboard/staff', label: 'Compañeros', icon: Icons.users, match: ['/dashboard/staff'] },
+        { href: '/dashboard/statistics', label: 'Estadísticas', icon: Icons.trend, match: ['/dashboard/statistics'] },
+      ],
+    },
+  ];
+}
+
+function isItemActive(pathname: string | null, item: NavItemDef): boolean {
+  if (!pathname) return false;
+  if (item.exclude?.some((p) => pathname.startsWith(p))) {
+    // item.match incluye '/dashboard' al raíz: solo activo si exact match
+    if (item.href === '/dashboard') return pathname === '/dashboard';
+    return false;
+  }
+  return item.match.some((p) => pathname.startsWith(p));
+}
+
+// ─────────── Helpers UI ───────────
 
 function getInitials(name: string | null): string {
   const n = (name ?? '').trim();
@@ -24,199 +184,83 @@ function getInitials(name: string | null): string {
   return (a + b).toUpperCase();
 }
 
-function NavItem({
-  href,
-  label,
-  icon,
+function NavRow({
+  item,
   active,
+  collapsed,
 }: {
-  href: string;
-  label: string;
-  icon: React.ReactNode;
+  item: NavItemDef;
   active: boolean;
+  collapsed: boolean;
 }) {
+  const Icon = item.icon;
   return (
     <Link
-      href={href}
-      className={cn(
-        'flex min-h-[44px] items-center gap-3 rounded-lg px-3 text-sm transition-colors',
-        active ? 'bg-primary-50 text-primary-700' : 'text-text-secondary hover:bg-subtle-bg hover:text-text-primary'
-      )}
+      href={item.href}
       aria-current={active ? 'page' : undefined}
+      title={collapsed ? item.label : undefined}
+      aria-label={collapsed ? item.label : undefined}
+      className={cn(
+        'relative my-px flex items-center rounded-lg text-[13px] transition-colors',
+        collapsed ? 'justify-center px-2 py-2' : 'gap-2.5 px-2.5 py-2',
+        active
+          ? 'bg-primary-soft font-semibold text-primary'
+          : 'font-medium text-text-sec hover:bg-subtle'
+      )}
     >
-      <span className={cn('shrink-0', active ? 'text-primary-600' : 'text-muted')} aria-hidden>
-        {icon}
-      </span>
-      <span className={cn('truncate', active ? 'font-semibold' : 'font-medium')}>{label}</span>
+      {active && !collapsed ? (
+        <span
+          aria-hidden
+          className="absolute -left-[10px] top-1.5 bottom-1.5 w-[2.5px] rounded-full bg-primary"
+        />
+      ) : null}
+      <Icon size={18} stroke={active ? 2.2 : 1.8} />
+      {!collapsed ? (
+        <>
+          <span className="flex-1 truncate">{item.label}</span>
+          {item.badge ? (
+            <span className="inline-flex min-w-[18px] items-center justify-center rounded-full bg-primary px-1.5 text-[10px] font-bold leading-none text-white">
+              {item.badge}
+            </span>
+          ) : null}
+        </>
+      ) : null}
     </Link>
   );
 }
 
-function Icon({
-  name,
-}: {
-  name:
-  | 'grid'
-  | 'calendar'
-  | 'inbox'
-  | 'repeat'
-  | 'users'
-  | 'settings'
-  | 'building'
-  | 'calendar-clock'
-  | 'file-text'
-  | 'briefcase'
-  | 'calendar-day'
-  | 'activity'
-  | 'bell'
-  | 'bar-chart'
-  | 'user';
-}) {
-  switch (name) {
-    case 'grid':
-      return (
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <rect x="3" y="3" width="7" height="7" />
-          <rect x="14" y="3" width="7" height="7" />
-          <rect x="14" y="14" width="7" height="7" />
-          <rect x="3" y="14" width="7" height="7" />
-        </svg>
-      );
-    case 'calendar':
-      return (
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <rect x="3" y="4" width="18" height="18" rx="2" />
-          <path d="M16 2v4" />
-          <path d="M8 2v4" />
-          <path d="M3 10h18" />
-        </svg>
-      );
-    case 'inbox':
-      return (
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M22 12h-6l-2 3h-4l-2-3H2" />
-          <path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" />
-        </svg>
-      );
-    case 'repeat':
-      return (
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M17 2l4 4-4 4" />
-          <path d="M3 11V9a4 4 0 0 1 4-4h14" />
-          <path d="M7 22l-4-4 4-4" />
-          <path d="M21 13v2a4 4 0 0 1-4 4H3" />
-        </svg>
-      );
-    case 'users':
-      return (
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-          <circle cx="9" cy="7" r="4" />
-          <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-          <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-        </svg>
-      );
-    case 'settings':
-      return (
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M12 15.5A3.5 3.5 0 1 0 12 8.5a3.5 3.5 0 0 0 0 7z" />
-          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06A1.65 1.65 0 0 0 15 19.4a1.65 1.65 0 0 0-1 .6 1.65 1.65 0 0 0-.33 1.82V22a2 2 0 0 1-4 0v-.08A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-.6-1 1.65 1.65 0 0 0-1.82-.33H2a2 2 0 0 1 0-4h.08A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-.6 1.65 1.65 0 0 0 .33-1.82V2a2 2 0 0 1 4 0v.08A1.65 1.65 0 0 0 15 4.6a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9c.23.31.43.65.6 1a1.65 1.65 0 0 0 1.82.33H22a2 2 0 0 1 0 4h-.08A1.65 1.65 0 0 0 19.4 15z" />
-        </svg>
-      );
-    case 'building':
-      return (
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <rect x="3" y="3" width="18" height="18" rx="2" />
-          <path d="M7 7h.01" />
-          <path d="M11 7h.01" />
-          <path d="M15 7h.01" />
-          <path d="M7 11h.01" />
-          <path d="M11 11h.01" />
-          <path d="M15 11h.01" />
-          <path d="M7 15h.01" />
-          <path d="M11 15h.01" />
-          <path d="M15 15h.01" />
-        </svg>
-      );
-    case 'calendar-clock':
-      return (
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M8 2v4" />
-          <path d="M16 2v4" />
-          <rect x="3" y="4" width="18" height="18" rx="2" />
-          <path d="M3 10h18" />
-          <path d="M16 14v4" />
-          <path d="M16 14h3" />
-        </svg>
-      );
-    case 'file-text':
-      return (
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-          <path d="M14 2v6h6" />
-          <path d="M16 13H8" />
-          <path d="M16 17H8" />
-          <path d="M10 9H8" />
-        </svg>
-      );
-    case 'briefcase':
-      return (
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <rect x="2" y="7" width="20" height="14" rx="2" ry="2" />
-          <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
-        </svg>
-      );
-    case 'calendar-day':
-      return (
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <rect x="3" y="4" width="18" height="18" rx="2" />
-          <path d="M16 2v4" />
-          <path d="M8 2v4" />
-          <path d="M3 10h18" />
-          <path d="M8 14h.01" />
-          <path d="M12 14h.01" />
-          <path d="M16 14h.01" />
-          <path d="M8 18h.01" />
-          <path d="M12 18h.01" />
-          <path d="M16 18h.01" />
-        </svg>
-      );
-    case 'activity':
-      return (
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
-        </svg>
-      );
-    case 'bell':
-      return (
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
-          <path d="M13.73 21a2 2 0 0 1-3.46 0" />
-        </svg>
-      );
-    case 'bar-chart':
-      return (
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <line x1="12" y1="20" x2="12" y2="10" />
-          <line x1="18" y1="20" x2="18" y2="4" />
-          <line x1="6" y1="20" x2="6" y2="16" />
-        </svg>
-      );
-    case 'user':
-      return (
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
-          <circle cx="12" cy="7" r="4" />
-        </svg>
-      );
-  }
-}
+// ─────────── Sidebar ───────────
+
+const SIDEBAR_COLLAPSED_KEY = 'turnia:sidebar:collapsed';
 
 export function DashboardSidebar() {
   const pathname = usePathname();
-  const { orgId, userId, canManageShifts, canManageOrg } = useScheduleOrg();
+  const { orgId, userId, canManageShifts, canManageOrg, canCreateRequests, canApproveRequests } = useScheduleOrg();
   const [fullName, setFullName] = useState<string | null>(null);
   const [orgName, setOrgName] = useState<string | null>(null);
+  const [collapsed, setCollapsed] = useState(false);
+
+  useEffect(() => {
+    try {
+      if (window.localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === '1') {
+        setCollapsed(true);
+      }
+    } catch {
+      // localStorage no disponible
+    }
+  }, []);
+
+  const toggleCollapsed = useCallback(() => {
+    setCollapsed((c) => {
+      const next = !c;
+      try {
+        window.localStorage.setItem(SIDEBAR_COLLAPSED_KEY, next ? '1' : '0');
+      } catch {
+        // ignore
+      }
+      return next;
+    });
+  }, []);
 
   useEffect(() => {
     if (!orgId || !userId) return;
@@ -239,16 +283,32 @@ export function DashboardSidebar() {
     return () => window.clearTimeout(t);
   }, [orgId, userId]);
 
-  const roleLabel = useMemo(() => {
-    if (canManageOrg) return 'Admin';
-    if (canManageShifts) return 'Manager';
-    return 'Staff';
+  const role: Role = useMemo(() => {
+    if (canManageOrg) return 'admin';
+    if (canManageShifts) return 'manager';
+    return 'staff';
   }, [canManageOrg, canManageShifts]);
 
+  const roleLabel = useMemo(() => {
+    if (role === 'admin') return 'Admin';
+    if (role === 'manager') return 'Manager';
+    return 'Staff';
+  }, [role]);
+
   const initials = useMemo(() => getInitials(fullName), [fullName]);
+  const sections = useMemo(
+    () =>
+      filterSections(buildSections(role), {
+        canManageOrg,
+        canManageShifts,
+        canCreateRequests,
+        canApproveRequests,
+      }),
+    [role, canManageOrg, canManageShifts, canCreateRequests, canApproveRequests]
+  );
+
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
-
   const closeUserMenu = useCallback(() => setUserMenuOpen(false), []);
 
   useEffect(() => {
@@ -262,145 +322,131 @@ export function DashboardSidebar() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [userMenuOpen]);
 
+  const profileActive = pathname?.startsWith('/dashboard/profile') ?? false;
+
   return (
-    <aside className="flex h-screen w-[260px] flex-col border-r border-border bg-background">
-      <div className="flex items-center gap-3 px-5 py-5">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/logo.png" alt="Turnia" className="h-10 w-10" />
-        <span className="text-2xl font-bold text-primary-600">Turnia</span>
-      </div>
-
-      {/* Selector de organización */}
-      <div className="px-3 pb-2">
-        <OrganizationSelector />
-      </div>
-
-      <div className="sidebar-nav-scroll flex-1 min-h-0 overflow-y-auto space-y-1 px-3 py-2">
-        {/* Turnos por día - visible para todos los usuarios */}
-        <NavItem href="/dashboard" label="Dashboard" icon={<Icon name="grid" />} active={pathname === '/dashboard' || pathname === '/dashboard/admin'} />
-        <NavItem
-          href="/dashboard/daily-schedule"
-          label="Turnos por día"
-          icon={<Icon name="calendar-day" />}
-          active={pathname?.startsWith('/dashboard/daily-schedule')}
-        />
-        <NavItem
-          href="/dashboard/active-now"
-          label="De turno ahora"
-          icon={<Icon name="activity" />}
-          active={pathname?.startsWith('/dashboard/active-now')}
-        />
-        <NavItem
-          href="/dashboard/transactions"
-          label="Transacciones"
-          icon={<Icon name="repeat" />}
-          active={pathname?.startsWith('/dashboard/transactions')}
-        />
-        <NavItem
-          href="/dashboard/notifications"
-          label="Notificaciones"
-          icon={<Icon name="bell" />}
-          active={pathname?.startsWith('/dashboard/notifications')}
-        />
-        <NavItem
-          href="/dashboard/my-shifts"
-          label="Mis turnos"
-          icon={<Icon name="calendar" />}
-          active={pathname?.startsWith('/dashboard/my-shifts')}
-        />
-        <NavItem
-          href="/dashboard/open-shifts"
-          label="Turnos vacantes"
-          icon={<Icon name="calendar-clock" />}
-          active={pathname?.startsWith('/dashboard/open-shifts')}
-        />
-        <NavItem
-          href="/dashboard/permissions"
-          label="Solicitar permiso"
-          icon={<Icon name="file-text" />}
-          active={pathname?.startsWith('/dashboard/permissions')}
-        />
-        <NavItem
-          href="/dashboard/statistics"
-          label="Estadísticas"
-          icon={<Icon name="bar-chart" />}
-          active={pathname?.startsWith('/dashboard/statistics')}
-        />
-        <NavItem
-          href="/dashboard/profile"
-          label="Preferencia y perfil"
-          icon={<Icon name="user" />}
-          active={pathname?.startsWith('/dashboard/profile')}
-        />
-
-        {canManageOrg ? (
-          <>
-            <NavItem
-              href="/dashboard/manager"
-              label="Calendario"
-              icon={<Icon name="calendar" />}
-              active={pathname?.startsWith('/dashboard/manager') && !pathname?.startsWith('/dashboard/manager/requests') && !pathname?.startsWith('/dashboard/manager/availability')}
-            />
-            <NavItem href="/dashboard/manager/requests" label="Solicitudes" icon={<Icon name="inbox" />} active={pathname?.startsWith('/dashboard/manager/requests')} />
-            <NavItem href="/dashboard/admin/statistics" label="Estadísticas Generales" icon={<Icon name="bar-chart" />} active={pathname?.startsWith('/dashboard/admin/statistics')} />
-            <NavItem href="/dashboard/admin/members" label="Miembros" icon={<Icon name="users" />} active={pathname?.startsWith('/dashboard/admin/members')} />
-            <NavItem href="/dashboard/admin/organizations" label="Equipos" icon={<Icon name="building" />} active={pathname?.startsWith('/dashboard/admin/organizations')} />
-            <NavItem href="/dashboard/admin/shift-types" label="Tipos de Turno" icon={<Icon name="calendar-clock" />} active={pathname?.startsWith('/dashboard/admin/shift-types')} />
-            <NavItem href="/dashboard/admin/staff-positions" label="Puestos" icon={<Icon name="briefcase" />} active={pathname?.startsWith('/dashboard/admin/staff-positions')} />
-            <NavItem href="/dashboard/admin/audit" label="Audit Log" icon={<Icon name="file-text" />} active={pathname?.startsWith('/dashboard/admin/audit')} />
-          </>
-        ) : canManageShifts ? (
-          <>
-            <NavItem
-              href="/dashboard/manager"
-              label="Calendario"
-              icon={<Icon name="calendar" />}
-              active={pathname?.startsWith('/dashboard/manager') && !pathname?.startsWith('/dashboard/manager/requests') && !pathname?.startsWith('/dashboard/manager/availability')}
-            />
-            <NavItem href="/dashboard/manager/requests" label="Solicitudes" icon={<Icon name="inbox" />} active={pathname?.startsWith('/dashboard/manager/requests')} />
-            <NavItem href="/dashboard/manager/availability" label="Equipo" icon={<Icon name="users" />} active={pathname?.startsWith('/dashboard/manager/availability')} />
-          </>
-        ) : (
-          <>
-            <NavItem href="/dashboard/manager" label="Calendario" icon={<Icon name="calendar" />} active={pathname?.startsWith('/dashboard/manager')} />
-            <NavItem href="/dashboard/staff/my-requests" label="Solicitudes" icon={<Icon name="inbox" />} active={pathname?.startsWith('/dashboard/staff/my-requests')} />
-            <NavItem href="/dashboard/staff" label="Equipo" icon={<Icon name="users" />} active={pathname?.startsWith('/dashboard/staff')} />
-          </>
+    <aside
+      className={cn(
+        'flex h-screen shrink-0 flex-col border-r border-border bg-bg transition-[width] duration-150',
+        collapsed ? 'w-[64px]' : 'w-[252px]'
+      )}
+    >
+      {/* Header con logo + burger */}
+      <div
+        className={cn(
+          'flex items-center py-5',
+          collapsed ? 'flex-col gap-2 px-2' : 'justify-between px-[18px]'
         )}
+      >
+        <div className="flex items-center gap-2.5">
+          <TurniaLogo />
+          {!collapsed ? (
+            <span className="tn-h text-[18px] font-extrabold tracking-[-0.025em] text-text">
+              Turnia
+            </span>
+          ) : null}
+        </div>
+        <button
+          type="button"
+          onClick={toggleCollapsed}
+          aria-label={collapsed ? 'Expandir menú' : 'Colapsar menú'}
+          aria-expanded={!collapsed}
+          title={collapsed ? 'Expandir menú' : 'Colapsar menú'}
+          className="inline-flex h-6 w-6 items-center justify-center rounded-md bg-subtle text-muted transition-colors hover:bg-subtle-2 hover:text-text"
+        >
+          <Icons.burger size={14} />
+        </button>
       </div>
 
-      <div className="relative shrink-0 border-t border-border px-3 py-2" ref={userMenuRef}>
+      {/* Org switcher */}
+      {!collapsed ? (
+        <div className="mx-3 mb-3.5">
+          <OrganizationSelector />
+        </div>
+      ) : null}
+
+      {/* Navigation */}
+      <nav
+        className={cn(
+          'sidebar-nav-scroll flex-1 min-h-0 overflow-y-auto',
+          collapsed ? 'px-2' : 'px-2.5'
+        )}
+        aria-label="Navegación principal"
+      >
+        {sections.map((s) => (
+          <div key={s.title} className="mb-4">
+            {!collapsed ? (
+              <div className="px-2.5 py-1.5 text-[10.5px] font-bold uppercase tracking-[0.08em] text-muted">
+                {s.title}
+              </div>
+            ) : null}
+            {s.items.map((item) => (
+              <NavRow
+                key={item.href}
+                item={item}
+                active={isItemActive(pathname, item)}
+                collapsed={collapsed}
+              />
+            ))}
+          </div>
+        ))}
+      </nav>
+
+      {/* Footer: usuario + ajustes/menú */}
+      <div
+        className={cn('relative shrink-0 border-t border-border', collapsed ? 'p-2' : 'p-3')}
+        ref={userMenuRef}
+      >
         <button
           type="button"
           onClick={() => setUserMenuOpen((o) => !o)}
           className={cn(
-            'flex w-full items-center gap-3 rounded-lg px-2 py-1.5 text-left transition-colors',
-            pathname?.startsWith('/dashboard/profile')
-              ? 'bg-primary-50 text-primary-700'
-              : 'text-text-secondary hover:bg-subtle-bg hover:text-text-primary'
+            'flex w-full items-center rounded-lg text-left transition-colors',
+            collapsed ? 'justify-center p-1.5' : 'gap-2.5 px-1.5 py-1.5',
+            profileActive
+              ? 'bg-primary-soft text-primary'
+              : 'text-text-sec hover:bg-subtle hover:text-text'
           )}
           aria-expanded={userMenuOpen}
           aria-haspopup="true"
           aria-label="Menú de usuario"
+          title={collapsed ? fullName?.trim() || roleLabel : undefined}
         >
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary-100 text-xs font-semibold text-primary-700" aria-hidden>
+          <span
+            className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-full text-[12px] font-bold text-white"
+            style={{ background: 'linear-gradient(135deg, var(--primary), var(--primary-dark))' }}
+            aria-hidden
+          >
             {initials}
           </span>
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium">{fullName?.trim() || roleLabel}</p>
-            <p className="truncate text-xs text-muted">{orgName ? orgName : roleLabel}</p>
-            <p className="text-[11px] font-medium text-primary-600 mt-0.5">Preferencia y perfil</p>
-          </div>
-          <span className={cn('shrink-0 text-muted transition-transform', userMenuOpen && 'rotate-180')} aria-hidden>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="m6 9 6 6 6-6" />
-            </svg>
-          </span>
+          {!collapsed ? (
+            <>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-[12.5px] font-semibold text-text">
+                  {fullName?.trim() || roleLabel}
+                </p>
+                <p className="truncate text-[10.5px] text-muted">
+                  {orgName ? orgName : roleLabel}
+                </p>
+              </div>
+              <span
+                className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-subtle text-muted"
+                aria-hidden
+              >
+                <Icons.settings size={14} />
+              </span>
+            </>
+          ) : null}
         </button>
 
         {userMenuOpen && (
           <div
-            className="absolute bottom-full left-3 right-3 mb-1 rounded-lg border border-border bg-background py-1 shadow-lg"
+            className={cn(
+              'absolute z-20 rounded-lg border border-border bg-surface py-1 shadow-lg',
+              collapsed
+                ? 'bottom-2 left-full ml-2 w-56'
+                : 'bottom-full left-3 right-3 mb-1'
+            )}
             role="menu"
           >
             <Link
@@ -409,21 +455,21 @@ export function DashboardSidebar() {
               onClick={closeUserMenu}
               className={cn(
                 'flex items-center gap-3 px-3 py-2 text-sm transition-colors',
-                pathname?.startsWith('/dashboard/profile')
-                  ? 'bg-primary-50 text-primary-700'
-                  : 'text-text-secondary hover:bg-subtle-bg hover:text-text-primary'
+                profileActive
+                  ? 'bg-primary-soft text-primary'
+                  : 'text-text-sec hover:bg-subtle hover:text-text'
               )}
             >
-              <Icon name="user" />
-              <span>Preferencia y perfil</span>
+              <Icons.user size={18} />
+              <span>Preferencias y perfil</span>
             </Link>
             <div className="my-1 border-t border-border" />
             <div className="flex items-center justify-between gap-2 px-3 py-2" role="menuitem">
-              <span className="text-sm text-text-secondary">Tema</span>
+              <span className="text-sm text-text-sec">Tema</span>
               <ThemeToggleButton ariaLabel="Cambiar tema" />
             </div>
             <div className="flex items-center justify-between gap-2 px-3 py-2" role="menuitem">
-              <span className="text-sm text-text-secondary">Notificaciones</span>
+              <span className="text-sm text-text-sec">Notificaciones</span>
               <NotificationBell />
             </div>
             <div className="border-t border-border" />
@@ -440,4 +486,3 @@ export function DashboardSidebar() {
     </aside>
   );
 }
-

@@ -32,7 +32,7 @@ export default function StatisticsGeneralPage() {
   if (orgLoading) {
     return (
       <div className="space-y-4">
-        <DashboardDesktopHeader title="Estadísticas Generales" subtitle="Análisis de turnos y guardias de la organización" />
+        <DashboardDesktopHeader title="Estadísticas generales" subtitle="Análisis de turnos y guardias de la organización" />
         <div className="rounded-xl border border-border bg-background p-6">
           <Skeleton className="h-4 w-64" />
           <Skeleton className="mt-2 h-4 w-48" />
@@ -44,7 +44,7 @@ export default function StatisticsGeneralPage() {
   if (orgError) {
     return (
       <div className="space-y-4">
-        <DashboardDesktopHeader title="Estadísticas Generales" subtitle="Análisis de turnos y guardias de la organización" />
+        <DashboardDesktopHeader title="Estadísticas generales" subtitle="Análisis de turnos y guardias de la organización" />
         <div className="rounded-xl border border-border bg-background p-6">
           <p className="text-sm text-red-600">{orgError}</p>
         </div>
@@ -55,7 +55,7 @@ export default function StatisticsGeneralPage() {
   if (!orgId) {
     return (
       <div className="space-y-4">
-        <DashboardDesktopHeader title="Estadísticas Generales" subtitle="Análisis de turnos y guardias de la organización" />
+        <DashboardDesktopHeader title="Estadísticas generales" subtitle="Análisis de turnos y guardias de la organización" />
         <div className="rounded-xl border border-border bg-background p-6">
           <h1 className="text-xl font-semibold text-text-primary">Estadísticas Generales</h1>
           <p className="mt-2 text-sm text-muted">
@@ -69,7 +69,7 @@ export default function StatisticsGeneralPage() {
   if (!canManageOrg) {
     return (
       <div className="space-y-4">
-        <DashboardDesktopHeader title="Estadísticas Generales" subtitle="Análisis de turnos y guardias de la organización" />
+        <DashboardDesktopHeader title="Estadísticas generales" subtitle="Análisis de turnos y guardias de la organización" />
         <div className="rounded-xl border border-border bg-background p-6">
           <h1 className="text-xl font-semibold text-text-primary">Acceso restringido</h1>
           <p className="mt-2 text-sm text-muted">
